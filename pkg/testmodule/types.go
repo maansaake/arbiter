@@ -15,4 +15,7 @@ type Module interface {
 	Config() args.Args
 	Operations() op.Operations
 	Run() error
+	Stop() error
 }
+
+type Modules []Module

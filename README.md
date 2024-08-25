@@ -8,9 +8,11 @@ The user is tasked with implementing testing modules to support performing opera
 
 ## Writing testing modules
 
-Testing modules in Assure are concrete implementations of how to perform operations towards a SUT. For example, an Assure testing module for a REST API would probably include a bunch of different HTTP requests. A testing module can be written either as a simple module, meaning Assure does not know anything about how it interacts with the underlying SUT, or as a verbose module which exposes a set list of possible operations.
+Testing modules in Assure are concrete implementations of how to perform operations towards a SUT. For example, an Assure testing module for a REST API would probably include a bunch of different HTTP requests. 
 
-Modules are registerd with the Assure manager, the root level component of the framework, which then makes them available in the executable. It is possible to enable/disable modules and tweak any settings that the testing modules expose through command line arguments. Command line arguments are automatically added for each module that is registered with the Assure manager.
+A testing module can be written either as a simple module, meaning Assure does not know anything about how it interacts with the underlying SUT, or as a verbose module which exposes a set list of possible operations. Regardless of if a testing module is simple or verbose, a testing module can optionally implement the config interface to expose configuration items it requires.
+
+Modules are registerd with the Assure manager, the root level component of the framework, which then makes them available in the executable. It is possible to enable/disable modules and tweak any configuration that the testing modules exposes through command line arguments. Command line arguments are automatically added for each module that is registered with the Assure manager.
 
 ### Simple testing modules
 
@@ -18,7 +20,7 @@ A testing module that does not expose any operations is considered a simple modu
 
 ### Verbose testing modules
 
-Verbose testing modules expose what operations it supports. The exposed operations are made available as configuration options in the executable, where the user is able to determine frequencies (calls per minute per operation) and (optionally) any input arguments. Verbose modules provide the user the freedom of specifying settings per operation when running their tests.
+Verbose testing modules expose what operations it supports. The exposed operations are made available as configuration options in the executable, where the user is able to determine frequencies (calls per minute per operation) and (optionally) any input arguments. Verbose modules provide the user the freedom of specifying settings per operation when running their tests, and avoids the need of implementing traffic generation.
 
 ## Reproducability with traffic models
 
@@ -39,7 +41,45 @@ More monitoring tools may be added in the future, but it is not something that w
 
 ### Thresholds
 
-Thresholds can be set for either monitoring option to determine a level (for CPU, memory, one or more metric(s), or logs) where a limit is passed that warrants some kind of notice/warning/error. 
+Thresholds can be set for either monitoring option to determine a level (for CPU, memory, one or more metric(s), or logs) where a limit is passed that warrants some kind of notice/warning/error. Notices and errors are summarised in the test report (if reporting is enabled), see [reporting](#Reporting). Notices and errors have the following format:
+
+```yaml
+notice:
+  type: "<cpu|memory|metric-name>"
+  triggered: "datetime"
+  value: "value"
+error:
+  type: "<cpu|memory|metric-name>"
+  triggered: "datetime"
+  value: "value"
+```
+
+Threshold settings are either supplied as a comma separated list using the command line argument `--thresholds=<thresholds>` or via a file supplied to `--thresholds-file=<absolute path>`. The command line syntax is as follows:
+
+```bash
+./assure --thresholds="cpu:10.0,notice&75,error",\
+                      "memory:25mb,notice",\
+                      "metrics:metric-name,1500,notice&metric-name,0,error"
+```
+
+And the YAML file syntax:
+
+```yaml
+cpu:
+  - threshold: 10.0
+    trigger: "notice"
+  - threshold: 20
+    trigger: "notice"
+  - threshold: 50.5
+    trigger: "error"
+memory:
+  - threshold: 20mb
+    trigger: notice
+metrics:
+  - name: "metric-name"
+    threshold: 1500
+    trigger: "error"
+```
 
 ## Reporting
 
@@ -51,6 +91,7 @@ Assure has a reporting option which generates a YAML report on completion. The Y
  - Duration
  - Traffic model
  - Monitoring
+   - Thresholds
    - CPU
      - Average
      - High
@@ -60,5 +101,8 @@ Assure has a reporting option which generates a YAML report on completion. The Y
      - High
      - Low
    - Notices
-   - Warnings
    - Errors
+
+The report is intended to convey enough information to ease reproducability.
+
+Assure does not have an option to handle the report in any way, it is up to the user to do what they will with the result, acting on warnings or errors etc. 

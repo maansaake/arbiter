@@ -7,14 +7,7 @@ import (
 	"tres-bon.se/assure/pkg/traffic"
 )
 
-type Manager interface {
-	Run() error
-	Monitor(*monitor.Monitor) Manager
-	Reporter(reporter.Reporter) Manager
-	Stop() error
-}
-
-type managerImpl struct {
+type manager struct {
 	modules []testmodule.Module
 
 	generator *traffic.Generator
@@ -22,8 +15,8 @@ type managerImpl struct {
 	reporter  reporter.Reporter
 }
 
-func New(modules []testmodule.Module) Manager {
-	return &managerImpl{
+func new(modules []testmodule.Module) *manager {
+	return &manager{
 		modules:   modules,
 		generator: &traffic.Generator{},
 		monitor:   &monitor.Monitor{},
@@ -31,20 +24,10 @@ func New(modules []testmodule.Module) Manager {
 	}
 }
 
-func (m *managerImpl) Monitor(newMonitor *monitor.Monitor) Manager {
-	m.monitor = newMonitor
-	return m
-}
-
-func (m *managerImpl) Reporter(newReporter reporter.Reporter) Manager {
-	m.reporter = newReporter
-	return m
-}
-
-func (m *managerImpl) Run() error {
+func (m *manager) Run() error {
 	return nil
 }
 
-func (m *managerImpl) Stop() error {
+func (m *manager) Stop() error {
 	return nil
 }

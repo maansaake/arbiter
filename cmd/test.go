@@ -6,8 +6,6 @@ import (
 )
 
 func main() {
-	mgr := manager.New(testmodule.Modules{})
-
-	if err := mgr.Run(); err != nil {
+	if err := manager.Run(testmodule.Modules{}); err != nil {
 	}
 }

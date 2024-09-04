@@ -30,7 +30,7 @@ Generate a blank traffic model using the executable using the `--generate-traffi
 
 ## Monitoring
 
-arbiter approaches system monitoring in a black box manner. The following monitoring methods are available with arbiter's built in monitoring tools:
+Arbiter approaches system monitoring in a black box manner. The following monitoring methods are available with arbiter's built in monitoring tools:
 
  1. CPU
  2. Memory
@@ -83,7 +83,7 @@ metrics:
 
 ## Reporting
 
-arbiter has a reporting option which generates a YAML report on completion. The YAML file summarizes the test result by stating:
+Arbiter has a reporting option which generates a YAML report on completion. The YAML file summarizes the test result by stating:
 
  - (Optional) Test name
  - (Optional) SUT version
@@ -105,4 +105,4 @@ arbiter has a reporting option which generates a YAML report on completion. The 
 
 The report is intended to convey enough information to ease reproducability.
 
-arbiter does not have an option to handle the report in any way, it is up to the user to do what they will with the result, acting on warnings or errors etc. 
+Arbiter does not have an option to handle the report in any way, it is up to the user to do what they will with the result, acting on warnings or errors etc. 

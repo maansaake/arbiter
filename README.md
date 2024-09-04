@@ -1,22 +1,22 @@
-# Assure
+# Arbiter
 
-Assure is a system testing framework aimed at improving software testability. It provides a rich and flexible framework that is used to implement system level tests for any system.
+Arbiter is a system testing framework aimed at improving software testability. It provides a rich and flexible framework that is used to implement system level tests for any system.
 
-Assure does not aim to know anything about the system under test (SUT) and as such does not make any assumptions not have any preferences around technologies or protocols. Assure does, however, have a strict view on how a system test should be monitored, see the [monitoring](#Monitoring) section for more information. 
+Arbiter does not aim to know anything about the system under test (SUT) and as such does not make any assumptions not have any preferences around technologies or protocols. Arbiter does, however, have a strict view on how a system test should be monitored, see the [monitoring](#Monitoring) section for more information. 
 
-The user is tasked with implementing testing modules to support performing operations against the SUT, which are then compiled together with the Assure framework to produce an executable that is used for testing. The Assure framework provides utilities and traffic generation, the user provides concrete implementation for how to perform interactions with the SUT.
+The user is tasked with implementing testing modules to support performing operations against the SUT, which are then compiled together with the arbiter framework to produce an executable that is used for testing. The arbiter framework provides utilities and traffic generation, the user provides concrete implementation for how to perform interactions with the SUT.
 
 ## Writing testing modules
 
-Testing modules in Assure are concrete implementations of how to perform operations towards a SUT. For example, an Assure testing module for a REST API would probably include a bunch of different HTTP requests. 
+Testing modules in arbiter are concrete implementations of how to perform operations towards a SUT. For example, an arbiter testing module for a REST API would probably include a bunch of different HTTP requests. 
 
-A testing module can be written either as a simple module, meaning Assure does not know anything about how it interacts with the underlying SUT, or as a verbose module which exposes a set list of possible operations. Regardless of if a testing module is simple or verbose, a testing module can optionally implement the config interface to expose configuration items it requires.
+A testing module can be written either as a simple module, meaning arbiter does not know anything about how it interacts with the underlying SUT, or as a verbose module which exposes a set list of possible operations. Regardless of if a testing module is simple or verbose, a testing module can optionally implement the config interface to expose configuration items it requires.
 
-Modules are registerd with the Assure manager, the root level component of the framework, which then makes them available in the executable. It is possible to enable/disable modules and tweak any configuration that the testing modules exposes through command line arguments. Command line arguments are automatically added for each module that is registered with the Assure manager.
+Modules are registerd with the arbiter manager, the root level component of the framework, which then makes them available in the executable. It is possible to enable/disable modules and tweak any configuration that the testing modules exposes through command line arguments. Command line arguments are automatically added for each module that is registered with the arbiter manager.
 
 ### Simple testing modules
 
-A testing module that does not expose any operations is considered a simple module. A simple module must itself implement traffic generation, as Assure is not informed of any specific operations.
+A testing module that does not expose any operations is considered a simple module. A simple module must itself implement traffic generation, as arbiter is not informed of any specific operations.
 
 ### Verbose testing modules
 
@@ -24,13 +24,13 @@ Verbose testing modules expose what operations it supports. The exposed operatio
 
 ## Reproducability with traffic models
 
-In order to easily reproduce tests between software releases and provide support for a GitOps way of working, Assure provides a traffic model feature which lets the user write test files that can be given to the executable. Traffic models are YAML files that specify how Assure should behave when a test is started. The YAML file specifies which testing modules should be enabled and disabled, and settings for different operations.
+In order to easily reproduce tests between software releases and provide support for a GitOps way of working, arbiter provides a traffic model feature which lets the user write test files that can be given to the executable. Traffic models are YAML files that specify how arbiter should behave when a test is started. The YAML file specifies which testing modules should be enabled and disabled, and settings for different operations.
 
 Generate a blank traffic model using the executable using the `--generate-traffic-model` argument.
 
 ## Monitoring
 
-Assure approaches system monitoring in a black box manner. The following monitoring methods are available with Assure's built in monitoring tools:
+arbiter approaches system monitoring in a black box manner. The following monitoring methods are available with arbiter's built in monitoring tools:
 
  1. CPU
  2. Memory
@@ -57,7 +57,7 @@ error:
 Threshold settings are either supplied as a comma separated list using the command line argument `--thresholds=<thresholds>` or via a file supplied to `--thresholds-file=<absolute path>`. The command line syntax is as follows:
 
 ```bash
-./assure --thresholds="cpu:10.0,notice&75,error",\
+./arbiter --thresholds="cpu:10.0,notice&75,error",\
                       "memory:25mb,notice",\
                       "metrics:metric-name,1500,notice&metric-name,0,error"
 ```
@@ -83,7 +83,7 @@ metrics:
 
 ## Reporting
 
-Assure has a reporting option which generates a YAML report on completion. The YAML file summarizes the test result by stating:
+arbiter has a reporting option which generates a YAML report on completion. The YAML file summarizes the test result by stating:
 
  - (Optional) Test name
  - (Optional) SUT version
@@ -105,4 +105,4 @@ Assure has a reporting option which generates a YAML report on completion. The Y
 
 The report is intended to convey enough information to ease reproducability.
 
-Assure does not have an option to handle the report in any way, it is up to the user to do what they will with the result, acting on warnings or errors etc. 
+arbiter does not have an option to handle the report in any way, it is up to the user to do what they will with the result, acting on warnings or errors etc. 

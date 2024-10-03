@@ -1,11 +1,11 @@
 package main
 
 import (
-	"tres-bon.se/assure/pkg/manager"
-	"tres-bon.se/assure/pkg/testmodule"
+	"tres-bon.se/arbiter"
+	"tres-bon.se/arbiter/pkg/module"
 )
 
 func main() {
-	if err := manager.Run(testmodule.Modules{}); err != nil {
+	if err := arbiter.Run(module.Modules{}); err != nil {
 	}
 }

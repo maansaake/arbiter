@@ -1,12 +1,12 @@
 package arg
 
-type Arg struct {
+type Arg[T any] struct {
 	Name string
 	Desc string
 	Type
 	Value   any
 	Default any
-	Validator[any]
+	Valid   Validator[T]
 }
 
 type Type uint
@@ -19,9 +19,9 @@ const (
 	TypeBool
 )
 
-type Validator[T any] func(T) bool
+type Validator[T any] func(v T) bool
 
-type Args []*Arg
+type Args []any
 
 func ParseArgs(args Args) error {
 	return nil

@@ -8,23 +8,23 @@ import (
 )
 
 func Run(modules module.Modules, reporter report.Reporter, monitor monitor.Monitor) error {
-	// Extract module args
-	args := make(arg.Args, 0)
 	for _, m := range modules {
-		args = append(args, m.Args()...)
+		for _, a := range m.Args() {
+			arg.Register(a)
+		}
+
 		// Add operation args
-		// for _, op := range m.Ops() {
-		// args = append(args, makeArg(op))
-		// }
+		for _, op := range m.Ops() {
+			arg.RegisterOp(op)
+		}
 	}
 
 	// Args for the monitor
 
 	// Args for the reporter
 
-	if err := arg.ParseArgs(args); err != nil {
-
-	}
+	// Parse args
+	arg.Parse()
 
 	// Start each module
 

@@ -1,6 +1,8 @@
 package arg
 
-import "testing"
+import (
+	"testing"
+)
 
 type TestArg struct {
 	Type  uint
@@ -8,14 +10,22 @@ type TestArg struct {
 	Valid Validator[any]
 }
 
-func val1(v bool) bool {
+func valid(v bool) bool {
 	return false
 }
 
-func val2(v int) bool {
+func invalid(v int) bool {
 	return true
 }
 
 func TestSome(t *testing.T) {
 	t.Skip()
+	Register(&Arg[int]{
+		Name:     "arg",
+		Desc:     "desc",
+		Required: true,
+		Valid:    invalid,
+	})
+
+	Parse()
 }

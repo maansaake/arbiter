@@ -1,7 +1,10 @@
 package arg
 
 import (
+	"flag"
 	"testing"
+
+	"tres-bon.se/arbiter/pkg/module/op"
 )
 
 type TestArg struct {
@@ -117,4 +120,15 @@ func TestValidationError(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have forced a validation error")
 	}
+}
+
+func TestRegisterOp(t *testing.T) {
+	op := &op.Op{
+		Name: "op",
+		Desc: "this is op",
+	}
+
+	RegisterOp("ns", op)
+
+	t.Log(flag.CommandLine)
 }

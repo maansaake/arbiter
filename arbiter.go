@@ -15,7 +15,7 @@ func Run(modules module.Modules, reporter report.Reporter, monitor monitor.Monit
 
 		// Add operation args
 		for _, op := range m.Ops() {
-			arg.RegisterOp(op)
+			arg.RegisterOp(m.Name(), op)
 		}
 	}
 

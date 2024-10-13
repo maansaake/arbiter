@@ -17,14 +17,14 @@ type Arg[T any] struct {
 	Required bool
 	Value    T
 	Valid    Validator[T]
-}
 
-type Validator[T any] func(v T) bool
+	onPresent func(val T)
+}
 
 type Args []any
 
 var (
-	ErrInvalid = errors.New("Invalid value")
+	ErrInvalid = errors.New("invalid value")
 
 	required []string
 )
@@ -44,8 +44,42 @@ func Register(arg any) {
 	}
 }
 
-func RegisterOp(op *op.Op) {
+func RegisterOp(ns string, op *op.Op) {
+	// Enabled
+	registerBool(&Arg[bool]{
+		Name:  enabledName(ns, op),
+		Desc:  enabledDesc(op),
+		Value: true,
+		onPresent: func(enabled bool) {
+			op.Enabled = true
+		},
+	})
+	// Rate
+	registerInt(&Arg[int]{
+		Name:  rateName(ns, op),
+		Desc:  rateDesc(op),
+		Value: 60,
+		Valid: ValidatorPositiveInteger,
+		onPresent: func(rate int) {
+			op.Rate = uint(rate)
+		},
+	})
+}
 
+func enabledName(ns string, op *op.Op) string {
+	return fmt.Sprintf("%s.%s.enabled", ns, op.Name)
+}
+
+func enabledDesc(op *op.Op) string {
+	return fmt.Sprintf("enable %s", op.Name)
+}
+
+func rateName(ns string, op *op.Op) string {
+	return fmt.Sprintf("%s.%s.rate", ns, op.Name)
+}
+
+func rateDesc(op *op.Op) string {
+	return fmt.Sprintf("rate of %s per minute", op.Name)
 }
 
 func Parse() {
@@ -84,7 +118,7 @@ func handleInt(arg *Arg[int]) func(string) error {
 
 		arg.Value = int(iv)
 
-		return validationHandler(arg)
+		return generalHandler(arg)
 	}
 }
 
@@ -105,7 +139,7 @@ func handleFloat(arg *Arg[float64]) func(string) error {
 
 		arg.Value = fv
 
-		return validationHandler(arg)
+		return generalHandler(arg)
 	}
 }
 
@@ -120,7 +154,7 @@ func registerString(arg *Arg[string]) {
 func handleString(arg *Arg[string]) func(string) error {
 	return func(val string) error {
 		arg.Value = val
-		return validationHandler(arg)
+		return generalHandler(arg)
 	}
 }
 
@@ -141,11 +175,12 @@ func handleBool(arg *Arg[bool]) func(string) error {
 
 		arg.Value = b
 
-		return validationHandler(arg)
+		return generalHandler(arg)
 	}
 }
 
-func validationHandler[T any](arg *Arg[T]) error {
+// Handle required, validation and all other actions.
+func generalHandler[T any](arg *Arg[T]) error {
 	if arg.Required {
 		// Find and pop arg from required slice
 		for i, an := range required {
@@ -155,8 +190,13 @@ func validationHandler[T any](arg *Arg[T]) error {
 		}
 	}
 
-	if !arg.Valid(arg.Value) {
+	if arg.Valid != nil && !arg.Valid(arg.Value) {
 		return fmt.Errorf("%w: argument '%s' has invalid value '%v'", ErrInvalid, arg.Name, arg.Value)
+	}
+
+	// If operation register, run onPresent
+	if arg.onPresent != nil {
+		arg.onPresent(arg.Value)
 	}
 
 	return nil

@@ -13,8 +13,25 @@ type SampleModule struct {
 
 func NewSampleModule() module.Module {
 	return &SampleModule{
-		args: arg.Args{},
-		ops:  op.Ops{},
+		args: arg.Args{
+			&arg.Arg[bool]{
+				Name: "enabled",
+				Desc: "Sets if this module should be enabled.",
+			},
+			&arg.Arg[int]{
+				Name: "routines",
+				Desc: "Sets the number of go-routines",
+			},
+		},
+		ops: op.Ops{
+			&op.Op{
+				Name: "lock-unlock",
+				Desc: "Locks and unlocks after a small delay",
+				Do: func() (op.Result, error) {
+					return op.Result{}, nil
+				},
+			},
+		},
 	}
 }
 

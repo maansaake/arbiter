@@ -19,8 +19,8 @@ const (
 
 func Run(modules module.Modules) error {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "%s [cmd]\n", os.Args[0])
-		fmt.Fprint(flag.CommandLine.Output(), "  Subcommands:\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "%s [subcommand]\n", os.Args[0])
+		fmt.Fprint(flag.CommandLine.Output(), "  subcommands:\n")
 		fmt.Fprint(flag.CommandLine.Output(), "    cli      Run using CLI flags.\n")
 		fmt.Fprint(flag.CommandLine.Output(), "    generate Generate a test model.\n")
 		fmt.Fprint(flag.CommandLine.Output(), "    file     Run from a test model file.\n")
@@ -29,6 +29,12 @@ func Run(modules module.Modules) error {
 
 	// Top level parse
 	flag.Parse()
+
+	if len(os.Args) < 2 {
+		fmt.Fprint(flag.CommandLine.Output(), "no subcommand given\n")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	// Check invoked subcommand
 	switch os.Args[1] {
@@ -66,26 +72,26 @@ func handleCli(modules module.Modules) error {
 
 func handleGen(modules module.Modules) error {
 	var output string
-	parseGen(output)
+	fs := flag.NewFlagSet(FLAGSET_GEN, flag.ExitOnError)
+	fs.StringVar(&output, "output", "./arbiter.yaml", "Output path for the generated test model file.")
+	fs.Parse(os.Args[2:])
+
+	// TODO: generate using input modules
+	panic("not implemented")
 
 	return nil
 }
 
 func handleFile(modules module.Modules) error {
 	var path string
-	parseFile(path)
-	return runModules(modules)
-}
-
-func parseGen(output string) {
-	fs := flag.NewFlagSet(FLAGSET_GEN, flag.ExitOnError)
-	fs.StringVar(&output, "output", ".", "Output path for the generated test model file.")
-	fs.Parse(os.Args[2:])
-}
-
-func parseFile(path string) {
 	fs := flag.NewFlagSet(FLAGSET_FILE, flag.ExitOnError)
-	fs.StringVar(&path, "path", ".", "Path to a test model file.")
+	fs.StringVar(&path, "path", "./arbiter.yaml", "Path to a test model file.")
+	fs.Parse(os.Args[2:])
+
+	// TODO: parse and run from file
+	panic("not implemented")
+
+	return runModules(modules)
 }
 
 func runModules(modules module.Modules) error {

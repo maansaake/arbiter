@@ -22,25 +22,25 @@ func invalid(v int) bool {
 }
 
 func TestRegisterRequired(t *testing.T) {
-	Register(&Arg[int]{
+	Register("ns", &Arg[int]{
 		Name:     "bool",
 		Value:    12,
 		Required: true,
 	})
 
-	Register(&Arg[float64]{
+	Register("ns", &Arg[float64]{
 		Name:     "bool",
 		Value:    12.12,
 		Required: true,
 	})
 
-	Register(&Arg[string]{
+	Register("ns", &Arg[string]{
 		Name:     "bool",
 		Value:    "string",
 		Required: true,
 	})
 
-	Register(&Arg[bool]{
+	Register("ns", &Arg[bool]{
 		Name:     "bool",
 		Value:    true,
 		Required: true,

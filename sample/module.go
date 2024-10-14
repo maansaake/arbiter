@@ -25,7 +25,7 @@ func NewSampleModule() module.Module {
 		},
 		ops: op.Ops{
 			&op.Op{
-				Name: "lock-unlock",
+				Name: "lockunlock",
 				Desc: "Locks and unlocks after a small delay",
 				Do: func() (op.Result, error) {
 					return op.Result{}, nil
@@ -36,7 +36,7 @@ func NewSampleModule() module.Module {
 }
 
 func (sm *SampleModule) Name() string {
-	return "sample-module"
+	return "sample"
 }
 
 func (sm *SampleModule) Args() arg.Args {

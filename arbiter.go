@@ -1,6 +1,8 @@
 package arbiter
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -10,15 +12,45 @@ import (
 	"tres-bon.se/arbiter/pkg/module"
 )
 
+const (
+	FLAGSET_GEN  = "generate"
+	FLAGSET_FILE = "file"
+)
+
 func Run(modules module.Modules) error {
-	// Register args if first arg is not a path to a traffic model file, check arg does not start with '-'
-	log.Println(os.Args[1])
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "%s [cmd]\n", os.Args[0])
+		fmt.Fprint(flag.CommandLine.Output(), "  Subcommands:\n")
+		fmt.Fprint(flag.CommandLine.Output(), "    cli      Run using CLI flags.\n")
+		fmt.Fprint(flag.CommandLine.Output(), "    generate Generate a test model.\n")
+		fmt.Fprint(flag.CommandLine.Output(), "    file     Run from a test model file.\n")
+		flag.PrintDefaults()
+	}
 
-	// TODO: generate traffic model if first arg is ...
+	// Top level parse
+	flag.Parse()
 
+	// Check invoked subcommand
+	switch os.Args[1] {
+	case arg.FLAGSET:
+		return handleCli(modules)
+	case FLAGSET_GEN:
+		return handleGen(modules)
+	case FLAGSET_FILE:
+		return handleFile(modules)
+	default:
+		fmt.Fprintf(flag.CommandLine.Output(), "subcommand not found: %s\n", os.Args[1])
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	return nil
+}
+
+func handleCli(modules module.Modules) error {
 	for _, m := range modules {
 		for _, a := range m.Args() {
-			arg.Register(a)
+			arg.Register(m.Name(), a)
 		}
 
 		// Add operation args
@@ -27,13 +59,36 @@ func Run(modules module.Modules) error {
 		}
 	}
 
-	// TODO: args for the monitor
+	arg.Parse(os.Args[2:])
 
-	// TODO: args for the reporter
+	return runModules(modules)
+}
 
-	// Parse args
-	arg.Parse()
+func handleGen(modules module.Modules) error {
+	var output string
+	parseGen(output)
 
+	return nil
+}
+
+func handleFile(modules module.Modules) error {
+	var path string
+	parseFile(path)
+	return runModules(modules)
+}
+
+func parseGen(output string) {
+	fs := flag.NewFlagSet(FLAGSET_GEN, flag.ExitOnError)
+	fs.StringVar(&output, "output", ".", "Output path for the generated test model file.")
+	fs.Parse(os.Args[2:])
+}
+
+func parseFile(path string) {
+	fs := flag.NewFlagSet(FLAGSET_FILE, flag.ExitOnError)
+	fs.StringVar(&path, "path", ".", "Path to a test model file.")
+}
+
+func runModules(modules module.Modules) error {
 	// Start each module
 	for _, m := range modules {
 		log.Printf("starting module '%s'\n", m.Name())

@@ -26,19 +26,24 @@ type Args []any
 var (
 	ErrInvalid = errors.New("invalid value")
 
+	flagset  = flag.NewFlagSet(FLAGSET, flag.ExitOnError)
 	required []string
 )
 
-func Register(arg any) {
+const (
+	FLAGSET = "cli"
+)
+
+func Register(ns string, arg any) {
 	switch ta := arg.(type) {
 	case *Arg[int]:
-		registerInt(ta)
+		registerInt(ns, ta)
 	case *Arg[float64]:
-		registerFloat(ta)
+		registerFloat(ns, ta)
 	case *Arg[string]:
-		registerString(ta)
+		registerString(ns, ta)
 	case *Arg[bool]:
-		registerBool(ta)
+		registerBool(ns, ta)
 	default:
 		panic("not implemented")
 	}
@@ -46,8 +51,8 @@ func Register(arg any) {
 
 func RegisterOp(ns string, op *op.Op) {
 	// Enabled
-	registerBool(&Arg[bool]{
-		Name:  enabledName(ns, op),
+	registerBool(ns, &Arg[bool]{
+		Name:  enabledName(op),
 		Desc:  enabledDesc(op),
 		Value: true,
 		onPresent: func(enabled bool) {
@@ -55,8 +60,8 @@ func RegisterOp(ns string, op *op.Op) {
 		},
 	})
 	// Rate
-	registerInt(&Arg[int]{
-		Name:  rateName(ns, op),
+	registerInt(ns, &Arg[int]{
+		Name:  rateName(op),
 		Desc:  rateDesc(op),
 		Value: 60,
 		Valid: ValidatorPositiveInteger,
@@ -66,24 +71,24 @@ func RegisterOp(ns string, op *op.Op) {
 	})
 }
 
-func enabledName(ns string, op *op.Op) string {
-	return fmt.Sprintf("%s.%s.enabled", ns, op.Name)
+func enabledName(op *op.Op) string {
+	return fmt.Sprintf("%s.enabled", op.Name)
 }
 
 func enabledDesc(op *op.Op) string {
 	return fmt.Sprintf("enable %s", op.Name)
 }
 
-func rateName(ns string, op *op.Op) string {
-	return fmt.Sprintf("%s.%s.rate", ns, op.Name)
+func rateName(op *op.Op) string {
+	return fmt.Sprintf("%s.rate", op.Name)
 }
 
 func rateDesc(op *op.Op) string {
 	return fmt.Sprintf("rate of %s per minute", op.Name)
 }
 
-func Parse() {
-	flag.Parse()
+func Parse(args []string) {
+	flagset.Parse(args)
 
 	// Print all problems before exiting.
 	problem := false
@@ -101,12 +106,12 @@ func Parse() {
 	}
 }
 
-func registerInt(arg *Arg[int]) {
+func registerInt(ns string, arg *Arg[int]) {
 	if arg.Required {
 		required = append(required, arg.Name)
 	}
 
-	flag.Func(arg.Name, arg.Desc, handleInt(arg))
+	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleInt(arg))
 }
 
 func handleInt(arg *Arg[int]) func(string) error {
@@ -122,12 +127,12 @@ func handleInt(arg *Arg[int]) func(string) error {
 	}
 }
 
-func registerFloat(arg *Arg[float64]) {
+func registerFloat(ns string, arg *Arg[float64]) {
 	if arg.Required {
 		required = append(required, arg.Name)
 	}
 
-	flag.Func(arg.Name, arg.Desc, handleFloat(arg))
+	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleFloat(arg))
 }
 
 func handleFloat(arg *Arg[float64]) func(string) error {
@@ -143,12 +148,12 @@ func handleFloat(arg *Arg[float64]) func(string) error {
 	}
 }
 
-func registerString(arg *Arg[string]) {
+func registerString(ns string, arg *Arg[string]) {
 	if arg.Required {
 		required = append(required, arg.Name)
 	}
 
-	flag.Func(arg.Name, arg.Desc, handleString(arg))
+	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleString(arg))
 }
 
 func handleString(arg *Arg[string]) func(string) error {
@@ -158,12 +163,12 @@ func handleString(arg *Arg[string]) func(string) error {
 	}
 }
 
-func registerBool(arg *Arg[bool]) {
+func registerBool(ns string, arg *Arg[bool]) {
 	if arg.Required {
 		required = append(required, arg.Name)
 	}
 
-	flag.Func(arg.Name, arg.Desc, handleBool(arg))
+	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleBool(arg))
 }
 
 func handleBool(arg *Arg[bool]) func(string) error {

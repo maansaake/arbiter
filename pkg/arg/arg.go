@@ -15,10 +15,8 @@ type Arg[T any] struct {
 	Name     string
 	Desc     string
 	Required bool
-	Value    T
+	Value    *T
 	Valid    Validator[T]
-
-	onPresent func(val T)
 }
 
 type Args []any
@@ -50,33 +48,26 @@ func Register(ns string, arg any) {
 }
 
 func RegisterOp(ns string, op *op.Op) {
-	// Enabled
+	// Disable
 	registerBool(ns, &Arg[bool]{
-		Name:  enabledName(op),
-		Desc:  enabledDesc(op),
-		Value: true,
-		onPresent: func(enabled bool) {
-			op.Enabled = true
-		},
+		Name:  disableName(op),
+		Desc:  disableDesc(op),
+		Value: &op.Disabled,
 	})
 	// Rate
-	registerInt(ns, &Arg[int]{
+	registerUint(ns, &Arg[uint]{
 		Name:  rateName(op),
 		Desc:  rateDesc(op),
-		Value: 60,
-		Valid: ValidatorPositiveInteger,
-		onPresent: func(rate int) {
-			op.Rate = uint(rate)
-		},
+		Value: &op.Rate,
 	})
 }
 
-func enabledName(op *op.Op) string {
-	return fmt.Sprintf("%s.enabled", op.Name)
+func disableName(op *op.Op) string {
+	return fmt.Sprintf("%s.disable", op.Name)
 }
 
-func enabledDesc(op *op.Op) string {
-	return fmt.Sprintf("enable %s", op.Name)
+func disableDesc(op *op.Op) string {
+	return fmt.Sprintf("disable %s", op.Name)
 }
 
 func rateName(op *op.Op) string {
@@ -120,8 +111,27 @@ func handleInt(arg *Arg[int]) func(string) error {
 		if err != nil {
 			return err
 		}
+		*arg.Value = int(iv)
 
-		arg.Value = int(iv)
+		return generalHandler(arg)
+	}
+}
+
+func registerUint(ns string, arg *Arg[uint]) {
+	if arg.Required {
+		required = append(required, arg.Name)
+	}
+
+	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleUint(arg))
+}
+
+func handleUint(arg *Arg[uint]) func(string) error {
+	return func(val string) error {
+		iv, err := strconv.ParseUint(val, 10, 0)
+		if err != nil {
+			return err
+		}
+		*arg.Value = uint(iv)
 
 		return generalHandler(arg)
 	}
@@ -141,8 +151,7 @@ func handleFloat(arg *Arg[float64]) func(string) error {
 		if err != nil {
 			return err
 		}
-
-		arg.Value = fv
+		*arg.Value = fv
 
 		return generalHandler(arg)
 	}
@@ -158,7 +167,7 @@ func registerString(ns string, arg *Arg[string]) {
 
 func handleString(arg *Arg[string]) func(string) error {
 	return func(val string) error {
-		arg.Value = val
+		*arg.Value = val
 		return generalHandler(arg)
 	}
 }
@@ -177,8 +186,7 @@ func handleBool(arg *Arg[bool]) func(string) error {
 		if err != nil {
 			return err
 		}
-
-		arg.Value = b
+		*arg.Value = b
 
 		return generalHandler(arg)
 	}
@@ -195,13 +203,8 @@ func generalHandler[T any](arg *Arg[T]) error {
 		}
 	}
 
-	if arg.Valid != nil && !arg.Valid(arg.Value) {
+	if arg.Valid != nil && !arg.Valid(*arg.Value) {
 		return fmt.Errorf("%w: argument '%s' has invalid value '%v'", ErrInvalid, arg.Name, arg.Value)
-	}
-
-	// If operation register, run onPresent
-	if arg.onPresent != nil {
-		arg.onPresent(arg.Value)
 	}
 
 	return nil

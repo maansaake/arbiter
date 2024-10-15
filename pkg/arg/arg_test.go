@@ -14,35 +14,35 @@ type TestArg struct {
 }
 
 func valid(v bool) bool {
-	return false
+	return v
 }
 
-func invalid(v int) bool {
-	return true
+func validInt(v int) bool {
+	return v == 12
 }
 
 func TestRegisterRequired(t *testing.T) {
 	Register("ns", &Arg[int]{
-		Name:     "bool",
-		Value:    12,
+		Name:     "int",
+		Value:    new(int),
 		Required: true,
 	})
 
 	Register("ns", &Arg[float64]{
-		Name:     "bool",
-		Value:    12.12,
+		Name:     "float",
+		Value:    new(float64),
 		Required: true,
 	})
 
 	Register("ns", &Arg[string]{
-		Name:     "bool",
-		Value:    "string",
+		Name:     "string",
+		Value:    new(string),
 		Required: true,
 	})
 
 	Register("ns", &Arg[bool]{
 		Name:     "bool",
-		Value:    true,
+		Value:    new(bool),
 		Required: true,
 	})
 
@@ -50,66 +50,71 @@ func TestRegisterRequired(t *testing.T) {
 		t.Fatal("should have appended required list")
 	}
 
-	if len(required) != 0 {
+	if len(required) != 4 {
 		t.Fatal("should have had 4 required arguments")
 	}
 }
 
 func TestParseInt(t *testing.T) {
+	val := 12
 	i := &Arg[int]{
 		Name:     "int",
-		Value:    12,
+		Value:    &val,
 		Required: true,
 	}
 
 	handleInt(i)("13")
 
-	if i.Value != 13 {
+	if *i.Value != 13 {
 		t.Fatal("value should have been 13")
 	}
 }
 
 func TestParseFloat(t *testing.T) {
+	val := 12.12
 	fl := &Arg[float64]{
 		Name:  "float",
-		Value: 12.12,
+		Value: &val,
 	}
 
 	handleFloat(fl)("12.13")
 
-	if fl.Value != 12.13 {
+	if *fl.Value != 12.13 {
 		t.Fatal("value should have been 12.13")
 	}
 }
 
 func TestParseString(t *testing.T) {
+	val := "string"
 	str := &Arg[string]{
 		Name:  "string",
-		Value: "string",
+		Value: &val,
 	}
 
 	handleString(str)("stringg")
 
-	if str.Value != "stringg" {
+	if *str.Value != "stringg" {
 		t.Fatal("value should have been 'stringg'")
 	}
 }
 
 func TestParseBool(t *testing.T) {
 	b := &Arg[bool]{
-		Name: "bool",
+		Name:  "bool",
+		Value: new(bool),
 	}
 
 	handleBool(b)("true")
 
-	if !b.Value {
+	if !*b.Value {
 		t.Fatal("value should have been true")
 	}
 }
 
 func TestValidationError(t *testing.T) {
 	b := &Arg[bool]{
-		Name: "bool",
+		Name:  "bool",
+		Value: new(bool),
 		Valid: func(val bool) bool {
 			return false
 		},
@@ -119,6 +124,35 @@ func TestValidationError(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("should have forced a validation error")
+	}
+}
+
+func TestValidationOk(t *testing.T) {
+	b := &Arg[bool]{
+		Name:  "bool",
+		Value: new(bool),
+		Valid: valid,
+	}
+	iv := 13
+	i := &Arg[int]{
+		Name:  "int",
+		Value: &iv,
+		Valid: validInt,
+	}
+
+	err := handleBool(b)("false")
+
+	if err == nil {
+		t.Fatal("should have forced a validation error")
+	}
+
+	err = handleInt(i)("12")
+	if err != nil {
+		t.Fatal("should have not been an error")
+	}
+
+	if *i.Value != 12 {
+		t.Fatal("should have been 12")
 	}
 }
 

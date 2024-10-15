@@ -3,9 +3,9 @@ package op
 import "time"
 
 type Op struct {
-	Name    string
-	Desc    string
-	Enabled bool
+	Name     string
+	Desc     string
+	Disabled bool
 	Do
 	Rate uint
 }

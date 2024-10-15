@@ -23,10 +23,12 @@ const (
 var (
 	duration time.Duration
 
-	flagsets        = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
+	subcommands     = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
 	subcommandIndex = -1
 )
 
+// Runs the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
+// runs out (1 hour default).
 func Run(modules module.Modules) error {
 	flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = func() {
@@ -47,7 +49,7 @@ func Run(modules module.Modules) error {
 	flag.Parse()
 
 	subcommandIndex = slices.IndexFunc(os.Args, func(e string) bool {
-		return slices.Contains(flagsets, e)
+		return slices.Contains(subcommands, e)
 	})
 	if subcommandIndex == -1 {
 		fmt.Fprint(flag.CommandLine.Output(), "no subcommand given\n")
@@ -72,6 +74,9 @@ func Run(modules module.Modules) error {
 	return nil
 }
 
+// Handle the CLI subcommand call, registering cmd line flags for both module
+// arguments and their operations and parsing them. Runs the modules with the
+// input flags.
 func handleCli(modules module.Modules) error {
 	for _, m := range modules {
 		for _, a := range m.Args() {
@@ -86,9 +91,11 @@ func handleCli(modules module.Modules) error {
 
 	arg.Parse(os.Args[subcommandIndex:])
 
-	return runModules(modules)
+	return run(modules)
 }
 
+// Handles the generate subcommand. Generates a test model file based on the
+// input modules.
 func handleGen(modules module.Modules) error {
 	var output string
 	fs := flag.NewFlagSet(FLAGSET_GEN, flag.ExitOnError)
@@ -101,6 +108,8 @@ func handleGen(modules module.Modules) error {
 	return nil
 }
 
+// Handles the file subcommand, parsing the input test model file and running
+// the modules with the file's settings.
 func handleFile(modules module.Modules) error {
 	var path string
 	fs := flag.NewFlagSet(FLAGSET_FILE, flag.ExitOnError)
@@ -110,11 +119,15 @@ func handleFile(modules module.Modules) error {
 	// TODO: parse and run from file
 	panic("not implemented")
 
-	return runModules(modules)
+	return run(modules)
 }
 
-func runModules(modules module.Modules) error {
-	// Start each module
+// Runs the input modules and starts generating traffic. Creates a traffic
+// model based on the modules opertation settings. Aborts on SIGINT, SIGTERM
+// or when the test duration runs out. Will immediately exit if any module
+// returns an error from its call to Run().
+func run(modules module.Modules) error {
+	// Start each module, exit on error
 	for _, m := range modules {
 		log.Printf("starting module '%s'\n", m.Name())
 		if err := m.Run(); err != nil {
@@ -122,13 +135,12 @@ func runModules(modules module.Modules) error {
 		}
 	}
 
+	// TODO: start traffic
+
+	// TODO: await done channel
 	// Start signal interceptor for SIGINT and SIGTERM
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	// TODO: start traffic
-
-	// Await done channel
 	log.Println("awaiting stop signal")
 	<-signals
 

@@ -52,6 +52,7 @@ func Run(modules module.Modules) error {
 		return slices.Contains(subcommands, e)
 	})
 	if subcommandIndex == -1 {
+		flag.CommandLine.SetOutput(os.Stderr)
 		fmt.Fprint(flag.CommandLine.Output(), "no subcommand given\n")
 		flag.Usage()
 		os.Exit(1)
@@ -66,6 +67,7 @@ func Run(modules module.Modules) error {
 	case FLAGSET_FILE:
 		return handleFile(modules)
 	default:
+		flag.CommandLine.SetOutput(os.Stderr)
 		fmt.Fprintf(flag.CommandLine.Output(), "subcommand not found: %s\n", os.Args[1])
 		flag.Usage()
 		os.Exit(1)
@@ -89,7 +91,7 @@ func handleCli(modules module.Modules) error {
 		}
 	}
 
-	arg.Parse(os.Args[subcommandIndex:])
+	arg.Parse(os.Args[subcommandIndex+1:])
 
 	return run(modules)
 }
@@ -100,8 +102,9 @@ func handleGen(_ module.Modules) error {
 	var output string
 	fs := flag.NewFlagSet(FLAGSET_GEN, flag.ExitOnError)
 	fs.StringVar(&output, "output", "./arbiter.yaml", "Output path for the generated test model file.")
-	err := fs.Parse(os.Args[subcommandIndex:])
+	err := fs.Parse(os.Args[subcommandIndex+1:])
 	if err != nil {
+		fs.SetOutput(os.Stderr)
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -116,8 +119,9 @@ func handleFile(_ module.Modules) error {
 	var path string
 	fs := flag.NewFlagSet(FLAGSET_FILE, flag.ExitOnError)
 	fs.StringVar(&path, "path", "./arbiter.yaml", "Path to a test model file.")
-	err := fs.Parse(os.Args[subcommandIndex:])
+	err := fs.Parse(os.Args[subcommandIndex+1:])
 	if err != nil {
+		fs.SetOutput(os.Stderr)
 		fs.Usage()
 		os.Exit(1)
 	}

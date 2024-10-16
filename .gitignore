@@ -24,8 +24,15 @@ go.work.sum
 # env file
 .env
 
+# IDE
 .vscode/
 .idea/
 
+# bin
 arbiter
 arbiter-example
+
+# cov
+coverage
+coverage-profile
+coverprofile

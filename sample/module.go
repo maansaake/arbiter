@@ -15,18 +15,22 @@ func NewSampleModule() module.Module {
 	return &SampleModule{
 		args: arg.Args{
 			&arg.Arg[bool]{
-				Name: "enabled",
-				Desc: "Sets if this module should be enabled.",
+				Name:  "disable",
+				Desc:  "Set if this module should be disabled.",
+				Value: new(bool),
 			},
 			&arg.Arg[int]{
-				Name: "routines",
-				Desc: "Sets the number of go-routines",
+				Name:  "routines",
+				Desc:  "Sets the number of go-routines",
+				Value: new(int),
 			},
 		},
 		ops: op.Ops{
 			&op.Op{
-				Name: "lockunlock",
-				Desc: "Locks and unlocks after a small delay",
+				Name:     "lockunlock",
+				Desc:     "Locks and unlocks after a small delay",
+				Disabled: false,
+				Rate:     60,
 				Do: func() (op.Result, error) {
 					return op.Result{}, nil
 				},

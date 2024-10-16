@@ -17,6 +17,7 @@ type Arg[T any] struct {
 	Required bool
 	Value    *T
 	Valid    Validator[T]
+	ns       string
 }
 
 type Args []any
@@ -96,14 +97,19 @@ func Parse(args []string) {
 	}
 
 	if problem {
+		flagset.SetOutput(os.Stderr)
 		flagset.Usage()
 		os.Exit(1)
 	}
 }
 
 func registerInt(ns string, arg *Arg[int]) {
+	verifyArgValue(arg)
+
+	arg.ns = ns
+
 	if arg.Required {
-		required = append(required, arg.Name)
+		required = append(required, fmt.Sprintf("%s.%s", ns, arg.Name))
 	}
 
 	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleInt(arg))
@@ -122,8 +128,12 @@ func handleInt(arg *Arg[int]) func(string) error {
 }
 
 func registerUint(ns string, arg *Arg[uint]) {
+	verifyArgValue(arg)
+
+	arg.ns = ns
+
 	if arg.Required {
-		required = append(required, arg.Name)
+		required = append(required, fmt.Sprintf("%s.%s", ns, arg.Name))
 	}
 
 	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleUint(arg))
@@ -142,8 +152,12 @@ func handleUint(arg *Arg[uint]) func(string) error {
 }
 
 func registerFloat(ns string, arg *Arg[float64]) {
+	verifyArgValue(arg)
+
+	arg.ns = ns
+
 	if arg.Required {
-		required = append(required, arg.Name)
+		required = append(required, fmt.Sprintf("%s.%s", ns, arg.Name))
 	}
 
 	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleFloat(arg))
@@ -162,8 +176,12 @@ func handleFloat(arg *Arg[float64]) func(string) error {
 }
 
 func registerString(ns string, arg *Arg[string]) {
+	verifyArgValue(arg)
+
+	arg.ns = ns
+
 	if arg.Required {
-		required = append(required, arg.Name)
+		required = append(required, fmt.Sprintf("%s.%s", ns, arg.Name))
 	}
 
 	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleString(arg))
@@ -177,22 +195,20 @@ func handleString(arg *Arg[string]) func(string) error {
 }
 
 func registerBool(ns string, arg *Arg[bool]) {
+	verifyArgValue(arg)
+
+	arg.ns = ns
+
 	if arg.Required {
-		required = append(required, arg.Name)
+		panic(fmt.Errorf("boolean arg was required '%s'", arg.Name))
 	}
 
-	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleBool(arg))
+	flagset.BoolVar(arg.Value, fmt.Sprintf("%s.%s", ns, arg.Name), *arg.Value, arg.Desc)
 }
 
-func handleBool(arg *Arg[bool]) func(string) error {
-	return func(val string) error {
-		b, err := strconv.ParseBool(val)
-		if err != nil {
-			return err
-		}
-		*arg.Value = b
-
-		return generalHandler(arg)
+func verifyArgValue[T any](arg *Arg[T]) {
+	if arg.Value == nil {
+		panic(fmt.Errorf("Arg.Value must not be a nil pointer, found for for arg '%s'", arg.Name))
 	}
 }
 
@@ -201,7 +217,7 @@ func generalHandler[T any](arg *Arg[T]) error {
 	if arg.Required {
 		// Find and pop arg from required slice
 		for i, an := range required {
-			if an == arg.Name {
+			if an == fmt.Sprintf("%s.%s", arg.ns, arg.Name) {
 				required = slices.Delete(required, i, i+1)
 			}
 		}

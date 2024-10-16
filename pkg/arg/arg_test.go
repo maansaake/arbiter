@@ -13,15 +13,14 @@ type TestArg struct {
 	Valid Validator[any]
 }
 
-func valid(v bool) bool {
-	return v
-}
-
 func validInt(v int) bool {
 	return v == 12
 }
 
 func TestRegisterRequired(t *testing.T) {
+	flagset = flag.NewFlagSet("cli", flag.ExitOnError)
+	required = []string{}
+
 	Register("ns", &Arg[int]{
 		Name:     "int",
 		Value:    new(int),
@@ -41,17 +40,16 @@ func TestRegisterRequired(t *testing.T) {
 	})
 
 	Register("ns", &Arg[bool]{
-		Name:     "bool",
-		Value:    new(bool),
-		Required: true,
+		Name:  "bool",
+		Value: new(bool),
 	})
 
 	if len(required) == 0 {
 		t.Fatal("should have appended required list")
 	}
 
-	if len(required) != 4 {
-		t.Fatal("should have had 4 required arguments")
+	if len(required) != 3 {
+		t.Fatal("should have had 3 required arguments")
 	}
 }
 
@@ -107,32 +105,16 @@ func TestParseString(t *testing.T) {
 	}
 }
 
-func TestParseBool(t *testing.T) {
-	b := &Arg[bool]{
-		Name:  "bool",
-		Value: new(bool),
-	}
-
-	err := handleBool(b)("true")
-	if err != nil {
-		t.Errorf("failed to handle bool: %v", err)
-	}
-
-	if !*b.Value {
-		t.Fatal("value should have been true")
-	}
-}
-
 func TestValidationError(t *testing.T) {
-	b := &Arg[bool]{
+	b := &Arg[int]{
 		Name:  "bool",
-		Value: new(bool),
-		Valid: func(val bool) bool {
-			return false
+		Value: new(int),
+		Valid: func(val int) bool {
+			return val != 12
 		},
 	}
 
-	err := handleBool(b)("true")
+	err := handleInt(b)("12")
 
 	if err == nil {
 		t.Fatal("should have forced a validation error")
@@ -140,11 +122,6 @@ func TestValidationError(t *testing.T) {
 }
 
 func TestValidationOk(t *testing.T) {
-	b := &Arg[bool]{
-		Name:  "bool",
-		Value: new(bool),
-		Valid: valid,
-	}
 	iv := 13
 	i := &Arg[int]{
 		Name:  "int",
@@ -152,13 +129,7 @@ func TestValidationOk(t *testing.T) {
 		Valid: validInt,
 	}
 
-	err := handleBool(b)("false")
-
-	if err == nil {
-		t.Fatal("should have forced a validation error")
-	}
-
-	err = handleInt(i)("12")
+	err := handleInt(i)("12")
 	if err != nil {
 		t.Fatal("should have not been an error")
 	}
@@ -168,13 +139,68 @@ func TestValidationOk(t *testing.T) {
 	}
 }
 
-func TestRegisterOp(t *testing.T) {
+func TestPanicUnrecognizedType(t *testing.T) {
+	flagset = flag.NewFlagSet("cli", flag.ExitOnError)
+	required = []string{}
+	defer func() {
+		t.Log("panicked?")
+		if err := recover(); err == nil {
+			t.Fatal("expected to recover from panic")
+		}
+	}()
+	Register("ns", &Arg[float32]{})
+	t.Fatal("no panic? :(")
+}
+
+func TestPanicRegisterNilPointer(t *testing.T) {
+	flagset = flag.NewFlagSet("cli", flag.ExitOnError)
+	required = []string{}
+	defer func() {
+		t.Log("panicked?")
+		if err := recover(); err == nil {
+			t.Fatal("expected to recover from panic")
+		}
+	}()
+	Register("ns", &Arg[float64]{})
+	t.Fatal("no panic? :(")
+}
+
+func TestParse(t *testing.T) {
+	flagset = flag.NewFlagSet("cli", flag.ExitOnError)
+	required = []string{}
+	i := &Arg[int]{
+		Name:  "intt",
+		Desc:  "desc",
+		Value: new(int),
+	}
+	s := &Arg[string]{
+		Name:  "stringg",
+		Desc:  "desc",
+		Value: new(string),
+	}
+	Register("ns", i)
+	Register("ns", s)
 	op := &op.Op{
 		Name: "op",
-		Desc: "this is op",
+		Desc: "desc",
 	}
-
 	RegisterOp("ns", op)
 
-	t.Log(flag.CommandLine)
+	Parse([]string{"-ns.stringg", "strvalue", "-ns.intt", "12", "-ns.op.disable", "-ns.op.rate", "12"})
+
+	if *i.Value != 12 {
+		t.Fatal("integer should have been 12")
+	}
+
+	if *s.Value != "strvalue" {
+		t.Fatal("integer should have been 12")
+	}
+
+	if !op.Disabled {
+		t.Fatal("should have been disabled")
+	}
+
+	if op.Rate != 12 {
+		t.Fatal("rate should have been 12")
+	}
 }

@@ -22,6 +22,10 @@ type Arg[T any] struct {
 
 type Args []any
 
+func (a *Arg[T]) argPath() string {
+	return fmt.Sprintf("%s.%s", a.ns, a.Name)
+}
+
 var (
 	ErrInvalid = errors.New("invalid value")
 
@@ -109,10 +113,10 @@ func registerInt(ns string, arg *Arg[int]) {
 	arg.ns = ns
 
 	if arg.Required {
-		required = append(required, fmt.Sprintf("%s.%s", ns, arg.Name))
+		required = append(required, arg.argPath())
 	}
 
-	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleInt(arg))
+	flagset.Func(arg.argPath(), arg.Desc, handleInt(arg))
 }
 
 func handleInt(arg *Arg[int]) func(string) error {
@@ -133,10 +137,10 @@ func registerUint(ns string, arg *Arg[uint]) {
 	arg.ns = ns
 
 	if arg.Required {
-		required = append(required, fmt.Sprintf("%s.%s", ns, arg.Name))
+		required = append(required, arg.argPath())
 	}
 
-	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleUint(arg))
+	flagset.Func(arg.argPath(), arg.Desc, handleUint(arg))
 }
 
 func handleUint(arg *Arg[uint]) func(string) error {
@@ -157,10 +161,10 @@ func registerFloat(ns string, arg *Arg[float64]) {
 	arg.ns = ns
 
 	if arg.Required {
-		required = append(required, fmt.Sprintf("%s.%s", ns, arg.Name))
+		required = append(required, arg.argPath())
 	}
 
-	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleFloat(arg))
+	flagset.Func(arg.argPath(), arg.Desc, handleFloat(arg))
 }
 
 func handleFloat(arg *Arg[float64]) func(string) error {
@@ -181,10 +185,10 @@ func registerString(ns string, arg *Arg[string]) {
 	arg.ns = ns
 
 	if arg.Required {
-		required = append(required, fmt.Sprintf("%s.%s", ns, arg.Name))
+		required = append(required, arg.argPath())
 	}
 
-	flagset.Func(fmt.Sprintf("%s.%s", ns, arg.Name), arg.Desc, handleString(arg))
+	flagset.Func(arg.argPath(), arg.Desc, handleString(arg))
 }
 
 func handleString(arg *Arg[string]) func(string) error {
@@ -200,10 +204,10 @@ func registerBool(ns string, arg *Arg[bool]) {
 	arg.ns = ns
 
 	if arg.Required {
-		panic(fmt.Errorf("boolean arg was required '%s'", arg.Name))
+		panic(fmt.Errorf("boolean arg was required '%s'", arg.argPath()))
 	}
 
-	flagset.BoolVar(arg.Value, fmt.Sprintf("%s.%s", ns, arg.Name), *arg.Value, arg.Desc)
+	flagset.BoolVar(arg.Value, arg.argPath(), *arg.Value, arg.Desc)
 }
 
 func verifyArgValue[T any](arg *Arg[T]) {
@@ -217,14 +221,14 @@ func generalHandler[T any](arg *Arg[T]) error {
 	if arg.Required {
 		// Find and pop arg from required slice
 		for i, an := range required {
-			if an == fmt.Sprintf("%s.%s", arg.ns, arg.Name) {
+			if an == arg.argPath() {
 				required = slices.Delete(required, i, i+1)
 			}
 		}
 	}
 
 	if arg.Valid != nil && !arg.Valid(*arg.Value) {
-		return fmt.Errorf("%w: argument '%s' has invalid value '%v'", ErrInvalid, arg.Name, arg.Value)
+		return fmt.Errorf("%w: argument '%s' has invalid value '%v'", ErrInvalid, arg.argPath(), arg.Value)
 	}
 
 	return nil

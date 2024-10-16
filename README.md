@@ -1,5 +1,8 @@
 # Arbiter
 
+![build](https://github.com/maansthoernvik/arbiter/actions/workflows/build.yaml/badge.svg)
+[![codecov](https://codecov.io/gh/maansthoernvik/arbiter/graph/badge.svg?token=pi9cjem8ol)](https://codecov.io/gh/maansthoernvik/arbiter)
+
 Arbiter is a system testing framework aimed at improving software testability. It provides a rich and flexible framework that is used to implement system level tests for any system.
 
 Arbiter does not aim to know anything about the system under test (SUT) and as such does not make any assumptions not have any preferences around technologies or protocols. Arbiter does, however, have a strict view on how a system test should be monitored, see the [monitoring](#Monitoring) section for more information. 

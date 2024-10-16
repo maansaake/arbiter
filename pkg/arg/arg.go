@@ -79,7 +79,11 @@ func rateDesc(op *op.Op) string {
 }
 
 func Parse(args []string) {
-	flagset.Parse(args)
+	err := flagset.Parse(args)
+	if err != nil {
+		flagset.Usage()
+		os.Exit(1)
+	}
 
 	// Print all problems before exiting.
 	problem := false
@@ -92,7 +96,7 @@ func Parse(args []string) {
 	}
 
 	if problem {
-		flag.Usage()
+		flagset.Usage()
 		os.Exit(1)
 	}
 }

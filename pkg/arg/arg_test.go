@@ -63,7 +63,10 @@ func TestParseInt(t *testing.T) {
 		Required: true,
 	}
 
-	handleInt(i)("13")
+	err := handleInt(i)("13")
+	if err != nil {
+		t.Errorf("failed to handle int: %v", err)
+	}
 
 	if *i.Value != 13 {
 		t.Fatal("value should have been 13")
@@ -77,7 +80,10 @@ func TestParseFloat(t *testing.T) {
 		Value: &val,
 	}
 
-	handleFloat(fl)("12.13")
+	err := handleFloat(fl)("12.13")
+	if err != nil {
+		t.Errorf("failed to handle float: %v", err)
+	}
 
 	if *fl.Value != 12.13 {
 		t.Fatal("value should have been 12.13")
@@ -91,7 +97,10 @@ func TestParseString(t *testing.T) {
 		Value: &val,
 	}
 
-	handleString(str)("stringg")
+	err := handleString(str)("stringg")
+	if err != nil {
+		t.Errorf("failed to handle string: %v", err)
+	}
 
 	if *str.Value != "stringg" {
 		t.Fatal("value should have been 'stringg'")
@@ -104,7 +113,10 @@ func TestParseBool(t *testing.T) {
 		Value: new(bool),
 	}
 
-	handleBool(b)("true")
+	err := handleBool(b)("true")
+	if err != nil {
+		t.Errorf("failed to handle bool: %v", err)
+	}
 
 	if !*b.Value {
 		t.Fatal("value should have been true")

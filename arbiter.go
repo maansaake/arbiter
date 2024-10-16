@@ -96,30 +96,34 @@ func handleCli(modules module.Modules) error {
 
 // Handles the generate subcommand. Generates a test model file based on the
 // input modules.
-func handleGen(modules module.Modules) error {
+func handleGen(_ module.Modules) error {
 	var output string
 	fs := flag.NewFlagSet(FLAGSET_GEN, flag.ExitOnError)
 	fs.StringVar(&output, "output", "./arbiter.yaml", "Output path for the generated test model file.")
-	fs.Parse(os.Args[subcommandIndex:])
+	err := fs.Parse(os.Args[subcommandIndex:])
+	if err != nil {
+		fs.Usage()
+		os.Exit(1)
+	}
 
 	// TODO: generate using input modules
 	panic("not implemented")
-
-	return nil
 }
 
 // Handles the file subcommand, parsing the input test model file and running
 // the modules with the file's settings.
-func handleFile(modules module.Modules) error {
+func handleFile(_ module.Modules) error {
 	var path string
 	fs := flag.NewFlagSet(FLAGSET_FILE, flag.ExitOnError)
 	fs.StringVar(&path, "path", "./arbiter.yaml", "Path to a test model file.")
-	fs.Parse(os.Args[subcommandIndex:])
+	err := fs.Parse(os.Args[subcommandIndex:])
+	if err != nil {
+		fs.Usage()
+		os.Exit(1)
+	}
 
 	// TODO: parse and run from file
 	panic("not implemented")
-
-	return run(modules)
 }
 
 // Runs the input modules and starts generating traffic. Creates a traffic

@@ -1,6 +1,7 @@
 package arbiter
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -147,10 +148,12 @@ func run(modules module.Modules) error {
 
 	// TODO: await done channel
 	// Start signal interceptor for SIGINT and SIGTERM
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+
 	log.Println("awaiting stop signal")
-	<-signals
+	<-ctx.Done()
+	stop()
 
 	log.Println("got stop signal")
 	for _, m := range modules {

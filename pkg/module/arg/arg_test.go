@@ -10,7 +10,7 @@ import (
 type TestArg struct {
 	Type  uint
 	Value any
-	Valid Validator[any]
+	Valid func(any) bool
 }
 
 func validInt(v int) bool {

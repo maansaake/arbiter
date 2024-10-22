@@ -1,35 +1,46 @@
+// Arbiter runs system tests on the target system.
+//
+// By providing custom modules, Arbiter is able to generate traffic and monitor
+// any system, measuing CPU, memory, metrics, and logs. Arbiter can judge a
+// system based on those four parameters. Add rates for operations and
+// thresholds to verify the software is staying within expected boundaries.
 package arbiter
 
 import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"slices"
 	"syscall"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
+	modulearg "tres-bon.se/arbiter/pkg/module/arg"
+	"tres-bon.se/arbiter/pkg/monitor"
+	"tres-bon.se/arbiter/pkg/report"
+	"tres-bon.se/arbiter/pkg/traffic"
+	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
 const (
-	FLAGSET_CLI  = arg.FLAGSET
+	FLAGSET_CLI  = modulearg.FLAGSET
 	FLAGSET_GEN  = "generate"
 	FLAGSET_FILE = "file"
 )
 
 var (
-	duration time.Duration
+	duration time.Duration = time.Minute * 5
 
 	subcommands     = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
 	subcommandIndex = -1
+
+	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).WithName("start")
 )
 
 // Runs the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
-// runs out (1 hour default).
+// runs out (5 minute default).
 func Run(modules module.Modules) error {
 	flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = func() {
@@ -44,11 +55,12 @@ func Run(modules module.Modules) error {
 	}
 
 	// Global flags
-	flag.DurationVar(&duration, "duration", 3600*time.Second, "The duration of the test run.")
+	flag.DurationVar(&duration, "duration", duration, "The duration of the test run.")
 
 	// To trigger on --help and parse global flags
 	flag.Parse()
 
+	// Verify a subcommand has been invoked.
 	subcommandIndex = slices.IndexFunc(os.Args, func(e string) bool {
 		return slices.Contains(subcommands, e)
 	})
@@ -61,7 +73,7 @@ func Run(modules module.Modules) error {
 
 	// Check invoked subcommand
 	switch os.Args[subcommandIndex] {
-	case arg.FLAGSET:
+	case modulearg.FLAGSET:
 		return handleCli(modules)
 	case FLAGSET_GEN:
 		return handleGen(modules)
@@ -83,16 +95,18 @@ func Run(modules module.Modules) error {
 func handleCli(modules module.Modules) error {
 	for _, m := range modules {
 		for _, a := range m.Args() {
-			arg.Register(m.Name(), a)
+			modulearg.Register(m.Name(), a)
 		}
 
 		// Add operation args
 		for _, op := range m.Ops() {
-			arg.RegisterOp(m.Name(), op)
+			modulearg.RegisterOp(m.Name(), op)
 		}
 	}
 
-	arg.Parse(os.Args[subcommandIndex+1:])
+	modulearg.Parse(os.Args[subcommandIndex+1:])
+
+	startLogger.Info("parsed CLI arguments")
 
 	return run(modules)
 }
@@ -117,9 +131,9 @@ func handleGen(_ module.Modules) error {
 // Handles the file subcommand, parsing the input test model file and running
 // the modules with the file's settings.
 func handleFile(_ module.Modules) error {
-	var path string
+	outputPath := "./arbiter.yaml"
 	fs := flag.NewFlagSet(FLAGSET_FILE, flag.ExitOnError)
-	fs.StringVar(&path, "path", "./arbiter.yaml", "Path to a test model file.")
+	fs.StringVar(&outputPath, "path", outputPath, "Path to a test model file.")
 	err := fs.Parse(os.Args[subcommandIndex+1:])
 	if err != nil {
 		fs.SetOutput(os.Stderr)
@@ -136,29 +150,56 @@ func handleFile(_ module.Modules) error {
 // or when the test duration runs out. Will immediately exit if any module
 // returns an error from its call to Run().
 func run(modules module.Modules) error {
+	startLogger.Info("preparing to run the modules")
+
 	// Start each module, exit on error
 	for _, m := range modules {
-		log.Printf("starting module '%s'\n", m.Name())
+		startLogger.Info("starting", "module", m.Name())
 		if err := m.Run(); err != nil {
-			log.Fatalf("failed to start module '%s': %s", m.Name(), err.Error())
+			startLogger.Error(err, "failed to start module", "module", m.Name())
+			panic(err)
 		}
 	}
 
-	// TODO: start traffic
+	startLogger.Info("all modules started")
 
-	// TODO: await done channel
-	// Start signal interceptor for SIGINT and SIGTERM
+	// Hook up monitor and reporter
+	reporter := report.YAMLReporter{}
+	// TODO: add threshold support
+	monitor := monitor.Monitor{
+		CPU:      monitor.NewLocalCPUMonitor(),
+		Memory:   monitor.NewLocalMemoryMonitor(),
+		Metric:   monitor.NewMetricMonitor(),
+		Log:      monitor.NewLogMonitor(),
+		Reporter: reporter,
+	}
+
+	// Start traffic and monitor, with a deadline set to time.Now() + test duration
+	startLogger.Info("starting the monitor and traffic generation")
+
 	ctx := context.Background()
+	ctx, _ = context.WithDeadline(ctx, time.Now().Add(duration))
+	if err := monitor.Start(ctx); err != nil {
+		startLogger.Error(err, "failed to start the monitor")
+		panic(err)
+	}
+
+	if err := traffic.Run(ctx, modules, reporter); err != nil {
+		startLogger.Error(err, "failed to start traffic")
+		panic(err)
+	}
+
+	// Start signal interceptor for SIGINT and SIGTERM
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Println("awaiting stop signal")
+	startLogger.Info("awaiting stop signal")
 	<-ctx.Done()
 	stop()
 
-	log.Println("got stop signal")
+	startLogger.Info("got stop signal")
 	for _, m := range modules {
 		if err := m.Stop(); err != nil {
-			log.Printf("stop error when stopping module '%s': %s\n", m.Name(), err.Error())
+			startLogger.Error(err, "module stop reported an error", "module", m.Name())
 		}
 	}
 

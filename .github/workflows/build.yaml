@@ -67,7 +67,7 @@ jobs:
         with:
           file: ./coverage
           token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: true
+          verbose: false
 
   build:
     runs-on: ubuntu-latest

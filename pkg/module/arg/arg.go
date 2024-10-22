@@ -16,7 +16,7 @@ type Arg[T any] struct {
 	Desc     string
 	Required bool
 	Value    *T
-	Valid    Validator[T]
+	Valid    func(v T) bool
 	ns       string
 }
 

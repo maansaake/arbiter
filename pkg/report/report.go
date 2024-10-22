@@ -1,3 +1,4 @@
 package report
 
-type Reporter interface{}
+type Reporter interface {
+}

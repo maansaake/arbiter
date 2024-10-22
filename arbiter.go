@@ -164,13 +164,16 @@ func run(modules module.Modules) error {
 	startLogger.Info("all modules started")
 
 	// Hook up monitor and reporter
-	reporter := report.YAMLReporter{}
+	// TODO: add choice of reporter implementation - future, new arbiter.Run(...)
+	reporter := &report.YAMLReporter{}
 	// TODO: add threshold support
-	monitor := monitor.Monitor{
+	// TODO: add toggleable monitor options
+	// TODO: add choice of monitor implementations - future, new arbiter.Run(...)
+	monitor := &monitor.Monitor{
 		CPU:      monitor.NewLocalCPUMonitor(),
 		Memory:   monitor.NewLocalMemoryMonitor(),
 		Metric:   monitor.NewMetricMonitor(),
-		Log:      monitor.NewLogMonitor(),
+		Log:      monitor.NewLogFileMonitor(),
 		Reporter: reporter,
 	}
 
@@ -203,6 +206,9 @@ func run(modules module.Modules) error {
 			startLogger.Error(err, "module stop reported an error", "module", m.Name())
 		}
 	}
+
+	startLogger.Info("finalising report")
+	reporter.Finalise()
 
 	return nil
 }

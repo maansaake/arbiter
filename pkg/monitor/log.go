@@ -1,7 +1,7 @@
 package monitor
 
-type log struct{}
+type logFile struct{}
 
-func NewLogMonitor() Log {
-	return &log{}
+func NewLogFileMonitor() Log {
+	return &logFile{}
 }

@@ -178,7 +178,8 @@ func run(modules module.Modules) error {
 	startLogger.Info("starting the monitor and traffic generation")
 
 	ctx := context.Background()
-	ctx, _ = context.WithDeadline(ctx, time.Now().Add(duration))
+	ctx, deadlineStop := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+	defer deadlineStop()
 	if err := monitor.Start(ctx); err != nil {
 		startLogger.Error(err, "failed to start the monitor")
 		panic(err)
@@ -190,11 +191,11 @@ func run(modules module.Modules) error {
 	}
 
 	// Start signal interceptor for SIGINT and SIGTERM
-	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	ctx, signalStop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer signalStop()
 
 	startLogger.Info("awaiting stop signal")
 	<-ctx.Done()
-	stop()
 
 	startLogger.Info("got stop signal")
 	for _, m := range modules {

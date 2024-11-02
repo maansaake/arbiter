@@ -67,7 +67,7 @@ func Run(ctx context.Context, modules module.Modules, r report.Reporter) error {
 		}
 	}
 
-	// Start traffic generation in separate go-routine, run until deadline
+	// Start traffic generation in separate go-routine, run until context is done
 	run(ctx)
 
 	return nil
@@ -77,8 +77,11 @@ func AwaitStop() {
 	log.Info("awaiting cleanup of traffic generator")
 	for {
 		<-time.After(1 * time.Millisecond)
-		// We want there to be only nil pointers, then tickers have been cleaned up.
-		if slices.IndexFunc(workloads, func(wl *workload) bool { return wl != nil }) == -1 {
+		// We want there to be only nil pointers, then tickers have been cleaned
+		// up.
+		if slices.IndexFunc(
+			workloads, func(wl *workload) bool { return wl != nil },
+		) == -1 {
 			return
 		}
 	}

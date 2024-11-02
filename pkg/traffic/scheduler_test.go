@@ -95,7 +95,9 @@ func TestReportOpToReporter(t *testing.T) {
 
 	reporter := mockreport.NewReporterMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	Run(ctx, module.Modules{mod}, reporter)
+	if err := Run(ctx, module.Modules{mod}, reporter); err != nil {
+		t.Fatal(err)
+	}
 
 	wg.Wait()
 	cancel()
@@ -126,7 +128,9 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 
 	reporter := mockreport.NewReporterMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	Run(ctx, module.Modules{mod}, reporter)
+	if err := Run(ctx, module.Modules{mod}, reporter); err != nil {
+		t.Fatal(err)
+	}
 
 	wg.Wait()
 	cancel()

@@ -30,6 +30,7 @@ go.work.sum
 
 # bin
 example
+!cmd/example
 arbiter
 arbiter-example
 

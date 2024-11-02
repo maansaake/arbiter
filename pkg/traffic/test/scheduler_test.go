@@ -2,6 +2,7 @@ package traffictest
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -45,4 +46,31 @@ func TestRunAndAwaitStop(t *testing.T) {
 
 	cancel()
 	traffic.AwaitStop()
+}
+
+func TestRunNoOps(t *testing.T) {
+	err := traffic.Run(context.TODO(), module.Modules{newTestModule()}, nil)
+	if err != nil && !errors.Is(err, traffic.ErrNoOpsToSchedule) {
+		t.Fatal("unexpected error type")
+	}
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestRunZeroRate(t *testing.T) {
+	mod := newTestModule()
+	mod.(*testmodule).ops = op.Ops{
+		{
+			Name: "test",
+			Rate: 0,
+		},
+	}
+	err := traffic.Run(context.TODO(), module.Modules{mod}, nil)
+	if err != nil && !errors.Is(err, traffic.ErrZeroRate) {
+		t.Fatal("unexpected error type")
+	}
+	if err == nil {
+		t.Fatal("expected error")
+	}
 }

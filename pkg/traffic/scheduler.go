@@ -2,6 +2,7 @@ package traffic
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -23,6 +24,11 @@ var (
 	workloads []*workload
 )
 
+var (
+	ErrNoOpsToSchedule = errors.New("there were no operations to schedule")
+	ErrZeroRate        = errors.New("operation has a zero rate")
+)
+
 // Runs traffic for the input modules using their exposed operations. Traffic
 // generation will make operation calls at the specified rates and report
 // problems to the reporter. Run() is asynchronous and returns once the main
@@ -41,7 +47,7 @@ func Run(ctx context.Context, modules module.Modules, r report.Reporter) error {
 			}
 
 			if op.Rate == 0 {
-				panic(fmt.Errorf("rate of operation '%s' is 0", op.Name))
+				return fmt.Errorf("%w: %s", ErrZeroRate, op.Name)
 			}
 
 			ops = append(ops, op)
@@ -49,7 +55,7 @@ func Run(ctx context.Context, modules module.Modules, r report.Reporter) error {
 	}
 
 	if len(ops) == 0 {
-		panic("there are no operations to schedule")
+		return ErrNoOpsToSchedule
 	}
 
 	workloads = make([]*workload, len(ops))
@@ -95,7 +101,21 @@ func handleWorkload(ctx context.Context, index int, workload *workload) {
 			return
 		case t := <-workload.ticker.C:
 			log.V(100).Info("tick", "op", workload.op.Name, "time", t)
-			workload.op.Do()
+
+			// Run Op and calculate duration.
+			start := time.Now()
+			res, err := workload.op.Do()
+
+			// If override is set by the user module, use the overridden duration.
+			if res.DurationOverride != 0 {
+				res.Duration = res.DurationOverride
+				// Else calculate from start timestamp
+			} else {
+				res.Duration = time.Since(start)
+			}
+
+			// Report to reporter
+			reporter.Op(&res, err)
 		}
 	}
 }

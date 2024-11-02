@@ -180,27 +180,32 @@ func run(modules module.Modules) error {
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
 	startLogger.Info("starting the monitor and traffic generation")
 
-	ctx := context.Background()
-	ctx, deadlineStop := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+	runCtx := context.Background()
+	runCtx, deadlineStop := context.WithDeadline(runCtx, time.Now().Add(5*time.Second))
 	defer deadlineStop()
-	if err := monitor.Start(ctx); err != nil {
+	if err := monitor.Start(runCtx); err != nil {
 		startLogger.Error(err, "failed to start the monitor")
 		panic(err)
 	}
 
-	if err := traffic.Run(ctx, modules, reporter); err != nil {
+	if err := traffic.Run(runCtx, modules, reporter); err != nil {
 		startLogger.Error(err, "failed to start traffic")
 		panic(err)
 	}
 
 	// Start signal interceptor for SIGINT and SIGTERM
-	ctx, signalStop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	runCtx, signalStop := signal.NotifyContext(runCtx, syscall.SIGINT, syscall.SIGTERM)
 	defer signalStop()
 
 	startLogger.Info("awaiting stop signal")
-	<-ctx.Done()
+	<-runCtx.Done()
 
 	startLogger.Info("got stop signal")
+
+	startLogger.Info("stopping traffic")
+	traffic.AwaitStop()
+
+	startLogger.Info("stopping modules")
 	for _, m := range modules {
 		if err := m.Stop(); err != nil {
 			startLogger.Error(err, "module stop reported an error", "module", m.Name())

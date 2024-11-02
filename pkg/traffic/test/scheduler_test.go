@@ -35,7 +35,10 @@ func TestRunAndAwaitStop(t *testing.T) {
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	traffic.Run(ctx, module.Modules{testmod}, &report.YAMLReporter{})
+	err := traffic.Run(ctx, module.Modules{testmod}, &report.YAMLReporter{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	log.Info("started traffic")
 
 	opWg.Wait()

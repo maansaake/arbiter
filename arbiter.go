@@ -19,6 +19,10 @@ import (
 	"tres-bon.se/arbiter/pkg/module"
 	modulearg "tres-bon.se/arbiter/pkg/module/arg"
 	"tres-bon.se/arbiter/pkg/monitor"
+	cpumonitor "tres-bon.se/arbiter/pkg/monitor/cpu"
+	logmonitor "tres-bon.se/arbiter/pkg/monitor/log"
+	memorymonitor "tres-bon.se/arbiter/pkg/monitor/memory"
+	metricmonitor "tres-bon.se/arbiter/pkg/monitor/metric"
 	"tres-bon.se/arbiter/pkg/report"
 	"tres-bon.se/arbiter/pkg/traffic"
 	"tres-bon.se/arbiter/pkg/zerologr"
@@ -170,10 +174,10 @@ func run(modules module.Modules) error {
 	// TODO: add toggleable monitor options
 	// TODO: add choice of monitor implementations - future, new arbiter.Run(...)
 	monitor := &monitor.Monitor{
-		CPU:      monitor.NewLocalCPUMonitor(),
-		Memory:   monitor.NewLocalMemoryMonitor(),
-		Metric:   monitor.NewMetricMonitor(),
-		Log:      monitor.NewLogFileMonitor(),
+		CPU:      cpumonitor.NewLocalCPUMonitor(),
+		Memory:   memorymonitor.NewLocalMemoryMonitor(),
+		Metric:   metricmonitor.NewMetricMonitor(),
+		Log:      logmonitor.NewLogFileMonitor(),
 		Reporter: reporter,
 	}
 

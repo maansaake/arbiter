@@ -1,4 +1,4 @@
-package monitor
+package log
 
 type logFile struct{}
 

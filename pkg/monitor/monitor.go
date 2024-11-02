@@ -3,30 +3,19 @@ package monitor
 import (
 	"context"
 
+	"tres-bon.se/arbiter/pkg/monitor/cpu"
+	"tres-bon.se/arbiter/pkg/monitor/log"
+	"tres-bon.se/arbiter/pkg/monitor/memory"
+	"tres-bon.se/arbiter/pkg/monitor/metric"
 	"tres-bon.se/arbiter/pkg/report"
 )
 
 type Monitor struct {
-	CPU
-	Memory
-	Metric
-	Log
+	cpu.CPU
+	memory.Memory
+	metric.Metric
+	log.Log
 	Reporter report.Reporter
-}
-
-type CPU interface {
-	Read() float32
-}
-
-type Memory interface {
-	Read() uint
-}
-
-type Metric interface {
-	Pull()
-}
-
-type Log interface {
 }
 
 func (m *Monitor) Start(ctx context.Context) error {

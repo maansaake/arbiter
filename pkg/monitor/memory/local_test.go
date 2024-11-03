@@ -13,18 +13,18 @@ func TestRSSVMS(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Log("read RSS:", v)
 	if v <= 0 {
 		t.Fatal("RSS less than or equal to zero, that's weird")
 	}
-	t.Log("read RSS:", v)
 
 	v, err = mon.VMS()
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	t.Log("read VMS:", v)
 	if v <= 0 {
 		t.Fatal("VMS less than or equal to zero, that's weird")
 	}
-	t.Log("read VMS:", v)
 }

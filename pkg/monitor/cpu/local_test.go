@@ -13,8 +13,8 @@ func TestCPU(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Log("read CPU percentage:", v)
 	if v <= 0 {
 		t.Fatal("CPU percentage less than or equal to zero, that's weird")
 	}
-	t.Log("read CPU percentage:", v)
 }

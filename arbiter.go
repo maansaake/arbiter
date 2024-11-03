@@ -174,8 +174,8 @@ func run(modules module.Modules) error {
 	// TODO: add toggleable monitor options
 	// TODO: add choice of monitor implementations - future, new arbiter.Run(...)
 	monitor := &monitor.Monitor{
-		CPU:      cpumonitor.NewLocalCPUMonitor(),
-		Memory:   memorymonitor.NewLocalMemoryMonitor(),
+		CPU:      cpumonitor.NewLocalCPUMonitor(0),
+		Memory:   memorymonitor.NewLocalMemoryMonitor(0),
 		Metric:   metricmonitor.NewMetricMonitor(),
 		Log:      logmonitor.NewLogFileMonitor(),
 		Reporter: reporter,

@@ -1,11 +1,20 @@
 package cpu
 
-type localCpu struct{}
+import "github.com/shirou/gopsutil/v4/process"
 
-func NewLocalCPUMonitor() CPU {
-	return &localCpu{}
+type localCpu struct {
+	process *process.Process
 }
 
-func (c *localCpu) Read() float32 {
-	return 0.0
+func NewLocalCPUMonitor(pid int32) CPU {
+	proc, err := process.NewProcess(pid)
+	if err != nil {
+		panic(err)
+	}
+
+	return &localCpu{process: proc}
+}
+
+func (c *localCpu) Read() (float64, error) {
+	return c.process.CPUPercent()
 }

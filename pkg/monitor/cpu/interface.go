@@ -1,5 +1,5 @@
 package cpu
 
 type CPU interface {
-	Read() float32
+	Read() (float64, error)
 }

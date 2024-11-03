@@ -1,5 +1,6 @@
 package memory
 
 type Memory interface {
-	Read() uint
+	RSS() (uint, error)
+	VMS() (uint, error)
 }

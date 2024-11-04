@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"tres-bon.se/arbiter"
-	samplemodule "tres-bon.se/arbiter/cmd/example/sample"
+	samplemodule "tres-bon.se/arbiter/examples/samplemod/sample"
 	"tres-bon.se/arbiter/pkg/module"
 )
 

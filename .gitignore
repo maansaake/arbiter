@@ -29,8 +29,8 @@ go.work.sum
 .idea/
 
 # bin
-example
-!cmd/example
+samplemod
+!examples/samplemod
 arbiter
 arbiter-example
 

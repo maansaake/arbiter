@@ -21,5 +21,6 @@ func NewLocalCPUMonitor(pid int32) CPU {
 }
 
 func (c *localCpu) Read() (float64, error) {
+	// Percent(0) returns the CPU percentage since the last reading.
 	return c.process.Percent(0)
 }

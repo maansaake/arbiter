@@ -15,6 +15,7 @@ func NewLocalMemoryMonitor(pid int32) Memory {
 }
 
 func (m *localMemory) RSS() (uint, error) {
+	// MemoryInfo() returns a struct containing all memory metrics of the process.
 	memInfo, err := m.process.MemoryInfo()
 	if err != nil {
 		return 0, err
@@ -23,6 +24,7 @@ func (m *localMemory) RSS() (uint, error) {
 }
 
 func (m *localMemory) VMS() (uint, error) {
+	// MemoryInfo() returns a struct containing all memory metrics of the process.
 	memInfo, err := m.process.MemoryInfo()
 	if err != nil {
 		return 0, err

@@ -4,7 +4,20 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/shirou/gopsutil/v4/process"
 )
+
+func TestTempCPU(t *testing.T) {
+	proc, err := process.NewProcess(int32(os.Getpid()))
+	if err != nil {
+		panic(err)
+	}
+
+	// Initial ignored call to avoid 0 return for first reading.
+	perc, _ := proc.CPUPercent()
+	t.Log(perc)
+}
 
 func TestCPU(t *testing.T) {
 	mon := NewLocalCPUMonitor(int32(os.Getpid()))

@@ -35,7 +35,8 @@ const (
 )
 
 var (
-	duration time.Duration = time.Minute * 5
+	duration   time.Duration = time.Minute * 5
+	monitorPid int           = -1
 
 	subcommands     = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
 	subcommandIndex = -1
@@ -59,7 +60,8 @@ func Run(modules module.Modules) error {
 	}
 
 	// Global flags
-	flag.DurationVar(&duration, "duration", duration, "The duration of the test run.")
+	flag.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
+	flag.IntVar(&monitorPid, "monitor-pid", monitorPid, "(Required) A PID to monitor resource usage of during the test run.")
 
 	// To trigger on --help and parse global flags
 	flag.Parse()
@@ -68,9 +70,24 @@ func Run(modules module.Modules) error {
 	subcommandIndex = slices.IndexFunc(os.Args, func(e string) bool {
 		return slices.Contains(subcommands, e)
 	})
+	parseError := false
 	if subcommandIndex == -1 {
-		flag.CommandLine.SetOutput(os.Stderr)
+		parseError = true
 		fmt.Fprint(flag.CommandLine.Output(), "no subcommand given\n")
+	}
+
+	if duration < 30*time.Second {
+		parseError = true
+		fmt.Fprint(flag.CommandLine.Output(), "test duration was less than 30 seconds\n")
+	}
+
+	if monitorPid == -1 {
+		parseError = true
+		fmt.Fprint(flag.CommandLine.Output(), "no PID to monitor given\n")
+	}
+
+	if parseError {
+		flag.CommandLine.SetOutput(os.Stderr)
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -174,10 +191,10 @@ func run(modules module.Modules) error {
 	// TODO: add toggleable monitor options
 	// TODO: add choice of monitor implementations - future, new arbiter.Run(...)
 	monitor := &monitor.Monitor{
-		CPU:      cpumonitor.NewLocalCPUMonitor(0),
-		Memory:   memorymonitor.NewLocalMemoryMonitor(0),
+		CPU:      cpumonitor.NewLocalCPUMonitor(int32(monitorPid)),
+		Memory:   memorymonitor.NewLocalMemoryMonitor(int32(monitorPid)),
 		Metric:   metricmonitor.NewMetricMonitor(),
-		Log:      logmonitor.NewLogFileMonitor(),
+		Log:      logmonitor.NewLogFileMonitor(""),
 		Reporter: reporter,
 	}
 

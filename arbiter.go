@@ -19,10 +19,9 @@ import (
 	"tres-bon.se/arbiter/pkg/module"
 	modulearg "tres-bon.se/arbiter/pkg/module/arg"
 	"tres-bon.se/arbiter/pkg/monitor"
-	cpumonitor "tres-bon.se/arbiter/pkg/monitor/cpu"
-	logmonitor "tres-bon.se/arbiter/pkg/monitor/log"
-	memorymonitor "tres-bon.se/arbiter/pkg/monitor/memory"
-	metricmonitor "tres-bon.se/arbiter/pkg/monitor/metric"
+	"tres-bon.se/arbiter/pkg/monitor/cpu"
+	"tres-bon.se/arbiter/pkg/monitor/log"
+	"tres-bon.se/arbiter/pkg/monitor/memory"
 	"tres-bon.se/arbiter/pkg/report"
 	"tres-bon.se/arbiter/pkg/traffic"
 	"tres-bon.se/arbiter/pkg/zerologr"
@@ -32,11 +31,15 @@ const (
 	FLAGSET_CLI  = modulearg.FLAGSET
 	FLAGSET_GEN  = "generate"
 	FLAGSET_FILE = "file"
+
+	MONITOR_PID_DEFAULT  = -1
+	MONITOR_FILE_DEFAULT = "unset"
 )
 
 var (
-	duration   time.Duration = time.Minute * 5
-	monitorPid int           = -1
+	duration    time.Duration = time.Minute * 5
+	monitorPid  int           = MONITOR_PID_DEFAULT
+	monitorFile string        = MONITOR_FILE_DEFAULT
 
 	subcommands     = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
 	subcommandIndex = -1
@@ -61,7 +64,8 @@ func Run(modules module.Modules) error {
 
 	// Global flags
 	flag.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
-	flag.IntVar(&monitorPid, "monitor-pid", monitorPid, "(Required) A PID to monitor resource usage of during the test run.")
+	flag.IntVar(&monitorPid, "monitor.pid", monitorPid, "A PID to monitor resource usage of during the test run.")
+	flag.StringVar(&monitorFile, "monitor.file", monitorFile, "A file to stream log entries from.")
 
 	// To trigger on --help and parse global flags
 	flag.Parse()
@@ -79,11 +83,6 @@ func Run(modules module.Modules) error {
 	if duration < 30*time.Second {
 		parseError = true
 		fmt.Fprint(flag.CommandLine.Output(), "test duration was less than 30 seconds\n")
-	}
-
-	if monitorPid == -1 {
-		parseError = true
-		fmt.Fprint(flag.CommandLine.Output(), "no PID to monitor given\n")
 	}
 
 	if parseError {
@@ -188,14 +187,16 @@ func run(modules module.Modules) error {
 	// TODO: add choice of reporter implementation - future, new arbiter.Run(...)
 	reporter := &report.YAMLReporter{}
 	// TODO: add threshold support
-	// TODO: add toggleable monitor options
 	// TODO: add choice of monitor implementations - future, new arbiter.Run(...)
-	monitor := &monitor.Monitor{
-		CPU:      cpumonitor.NewLocalCPUMonitor(int32(monitorPid)),
-		Memory:   memorymonitor.NewLocalMemoryMonitor(int32(monitorPid)),
-		Metric:   metricmonitor.NewMetricMonitor(),
-		Log:      logmonitor.NewLogFileMonitor(""),
-		Reporter: reporter,
+	monitor := &monitor.Monitor{Reporter: reporter}
+
+	if monitorPid != MONITOR_PID_DEFAULT {
+		monitor.CPU = cpu.NewLocalCPUMonitor(int32(monitorPid))
+		monitor.Memory = memory.NewLocalMemoryMonitor(int32(monitorPid))
+	}
+
+	if monitorFile != MONITOR_FILE_DEFAULT {
+		monitor.Log = log.NewLogFileMonitor(monitorFile)
 	}
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration

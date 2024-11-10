@@ -101,10 +101,13 @@ func TestFileLogRotation(t *testing.T) {
 	logS := log.(*logFile)
 
 	events := sync.WaitGroup{}
-	log.Stream(context.TODO(), func(s string, err error) {
+	err = log.Stream(context.TODO(), func(s string, err error) {
 		t.Log("got log event:", s)
 		events.Done()
 	})
+	if err != nil {
+		t.Fatal("failed to start log stream")
+	}
 
 	if logS.offset != 0 {
 		t.Fatal("offset should have been 0")

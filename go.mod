@@ -3,6 +3,7 @@ module tres-bon.se/arbiter
 go 1.23.0
 
 require (
+	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-logr/logr v1.4.2
 	github.com/rs/zerolog v1.33.0
 	github.com/shirou/gopsutil/v4 v4.24.10

@@ -140,6 +140,7 @@ func (l *logFile) monitorEvents(ctx context.Context) {
 				}
 			}
 		case <-ctx.Done():
+			log.Info("closing watcher")
 			l.watcher.Close()
 			return
 		}

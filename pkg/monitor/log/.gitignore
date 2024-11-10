@@ -1,3 +1,4 @@
 dynamic_log_file.log
 rotating.log
 partial.log
+context.log

@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	log "tres-bon.se/arbiter/pkg/zerologr"
@@ -202,4 +203,45 @@ func TestFileLogPartialWrite(t *testing.T) {
 	events.Wait()
 }
 
-func TestFileLogContextDone(t *testing.T) {}
+func TestFileLogContextDone(t *testing.T) {
+	filePath := "./context.log"
+	log.SetLogger(log.New(&log.Opts{Console: true}))
+	defer func() {
+		// not much to do about the error at this stage :)
+		_ = os.Remove(filePath)
+		log.SetLogger(logr.Logger{})
+	}()
+	f, err := os.Create(filePath)
+	if err != nil {
+		t.Fatal("could not create context log file")
+	}
+	defer f.Close()
+
+	log := NewLogFileMonitor(filePath)
+	logS := log.(*logFile)
+
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	err = log.Stream(ctx, func(s string, err error) {})
+	if err != nil {
+		t.Fatal("failed to start log stream")
+	}
+	t.Log(len(logS.watcher.WatchList()))
+
+	cancel()
+
+	att := 0
+	for {
+		if len(logS.watcher.WatchList()) == 0 {
+			break
+		}
+		att += 1
+
+		if att == 50 {
+			t.Fatal("watch list not cleared as expected")
+			break
+		}
+
+		time.Sleep(1 * time.Millisecond)
+	}
+}

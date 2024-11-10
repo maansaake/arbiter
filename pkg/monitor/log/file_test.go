@@ -153,6 +153,53 @@ func TestFileLogRotation(t *testing.T) {
 	}
 }
 
-func TestFileLogPartialWrite(t *testing.T) {}
+func TestFileLogPartialWrite(t *testing.T) {
+	filePath := "./partial.log"
+	defer func() {
+		// not much to do about the error at this stage :)
+		_ = os.Remove(filePath)
+	}()
+	f, err := os.Create(filePath)
+	if err != nil {
+		t.Fatal("could not create partial log file")
+	}
+	defer f.Close()
+
+	log := NewLogFileMonitor(filePath)
+	logS := log.(*logFile)
+
+	events := sync.WaitGroup{}
+	err = log.Stream(context.TODO(), func(s string, err error) {
+		t.Log("got log event:", s)
+
+		if s != "a partial logline now completed" {
+			t.Fatal("log message contents not as expected")
+		}
+
+		events.Done()
+	})
+	if err != nil {
+		t.Fatal("failed to start log stream")
+	}
+
+	if logS.offset != 0 {
+		t.Fatal("offset should have been 0")
+	}
+
+	// Don't await until line break is written or the test hangs.
+	events.Add(1)
+	_, err = f.Write([]byte("a partial log"))
+	if err != nil {
+		t.Fatal("failed to write to file:", err)
+	}
+
+	_, err = f.Write([]byte("line now completed\n"))
+	if err != nil {
+		t.Fatal("failed to write to file:", err)
+	}
+
+	// Await event emitter
+	events.Wait()
+}
 
 func TestFileLogContextDone(t *testing.T) {}

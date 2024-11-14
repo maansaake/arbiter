@@ -22,6 +22,7 @@ import (
 	"tres-bon.se/arbiter/pkg/monitor/cpu"
 	"tres-bon.se/arbiter/pkg/monitor/log"
 	"tres-bon.se/arbiter/pkg/monitor/memory"
+	"tres-bon.se/arbiter/pkg/monitor/metric"
 	"tres-bon.se/arbiter/pkg/report"
 	"tres-bon.se/arbiter/pkg/traffic"
 	"tres-bon.se/arbiter/pkg/zerologr"
@@ -32,15 +33,19 @@ const (
 	FLAGSET_GEN  = "generate"
 	FLAGSET_FILE = "file"
 
-	MONITOR_PID_DEFAULT  = -1
-	MONITOR_FILE_DEFAULT = "unset"
+	MONITOR_PID_DEFAULT              = -1
+	MONITOR_FILE_DEFAULT             = "none"
+	MONITOR_METRICS_ENDPOINT_DEFAULT = "none"
 )
 
 var (
-	duration    time.Duration = time.Minute * 5
-	monitorPid  int           = MONITOR_PID_DEFAULT
-	monitorFile string        = MONITOR_FILE_DEFAULT
+	// global flag vars
+	duration               time.Duration = time.Minute * 5
+	monitorPid             int           = MONITOR_PID_DEFAULT
+	monitorFile            string        = MONITOR_FILE_DEFAULT
+	monitorMetricsEndpoint string        = MONITOR_METRICS_ENDPOINT_DEFAULT
 
+	// subcommand parsing vars
 	subcommands     = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
 	subcommandIndex = -1
 
@@ -64,8 +69,9 @@ func Run(modules module.Modules) error {
 
 	// Global flags
 	flag.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
-	flag.IntVar(&monitorPid, "monitor.pid", monitorPid, "A PID to monitor resource usage of during the test run.")
-	flag.StringVar(&monitorFile, "monitor.file", monitorFile, "A file to stream log entries from.")
+	flag.IntVar(&monitorPid, "monitor.performance.pid", monitorPid, "A PID to monitor resource usage (CPU & memory) of during the test run.")
+	flag.StringVar(&monitorFile, "monitor.log.file", monitorFile, "A file to stream log entries from.")
+	flag.StringVar(&monitorMetricsEndpoint, "monitor.metric.endpoint", monitorMetricsEndpoint, "An endpoint to fetch metrics from.")
 
 	// To trigger on --help and parse global flags
 	flag.Parse()
@@ -199,11 +205,15 @@ func run(modules module.Modules) error {
 		monitor.Log = log.NewLogFileMonitor(monitorFile)
 	}
 
+	if monitorMetricsEndpoint != MONITOR_METRICS_ENDPOINT_DEFAULT {
+		monitor.Metric = metric.NewMetricMonitor(monitorMetricsEndpoint)
+	}
+
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
 	startLogger.Info("starting the monitor and traffic generation")
 
 	runCtx := context.Background()
-	runCtx, deadlineStop := context.WithDeadline(runCtx, time.Now().Add(5*time.Second))
+	runCtx, deadlineStop := context.WithDeadline(runCtx, time.Now().Add(duration))
 	defer deadlineStop()
 	if err := monitor.Start(runCtx); err != nil {
 		startLogger.Error(err, "failed to start the monitor")
@@ -221,6 +231,7 @@ func run(modules module.Modules) error {
 
 	startLogger.Info("awaiting stop signal")
 	<-runCtx.Done()
+	startLogger = startLogger.WithName("stopping")
 
 	startLogger.Info("got stop signal")
 

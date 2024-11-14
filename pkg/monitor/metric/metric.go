@@ -1,10 +1,13 @@
 package metric
 
 type metric struct {
+	endpoint string
 }
 
-func NewMetricMonitor() Metric {
-	return &metric{}
+func NewMetricMonitor(endpoint string) Metric {
+	return &metric{
+		endpoint: endpoint,
+	}
 }
 
 func (m *metric) Pull() {}

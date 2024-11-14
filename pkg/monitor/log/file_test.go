@@ -13,10 +13,18 @@ import (
 )
 
 func TestFileLogStreamStart(t *testing.T) {
-	f := "./test_file.log"
+	fileName := "./test_file.log"
+	_, err := os.Create(fileName)
+	if err != nil {
+		t.Fatalf("failed to create test file: %s", err)
+	}
+	defer func() {
+		// not much to do about the error at this stage :)
+		_ = os.Remove(fileName)
+	}()
 
-	log := NewLogFileMonitor(f)
-	err := log.Stream(context.TODO(), func(l string, err error) {})
+	log := NewLogFileMonitor(fileName)
+	err = log.Stream(context.TODO(), func(l string, err error) {})
 	if err != nil {
 		t.Fatalf("failed to start file stream: %s", err)
 	}
@@ -52,7 +60,8 @@ func TestFileLogEmitEvent(t *testing.T) {
 	events := 100
 	gotEvent := sync.WaitGroup{}
 	gotEvent.Add(events)
-	err = log.Stream(context.TODO(), func(logEvent string, err error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	err = log.Stream(ctx, func(logEvent string, err error) {
 		if err != nil {
 			t.Fatalf("unexpected log event error: %s", err)
 		}
@@ -84,6 +93,7 @@ func TestFileLogEmitEvent(t *testing.T) {
 	}()
 
 	gotEvent.Wait()
+	cancel()
 }
 
 func TestFileLogRotation(t *testing.T) {

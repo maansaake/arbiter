@@ -1,7 +1,7 @@
 # Arbiter
 
 ![build](https://github.com/maansthoernvik/arbiter/actions/workflows/build.yaml/badge.svg)
-[![codecov](https://codecov.io/gh/maansthoernvik/arbiter/graph/badge.svg?token=pi9cjem8ol)](https://codecov.io/gh/maansthoernvik/arbiter)
+[![codecov](https://codecov.io/gh/maansaake/arbiter/graph/badge.svg?token=pi9cjem8ol)](https://codecov.io/gh/maansaake/arbiter)
 
 Arbiter is a system testing framework aimed at improving software testability. It provides a rich and flexible framework that is used to implement system level tests for any system.
 

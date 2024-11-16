@@ -213,19 +213,17 @@ func run(modules module.Modules) error {
 	}
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
-	startLogger.Info("starting the monitor and traffic generation")
-
-	runCtx := context.Background()
+	background := context.Background()
 	deadline := time.Now().Add(duration)
-	runCtx, deadlineStop := context.WithDeadline(runCtx, deadline)
+	deadlineCtx, deadlineStop := context.WithDeadline(background, deadline)
 	startLogger.Info("traffic will run until", "deadline", deadline)
 
-	if err := monitor.Start(runCtx); err != nil {
+	if err := monitor.Start(deadlineCtx); err != nil {
 		startLogger.Error(err, "failed to start the monitor")
 		panic(err)
 	}
 
-	if err := traffic.Run(runCtx, modules, reporter); err != nil {
+	if err := traffic.Run(deadlineCtx, modules, reporter); err != nil {
 		startLogger.Error(err, "failed to start traffic")
 		panic(err)
 	}
@@ -248,14 +246,18 @@ func run(modules module.Modules) error {
 	}()
 
 	// Start signal interceptor for SIGINT and SIGTERM
-	runCtx, signalStop := signal.NotifyContext(runCtx, syscall.SIGINT, syscall.SIGTERM)
+	signalCtx, signalStop := signal.NotifyContext(background, syscall.SIGINT, syscall.SIGTERM)
 	startLogger.Info("awaiting stop signal")
-	<-runCtx.Done()
+	select {
+	case <-signalCtx.Done():
+		startLogger.Info("got stop signal")
+	case <-deadlineCtx.Done():
+		startLogger.Info("deadline exceeded")
+	}
 	signalStop()
 	deadlineStop()
 
 	startLogger = startLogger.WithName("stopping")
-	startLogger.Info("got stop signal")
 
 	stopCtx, stopCancel := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
 	defer stopCancel()

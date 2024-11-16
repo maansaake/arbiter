@@ -121,7 +121,6 @@ func (l *logFile) monitorEvents(ctx context.Context) {
 					for {
 						// Parse for line breaks and emit log events
 						line, err := buf.ReadBytes(byte('\n'))
-
 						// No delimeter found, write the data back for later use and break.
 						// Data has to be written back to the buffer since the offset has
 						// already been moved up by 'n'.

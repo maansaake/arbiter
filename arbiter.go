@@ -39,13 +39,13 @@ const (
 )
 
 var (
-	// global flag vars
+	// global flag vars.
 	duration               time.Duration = time.Minute * 5
 	monitorPid             int           = MONITOR_PID_DEFAULT
 	monitorFile            string        = MONITOR_FILE_DEFAULT
 	monitorMetricsEndpoint string        = MONITOR_METRICS_ENDPOINT_DEFAULT
 
-	// subcommand parsing vars
+	// subcommand parsing vars.
 	subcommands     = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
 	subcommandIndex = -1
 

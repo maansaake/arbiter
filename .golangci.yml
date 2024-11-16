@@ -1,3 +1,19 @@
-coverage:
-  round: up
-  range: "70...100"
+linters:
+  disable-all: true
+  enable:
+  # default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  # non-default additions
+    - bodyclose
+    - errname
+    - gocritic
+    - godot
+    #- gofmt
+    - gofumpt
+    - goimports
+    - misspell

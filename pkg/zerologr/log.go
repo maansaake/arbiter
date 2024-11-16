@@ -8,9 +8,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var (
-	logger logr.Logger
-)
+var logger logr.Logger
 
 // Automatically adds calldepth to account for this facade.
 func SetLogger(newLogger logr.Logger) {

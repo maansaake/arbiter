@@ -8,14 +8,17 @@ package arbiter
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"slices"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"tres-bon.se/arbiter/pkg/module"
 	modulearg "tres-bon.se/arbiter/pkg/module/arg"
 	"tres-bon.se/arbiter/pkg/monitor"
@@ -213,8 +216,10 @@ func run(modules module.Modules) error {
 	startLogger.Info("starting the monitor and traffic generation")
 
 	runCtx := context.Background()
-	runCtx, deadlineStop := context.WithDeadline(runCtx, time.Now().Add(duration))
-	defer deadlineStop()
+	deadline := time.Now().Add(duration)
+	runCtx, deadlineStop := context.WithDeadline(runCtx, deadline)
+	startLogger.Info("traffic will run until", "deadline", deadline)
+
 	if err := monitor.Start(runCtx); err != nil {
 		startLogger.Error(err, "failed to start the monitor")
 		panic(err)
@@ -225,15 +230,40 @@ func run(modules module.Modules) error {
 		panic(err)
 	}
 
+	// Start metric server
+	var metricServer *http.Server
+	go func() {
+		metricAddr := ":8888"
+		metricServer = &http.Server{
+			Addr:    metricAddr,
+			Handler: http.DefaultServeMux, // Use the default handler
+		}
+		http.Handle("/metrics", promhttp.Handler())
+		startLogger.Info("running metrics server on", "address", metricAddr)
+		if err := metricServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			startLogger.Error(err, "unexpected error")
+		} else {
+			startLogger.Info("metrics server shut down")
+		}
+	}()
+
 	// Start signal interceptor for SIGINT and SIGTERM
 	runCtx, signalStop := signal.NotifyContext(runCtx, syscall.SIGINT, syscall.SIGTERM)
-	defer signalStop()
-
 	startLogger.Info("awaiting stop signal")
 	<-runCtx.Done()
-	startLogger = startLogger.WithName("stopping")
+	signalStop()
+	deadlineStop()
 
+	startLogger = startLogger.WithName("stopping")
 	startLogger.Info("got stop signal")
+
+	stopCtx, stopCancel := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+	defer stopCancel()
+
+	startLogger.Info("stopping metrics server")
+	if err := metricServer.Shutdown(stopCtx); err != nil {
+		startLogger.Error(err, "metrics server shutdown error")
+	}
 
 	startLogger.Info("stopping traffic")
 	traffic.AwaitStop()

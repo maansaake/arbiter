@@ -12,8 +12,6 @@ linters:
     - bodyclose
     - errname
     - gocritic
-    - godot
-    #- gofmt
     - gofumpt
     - goimports
     - misspell

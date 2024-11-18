@@ -43,21 +43,31 @@ const (
 
 var (
 	// global flag vars.
-	duration               time.Duration = time.Minute * 5
-	monitorPid             int           = MONITOR_PID_DEFAULT
-	monitorFile            string        = MONITOR_FILE_DEFAULT
-	monitorMetricsEndpoint string        = MONITOR_METRICS_ENDPOINT_DEFAULT
+	duration    time.Duration = time.Minute * 5
+	monitorPid  int           = MONITOR_PID_DEFAULT
+	monitorFile string        = MONITOR_FILE_DEFAULT
+	// TODO: metric endpoints should be per test module.
+	monitorMetricsEndpoint string = MONITOR_METRICS_ENDPOINT_DEFAULT
 
 	// subcommand parsing vars.
 	subcommands     = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
 	subcommandIndex = -1
 
+	// log.
 	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).WithName("start")
+
+	// metrics.
+	metricAddr = ":8888"
+	// metricPrefix = "arbiter"
 )
 
 // Runs the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
 // runs out (5 minute default).
 func Run(modules module.Modules) error {
+	if len(modules) != 1 {
+		panic("number of modules must be exactly one")
+	}
+
 	flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "%s [subcommand]\n\n", os.Args[0])
@@ -208,6 +218,7 @@ func run(modules module.Modules) error {
 		monitor.Log = log.NewLogFileMonitor(monitorFile)
 	}
 
+	// TODO: metric endpoints should be per test module.
 	if monitorMetricsEndpoint != MONITOR_METRICS_ENDPOINT_DEFAULT {
 		monitor.Metric = metric.NewMetricMonitor(monitorMetricsEndpoint)
 	}
@@ -231,12 +242,17 @@ func run(modules module.Modules) error {
 	// Start metric server
 	var metricServer *http.Server
 	go func() {
-		metricAddr := ":8888"
 		metricServer = &http.Server{
 			Addr:    metricAddr,
 			Handler: http.DefaultServeMux, // Use the default handler
 		}
 		http.Handle("/metrics", promhttp.Handler())
+		for _, module := range modules {
+			http.HandleFunc(fmt.Sprintf("/metrics-%s", module.Name()), func(w http.ResponseWriter, r *http.Request) {
+				w.Write(monitor.LatestRawMetrics(module.Name()))
+			})
+		}
+
 		startLogger.Info("running metrics server on", "address", metricAddr)
 		if err := metricServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			startLogger.Error(err, "unexpected error")
@@ -258,7 +274,6 @@ func run(modules module.Modules) error {
 	deadlineStop()
 
 	startLogger = startLogger.WithName("stopping")
-
 	stopCtx, stopCancel := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
 	defer stopCancel()
 

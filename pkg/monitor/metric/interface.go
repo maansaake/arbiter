@@ -1,5 +1,6 @@
 package metric
 
 type Metric interface {
-	Pull()
+	Pull() ([]byte, error)
+	LatestRawMetrics() []byte
 }

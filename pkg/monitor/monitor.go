@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"bytes"
 	"context"
 	"time"
 
@@ -89,13 +88,10 @@ func (m *Monitor) Start(ctx context.Context) error {
 				case <-tick.C:
 					logger.Info("metric monitor tick")
 
-					metrics, err := m.Metric.Pull()
+					_, err := m.Metric.Pull()
 					if err != nil {
 						logger.Error(err, "failed to fetch metrics")
 					}
-					// TODO: remove this test print
-					n := bytes.Index(metrics, []byte("\n"))
-					logger.Info(string(metrics[:n]))
 				case <-ctx.Done():
 					tick.Stop()
 					return
@@ -105,18 +101,10 @@ func (m *Monitor) Start(ctx context.Context) error {
 	}
 
 	if m.Log != nil {
-		go func() {
-			tick := time.NewTicker(monitorInterval)
-			for {
-				select {
-				case <-tick.C:
-					logger.Info("log monitor tick")
-				case <-ctx.Done():
-					tick.Stop()
-					return
-				}
-			}
-		}()
+		err := m.Log.Stream(ctx, m.logHandler)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -124,4 +112,10 @@ func (m *Monitor) Start(ctx context.Context) error {
 
 func (m *Monitor) LatestRawMetrics(ns string) []byte {
 	return m.Metric.LatestRawMetrics()
+}
+
+func (m *Monitor) logHandler(c string, err error) {
+	if err != nil {
+		logger.Error(err, "monitor log handler error")
+	}
 }

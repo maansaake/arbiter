@@ -10,7 +10,11 @@ type MemoryMock struct {
 }
 
 func NewMemoryMock(vms, rss uint, err error) *MemoryMock {
-	return &MemoryMock{}
+	return &MemoryMock{
+		vms: vms,
+		rss: rss,
+		err: err,
+	}
 }
 
 func (m *MemoryMock) VMS() (uint, error) {

@@ -22,14 +22,17 @@ type Monitor struct {
 	Reporter report.Reporter
 }
 
-var logger logr.Logger
+var (
+	logger          logr.Logger
+	monitorInterval = 10 * time.Second
+)
 
 func (m *Monitor) Start(ctx context.Context) error {
 	logger = zerologr.New(&zerologr.Opts{Console: true})
 
 	if m.CPU != nil {
 		go func() {
-			tick := time.NewTicker(10 * time.Second)
+			tick := time.NewTicker(monitorInterval)
 			for {
 				select {
 				case <-tick.C:
@@ -42,6 +45,7 @@ func (m *Monitor) Start(ctx context.Context) error {
 						logger.Info("current CPU", "percent", cpu)
 					}
 				case <-ctx.Done():
+					tick.Stop()
 					return
 				}
 			}
@@ -50,7 +54,7 @@ func (m *Monitor) Start(ctx context.Context) error {
 
 	if m.Memory != nil {
 		go func() {
-			tick := time.NewTicker(10 * time.Second)
+			tick := time.NewTicker(monitorInterval)
 			for {
 				select {
 				case <-tick.C:
@@ -70,6 +74,7 @@ func (m *Monitor) Start(ctx context.Context) error {
 						logger.Info("current VMS", "bytes", vms)
 					}
 				case <-ctx.Done():
+					tick.Stop()
 					return
 				}
 			}
@@ -78,7 +83,7 @@ func (m *Monitor) Start(ctx context.Context) error {
 
 	if m.Metric != nil {
 		go func() {
-			tick := time.NewTicker(10 * time.Second)
+			tick := time.NewTicker(monitorInterval)
 			for {
 				select {
 				case <-tick.C:
@@ -92,6 +97,7 @@ func (m *Monitor) Start(ctx context.Context) error {
 					n := bytes.Index(metrics, []byte("\n"))
 					logger.Info(string(metrics[:n]))
 				case <-ctx.Done():
+					tick.Stop()
 					return
 				}
 			}
@@ -100,12 +106,13 @@ func (m *Monitor) Start(ctx context.Context) error {
 
 	if m.Log != nil {
 		go func() {
-			tick := time.NewTicker(10 * time.Second)
+			tick := time.NewTicker(monitorInterval)
 			for {
 				select {
 				case <-tick.C:
 					logger.Info("log monitor tick")
 				case <-ctx.Done():
+					tick.Stop()
 					return
 				}
 			}

@@ -249,7 +249,10 @@ func run(modules module.Modules) error {
 		http.Handle("/metrics", promhttp.Handler())
 		for _, module := range modules {
 			http.HandleFunc(fmt.Sprintf("/metrics-%s", module.Name()), func(w http.ResponseWriter, r *http.Request) {
-				w.Write(monitor.LatestRawMetrics(module.Name()))
+				_, err := w.Write(monitor.LatestRawMetrics(module.Name()))
+				if err != nil {
+					w.WriteHeader(500)
+				}
 			})
 		}
 

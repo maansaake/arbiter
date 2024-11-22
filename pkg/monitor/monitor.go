@@ -110,8 +110,8 @@ func (m *Monitor) Start(ctx context.Context) error {
 	return nil
 }
 
-func (m *Monitor) LatestRawMetrics(ns string) []byte {
-	return m.Metric.LatestRawMetrics()
+func (m *Monitor) PullMetrics() ([]byte, error) {
+	return m.Metric.Pull()
 }
 
 func (m *Monitor) logHandler(c string, err error) {

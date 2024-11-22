@@ -43,9 +43,11 @@ const (
 
 var (
 	// global flag vars.
-	duration    time.Duration = time.Minute * 5
-	monitorPid  int           = MONITOR_PID_DEFAULT
-	monitorFile string        = MONITOR_FILE_DEFAULT
+	duration time.Duration = time.Minute * 5
+	// TODO: performance PID should be per test module.
+	monitorPid int = MONITOR_PID_DEFAULT
+	// TODO: log file should be per test module.
+	monitorFile string = MONITOR_FILE_DEFAULT
 	// TODO: metric endpoints should be per test module.
 	monitorMetricsEndpoint string = MONITOR_METRICS_ENDPOINT_DEFAULT
 
@@ -246,10 +248,22 @@ func run(modules module.Modules) error {
 			Addr:    metricAddr,
 			Handler: http.DefaultServeMux, // Use the default handler
 		}
+
+		// Arbiter metrics
 		http.Handle("/metrics", promhttp.Handler())
-		for _, module := range modules {
-			http.HandleFunc(fmt.Sprintf("/metrics-%s", module.Name()), func(w http.ResponseWriter, r *http.Request) {
-				_, err := w.Write(monitor.LatestRawMetrics(module.Name()))
+
+		// If metric endpoint(s) registered
+		// TODO: ensure it's possible to register one or more metric endpoints,
+		// and combine them with the module they belong to. it's not certain all
+		// modules have a metric endpoint. Perhaps extend the module interface
+		// instead. Should they be combined with the module though?
+		if monitorMetricsEndpoint != MONITOR_METRICS_ENDPOINT_DEFAULT {
+			http.HandleFunc(fmt.Sprintf("/metrics-%s", modules[0].Name()), func(w http.ResponseWriter, r *http.Request) {
+				bs, err := monitor.PullMetrics()
+				if err != nil {
+					w.WriteHeader(500)
+				}
+				_, err = w.Write(bs)
 				if err != nil {
 					w.WriteHeader(500)
 				}

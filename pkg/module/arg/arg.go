@@ -72,7 +72,7 @@ func disableName(op *op.Op) string {
 }
 
 func disableDesc(op *op.Op) string {
-	return fmt.Sprintf("disable %s", op.Name)
+	return fmt.Sprintf("Disable %s.", op.Name)
 }
 
 func rateName(op *op.Op) string {
@@ -80,7 +80,7 @@ func rateName(op *op.Op) string {
 }
 
 func rateDesc(op *op.Op) string {
-	return fmt.Sprintf("rate of %s per minute", op.Name)
+	return fmt.Sprintf("Rate of %s per minute.", op.Name)
 }
 
 func Parse(args []string) {

@@ -36,9 +36,10 @@ const (
 	FLAGSET_GEN  = "generate"
 	FLAGSET_FILE = "file"
 
-	MONITOR_PID_DEFAULT              = -1
-	MONITOR_FILE_DEFAULT             = "none"
-	MONITOR_METRICS_ENDPOINT_DEFAULT = "none"
+	MONITOR_PID_DEFAULT                   = -1
+	MONITOR_FILE_DEFAULT                  = "none"
+	MONITOR_METRICS_ENDPOINT_DEFAULT      = "none"
+	MONITOR_DISABLE_METRIC_TICKER_DEFAULT = false
 )
 
 var (
@@ -49,7 +50,8 @@ var (
 	// TODO: log file should be per test module.
 	monitorFile string = MONITOR_FILE_DEFAULT
 	// TODO: metric endpoints should be per test module.
-	monitorMetricsEndpoint string = MONITOR_METRICS_ENDPOINT_DEFAULT
+	monitorMetricsEndpoint     string = MONITOR_METRICS_ENDPOINT_DEFAULT
+	monitorDisableMetricTicker bool   = MONITOR_DISABLE_METRIC_TICKER_DEFAULT
 
 	// subcommand parsing vars.
 	subcommands     = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
@@ -87,6 +89,7 @@ func Run(modules module.Modules) error {
 	flag.IntVar(&monitorPid, "monitor.performance.pid", monitorPid, "A PID to monitor resource usage (CPU & memory) of during the test run.")
 	flag.StringVar(&monitorFile, "monitor.log.file", monitorFile, "A file to stream log entries from.")
 	flag.StringVar(&monitorMetricsEndpoint, "monitor.metric.endpoint", monitorMetricsEndpoint, "An endpoint to fetch metrics from.")
+	flag.BoolVar(&monitorDisableMetricTicker, "monitor.metric.disable.ticker", monitorDisableMetricTicker, "Disable the monitor metric ticker.")
 
 	// To trigger on --help and parse global flags
 	flag.Parse()
@@ -223,6 +226,10 @@ func run(modules module.Modules) error {
 	// TODO: metric endpoints should be per test module.
 	if monitorMetricsEndpoint != MONITOR_METRICS_ENDPOINT_DEFAULT {
 		monitor.Metric = metric.NewMetricMonitor(monitorMetricsEndpoint)
+	}
+
+	if monitorDisableMetricTicker {
+		monitor.DisableMetricTicker = true
 	}
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration

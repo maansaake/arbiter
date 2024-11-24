@@ -24,14 +24,14 @@ func newLocksmithModule() module.Module {
 			},
 			&arg.Arg[int]{
 				Name:  "routines",
-				Desc:  "Sets the number of go-routines",
+				Desc:  "Sets the number of go-routines.",
 				Value: new(int),
 			},
 		},
 		ops: op.Ops{
 			&op.Op{
 				Name:     "lockunlock",
-				Desc:     "Locks and unlocks after a small delay",
+				Desc:     "Locks and unlocks after a small delay.",
 				Disabled: false,
 				Rate:     60,
 				Do: func() (op.Result, error) {

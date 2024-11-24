@@ -19,6 +19,10 @@ type Monitor struct {
 	metric.Metric
 	log.Log
 	Reporter report.Reporter
+
+	// Disables the internal metric ticker, relying on external calls to
+	// PullMetrics to handle metric fetching and triggering threshold checks.
+	DisableMetricTicker bool
 }
 
 var (
@@ -80,7 +84,7 @@ func (m *Monitor) Start(ctx context.Context) error {
 		}()
 	}
 
-	if m.Metric != nil {
+	if m.Metric != nil && !m.DisableMetricTicker {
 		go func() {
 			tick := time.NewTicker(monitorInterval)
 			for {
@@ -111,11 +115,16 @@ func (m *Monitor) Start(ctx context.Context) error {
 }
 
 func (m *Monitor) PullMetrics() ([]byte, error) {
+	if m.Metric == nil {
+		panic("monitor has no metric instance set, pull is impossible")
+	}
 	return m.Metric.Pull()
 }
 
 func (m *Monitor) logHandler(c string, err error) {
 	if err != nil {
 		logger.Error(err, "monitor log handler error")
+	} else {
+		logger.Info("log handler got event: %s", c)
 	}
 }

@@ -93,6 +93,10 @@ func New[T cmp.Ordered](opts *TriggerOpts[T]) Trigger[T] {
 				if !(opts.Raise <= opts.Clear) {
 					panic("For BELOW, raise can't be higher than clear")
 				}
+			case BELOW_OR_EQUAL:
+				if !(opts.Raise < opts.Clear) {
+					panic("For BELOW_OR_EQUAL, raise can't be higher or equal to clear")
+				}
 			}
 		}
 	}
@@ -146,6 +150,8 @@ func (t *triggerImpl[T]) Update(val T) Result {
 		// raised
 		if val <= t.raise && !t.raised {
 			result = RAISE
+		} else if clearPossible && val >= t.clear {
+			result = CLEAR
 		}
 	case EQUAL:
 		// Values equal to 'raise' return a RAISE Result if not already raised, or

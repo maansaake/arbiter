@@ -46,12 +46,30 @@ func (lm *locksmithModule) Name() string {
 	return "locksmith"
 }
 
-func (lm *locksmithModule) Args() arg.Args {
-	return lm.args
-}
-
 func (lm *locksmithModule) Desc() string {
 	return "This is a sample module with a few sample operations."
+}
+
+func (lm *locksmithModule) MonitorFile() *arg.Arg[string] {
+	return &arg.Arg[string]{
+		Value: new(string),
+	}
+}
+
+func (lm *locksmithModule) MonitorMetricsEndpoint() *arg.Arg[string] {
+	return &arg.Arg[string]{
+		Value: new(string),
+	}
+}
+
+func (lm *locksmithModule) MonitorPerformancePID() *arg.Arg[int] {
+	return &arg.Arg[int]{
+		Value: new(int),
+	}
+}
+
+func (lm *locksmithModule) Args() arg.Args {
+	return lm.args
 }
 
 func (lm *locksmithModule) Ops() op.Ops {

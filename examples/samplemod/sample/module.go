@@ -43,12 +43,30 @@ func (sm *SampleModule) Name() string {
 	return "sample"
 }
 
-func (sm *SampleModule) Args() arg.Args {
-	return sm.args
-}
-
 func (sm *SampleModule) Desc() string {
 	return "This is a sample module with a few sample operations."
+}
+
+func (lm *SampleModule) MonitorFile() *arg.Arg[string] {
+	return &arg.Arg[string]{
+		Value: new(string),
+	}
+}
+
+func (lm *SampleModule) MonitorMetricsEndpoint() *arg.Arg[string] {
+	return &arg.Arg[string]{
+		Value: new(string),
+	}
+}
+
+func (lm *SampleModule) MonitorPerformancePID() *arg.Arg[int] {
+	return &arg.Arg[int]{
+		Value: new(int),
+	}
+}
+
+func (sm *SampleModule) Args() arg.Args {
+	return sm.args
 }
 
 func (sm *SampleModule) Ops() op.Ops {

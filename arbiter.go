@@ -30,22 +30,15 @@ import (
 )
 
 const (
-	MONITOR_PID_DEFAULT                   = -1
-	MONITOR_FILE_DEFAULT                  = "none"
-	MONITOR_METRICS_ENDPOINT_DEFAULT      = "none"
 	MONITOR_DISABLE_METRIC_TICKER_DEFAULT = false
+	DISABLE_ARBITER_METRIC_SERVER         = false
 )
 
 var (
 	// global flag vars.
-	duration time.Duration = time.Minute * 5
-	// TODO: performance PID should be per test module.
-	monitorPid int = MONITOR_PID_DEFAULT
-	// TODO: log file should be per test module.
-	monitorFile string = MONITOR_FILE_DEFAULT
-	// TODO: metric endpoints should be per test module.
-	monitorMetricsEndpoint     string = MONITOR_METRICS_ENDPOINT_DEFAULT
-	monitorDisableMetricTicker bool   = MONITOR_DISABLE_METRIC_TICKER_DEFAULT
+	duration                   time.Duration = time.Minute * 5
+	monitorDisableMetricTicker bool          = MONITOR_DISABLE_METRIC_TICKER_DEFAULT
+	disableMetricServer        bool          = DISABLE_ARBITER_METRIC_SERVER
 
 	// subcommand parsing vars.
 	subcommands     = []string{cli.FLAGSET, gen.FLAGSET, file.FLAGSET}
@@ -89,10 +82,8 @@ func Run(modules module.Modules) error {
 
 	// Global flags
 	flag.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
-	flag.IntVar(&monitorPid, "monitor.performance.pid", monitorPid, "A PID to monitor resource usage (CPU & memory) of during the test run.")
-	flag.StringVar(&monitorFile, "monitor.log.file", monitorFile, "A file to stream log entries from.")
-	flag.StringVar(&monitorMetricsEndpoint, "monitor.metric.endpoint", monitorMetricsEndpoint, "An endpoint to fetch metrics from.")
 	flag.BoolVar(&monitorDisableMetricTicker, "monitor.metric.disable.ticker", monitorDisableMetricTicker, "Disable the monitor metric ticker.")
+	flag.BoolVar(&disableMetricServer, "disable.metric.server", disableMetricServer, "Disable the arbiter metric server.")
 
 	// To trigger on --help and parse global flags
 	flag.Parse()
@@ -158,25 +149,11 @@ func run(modules module.Modules) error {
 	}
 	startLogger.Info("all modules started")
 
-	reporter := &report.YAMLReporter{}
-	monitor := &monitor.Monitor{Reporter: reporter}
-
-	if monitorPid != MONITOR_PID_DEFAULT {
-		monitor.CPU = cpu.NewLocalCPUMonitor(int32(monitorPid))
-		monitor.Memory = memory.NewLocalMemoryMonitor(int32(monitorPid))
-	}
-
-	if monitorFile != MONITOR_FILE_DEFAULT {
-		monitor.Log = log.NewLogFileMonitor(monitorFile)
-	}
-
-	// TODO: metric endpoints should be per test module.
-	if monitorMetricsEndpoint != MONITOR_METRICS_ENDPOINT_DEFAULT {
-		monitor.Metric = metric.NewMetricMonitor(monitorMetricsEndpoint)
-	}
-
-	if monitorDisableMetricTicker {
-		monitor.DisableMetricTicker = true
+	reporter := setupReporter()
+	monitor := setupMonitor(reporter, modules)
+	var metricServer *http.Server
+	if !disableMetricServer {
+		metricServer = setupMetricServer(monitor, modules)
 	}
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
@@ -195,43 +172,6 @@ func run(modules module.Modules) error {
 		panic(err)
 	}
 
-	// Start metric server
-	var metricServer *http.Server
-	go func() {
-		metricServer = &http.Server{
-			Addr:    metricAddr,
-			Handler: http.DefaultServeMux, // Use the default handler
-		}
-
-		// Arbiter metrics
-		http.Handle("/metrics", promhttp.Handler())
-
-		// If metric endpoint(s) registered
-		// TODO: ensure it's possible to register one or more metric endpoints,
-		// and combine them with the module they belong to. it's not certain all
-		// modules have a metric endpoint. Perhaps extend the module interface
-		// instead. Should they be combined with the module though?
-		if monitorMetricsEndpoint != MONITOR_METRICS_ENDPOINT_DEFAULT {
-			http.HandleFunc(fmt.Sprintf("/metrics-%s", modules[0].Name()), func(w http.ResponseWriter, r *http.Request) {
-				bs, err := monitor.PullMetrics()
-				if err != nil {
-					w.WriteHeader(500)
-				}
-				_, err = w.Write(bs)
-				if err != nil {
-					w.WriteHeader(500)
-				}
-			})
-		}
-
-		startLogger.Info("running metrics server on", "address", metricAddr)
-		if err := metricServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			startLogger.Error(err, "unexpected error")
-		} else {
-			startLogger.Info("metrics server shut down")
-		}
-	}()
-
 	// Start signal interceptor for SIGINT and SIGTERM
 	signalCtx, signalStop := signal.NotifyContext(background, syscall.SIGINT, syscall.SIGTERM)
 	startLogger.Info("awaiting stop signal")
@@ -248,9 +188,11 @@ func run(modules module.Modules) error {
 	stopCtx, stopCancel := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
 	defer stopCancel()
 
-	startLogger.Info("stopping metrics server")
-	if err := metricServer.Shutdown(stopCtx); err != nil {
-		startLogger.Error(err, "metrics server shutdown error")
+	if !disableMetricServer {
+		startLogger.Info("stopping metrics server")
+		if err := metricServer.Shutdown(stopCtx); err != nil {
+			startLogger.Error(err, "metrics server shutdown error")
+		}
 	}
 
 	startLogger.Info("stopping traffic")
@@ -267,4 +209,76 @@ func run(modules module.Modules) error {
 	reporter.Finalise()
 
 	return nil
+}
+
+func setupReporter() report.Reporter {
+	return &report.YAMLReporter{}
+}
+
+func setupMonitor(reporter report.Reporter, modules module.Modules) *monitor.Monitor {
+	monitor := &monitor.Monitor{Reporter: reporter}
+
+	for _, mod := range modules {
+		performancePIDArg := mod.MonitorPerformancePID()
+		if *performancePIDArg.Value != module.NO_PERFORMANCE_PID {
+			monitor.CPU = cpu.NewLocalCPUMonitor(int32(*performancePIDArg.Value))
+			monitor.Memory = memory.NewLocalMemoryMonitor(int32(*performancePIDArg.Value))
+		}
+
+		fileArg := mod.MonitorFile()
+		if *fileArg.Value != module.NO_LOG_FILE {
+			monitor.Log = log.NewLogFileMonitor(*fileArg.Value)
+		}
+
+		metricsEndpointArg := mod.MonitorMetricsEndpoint()
+		if *metricsEndpointArg.Value != module.NO_METRICS_ENDPOINT {
+			// TODO: metric endpoints should be per test module.
+			monitor.Metric = metric.NewMetricMonitor(*metricsEndpointArg.Value)
+		}
+	}
+
+	if monitorDisableMetricTicker {
+		monitor.DisableMetricTicker = true
+	}
+
+	return monitor
+}
+
+func setupMetricServer(monitor *monitor.Monitor, modules module.Modules) *http.Server {
+	// Start metric server
+	var metricServer *http.Server
+	go func() {
+		metricServer = &http.Server{
+			Addr:    metricAddr,
+			Handler: http.DefaultServeMux, // Use the default handler
+		}
+
+		// Arbiter metrics
+		http.Handle("/metrics", promhttp.Handler())
+
+		// If metric endpoint(s) registered
+		for _, mod := range modules {
+			if *mod.MonitorMetricsEndpoint().Value != module.NO_METRICS_ENDPOINT {
+				http.HandleFunc(fmt.Sprintf("/metrics-%s", mod.Name()), func(w http.ResponseWriter, r *http.Request) {
+					bs, err := monitor.PullMetrics()
+					if err != nil {
+						w.WriteHeader(500)
+					}
+					_, err = w.Write(bs)
+					if err != nil {
+						w.WriteHeader(500)
+					}
+				})
+			}
+		}
+
+		startLogger.Info("running metrics server on", "address", metricAddr)
+		if err := metricServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			startLogger.Error(err, "unexpected error")
+		} else {
+			startLogger.Info("metrics server shut down")
+		}
+	}()
+
+	return metricServer
 }

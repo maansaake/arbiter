@@ -42,27 +42,27 @@ func newLocksmithModule() module.Module {
 	}
 }
 
-func (sm *locksmithModule) Name() string {
+func (lm *locksmithModule) Name() string {
 	return "locksmith"
 }
 
-func (sm *locksmithModule) Args() arg.Args {
-	return sm.args
+func (lm *locksmithModule) Args() arg.Args {
+	return lm.args
 }
 
-func (sm *locksmithModule) Desc() string {
+func (lm *locksmithModule) Desc() string {
 	return "This is a sample module with a few sample operations."
 }
 
-func (sm *locksmithModule) Ops() op.Ops {
-	return sm.ops
+func (lm *locksmithModule) Ops() op.Ops {
+	return lm.ops
 }
 
-func (sm *locksmithModule) Run() error {
+func (lm *locksmithModule) Run() error {
 	return nil
 }
 
-func (sm *locksmithModule) Stop() error {
+func (lm *locksmithModule) Stop() error {
 	return nil
 }
 

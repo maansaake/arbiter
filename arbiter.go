@@ -1,9 +1,5 @@
-// Arbiter runs system tests on the target system.
-//
-// By providing custom modules, Arbiter is able to generate traffic and monitor
-// any system, measuing CPU, memory, metrics, and logs. Arbiter can judge a
-// system based on those four parameters. Add rates for operations and
-// thresholds to verify the software is staying within expected boundaries.
+// The arbiter package implements the orchestration between monitoring,
+// reporting, traffic scheduling and startup/shutdown procedures.
 package arbiter
 
 import (
@@ -20,22 +16,20 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"tres-bon.se/arbiter/pkg/module"
-	modulearg "tres-bon.se/arbiter/pkg/module/arg"
 	"tres-bon.se/arbiter/pkg/monitor"
 	"tres-bon.se/arbiter/pkg/monitor/cpu"
 	"tres-bon.se/arbiter/pkg/monitor/log"
 	"tres-bon.se/arbiter/pkg/monitor/memory"
 	"tres-bon.se/arbiter/pkg/monitor/metric"
 	"tres-bon.se/arbiter/pkg/report"
+	"tres-bon.se/arbiter/pkg/subcommand/cli"
+	"tres-bon.se/arbiter/pkg/subcommand/file"
+	"tres-bon.se/arbiter/pkg/subcommand/gen"
 	"tres-bon.se/arbiter/pkg/traffic"
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
 const (
-	FLAGSET_CLI  = modulearg.FLAGSET
-	FLAGSET_GEN  = "generate"
-	FLAGSET_FILE = "file"
-
 	MONITOR_PID_DEFAULT                   = -1
 	MONITOR_FILE_DEFAULT                  = "none"
 	MONITOR_METRICS_ENDPOINT_DEFAULT      = "none"
@@ -54,7 +48,7 @@ var (
 	monitorDisableMetricTicker bool   = MONITOR_DISABLE_METRIC_TICKER_DEFAULT
 
 	// subcommand parsing vars.
-	subcommands     = []string{FLAGSET_CLI, FLAGSET_GEN, FLAGSET_FILE}
+	subcommands     = []string{cli.FLAGSET, gen.FLAGSET, file.FLAGSET}
 	subcommandIndex = -1
 
 	// log.
@@ -63,11 +57,20 @@ var (
 	// metrics.
 	metricAddr = ":8888"
 	// metricPrefix = "arbiter"
+
+	ErrParseError         = errors.New("flag parse error")
+	ErrNoSubcommand       = errors.New("no subcommand given")
+	ErrSubcommandNotFound = errors.New("subcommand not found")
+	ErrDurationTooShort   = errors.New("duration has to be minimum 30 seconds")
 )
 
 // Runs the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
 // runs out (5 minute default).
 func Run(modules module.Modules) error {
+	formatFlagset := func(fset string) string {
+		return fmt.Sprintf("%-10s", fset)
+	}
+
 	if len(modules) != 1 {
 		panic("number of modules must be exactly one")
 	}
@@ -76,9 +79,9 @@ func Run(modules module.Modules) error {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "%s [subcommand]\n\n", os.Args[0])
 		fmt.Fprint(flag.CommandLine.Output(), "subcommands:\n")
-		fmt.Fprint(flag.CommandLine.Output(), "  cli      Run using CLI flags.\n")
-		fmt.Fprint(flag.CommandLine.Output(), "  generate Generate a test model file.\n")
-		fmt.Fprint(flag.CommandLine.Output(), "  file     Run from a test model file.\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  %s Run using CLI flags.\n", formatFlagset(cli.FLAGSET))
+		fmt.Fprintf(flag.CommandLine.Output(), "  %s Generate a test model file.\n", formatFlagset(gen.FLAGSET))
+		fmt.Fprintf(flag.CommandLine.Output(), "  %s Run from a test model file.\n", formatFlagset(file.FLAGSET))
 		fmt.Fprint(flag.CommandLine.Output(), "\n")
 		fmt.Fprint(flag.CommandLine.Output(), "global flags:\n")
 		flag.PrintDefaults()
@@ -98,95 +101,44 @@ func Run(modules module.Modules) error {
 	subcommandIndex = slices.IndexFunc(os.Args, func(e string) bool {
 		return slices.Contains(subcommands, e)
 	})
-	parseError := false
+	parseErrs := []error{}
 	if subcommandIndex == -1 {
-		parseError = true
-		fmt.Fprint(flag.CommandLine.Output(), "no subcommand given\n")
+		fmt.Fprint(flag.CommandLine.Output(), ErrNoSubcommand.Error()+"\n")
+		parseErrs = append(parseErrs, ErrNoSubcommand)
 	}
 
 	if duration < 30*time.Second {
-		parseError = true
-		fmt.Fprint(flag.CommandLine.Output(), "test duration was less than 30 seconds\n")
+		fmt.Fprint(flag.CommandLine.Output(), ErrDurationTooShort.Error()+"\n")
+		parseErrs = append(parseErrs, ErrDurationTooShort)
 	}
 
-	if parseError {
+	if len(parseErrs) > 1 {
 		flag.CommandLine.SetOutput(os.Stderr)
 		flag.Usage()
-		os.Exit(1)
+		return errors.Join(parseErrs...)
 	}
 
 	// Check invoked subcommand
 	switch os.Args[subcommandIndex] {
-	case modulearg.FLAGSET:
-		return handleCli(modules)
-	case FLAGSET_GEN:
-		return handleGen(modules)
-	case FLAGSET_FILE:
-		return handleFile(modules)
+	case cli.FLAGSET:
+		if err := cli.Handle(subcommandIndex, modules); err != nil {
+			return err
+		}
+		return run(modules)
+	case gen.FLAGSET:
+		return gen.Handle(subcommandIndex, modules)
+	case file.FLAGSET:
+		if err := file.Handle(subcommandIndex, modules); err != nil {
+			return err
+		}
+		return run(modules)
 	default:
 		flag.CommandLine.SetOutput(os.Stderr)
-		fmt.Fprintf(flag.CommandLine.Output(), "subcommand not found: %s\n", os.Args[1])
+		err := fmt.Errorf("%w: %v", ErrSubcommandNotFound, os.Args)
+		fmt.Fprint(flag.CommandLine.Output(), err.Error()+"\n")
 		flag.Usage()
-		os.Exit(1)
+		return err
 	}
-
-	return nil
-}
-
-// Handle the CLI subcommand call, registering cmd line flags for both module
-// arguments and their operations and parsing them. Runs the modules with the
-// input flags.
-func handleCli(modules module.Modules) error {
-	for _, m := range modules {
-		for _, a := range m.Args() {
-			modulearg.Register(m.Name(), a)
-		}
-
-		// Add operation args
-		for _, op := range m.Ops() {
-			modulearg.RegisterOp(m.Name(), op)
-		}
-	}
-
-	modulearg.Parse(os.Args[subcommandIndex+1:])
-
-	startLogger.Info("parsed CLI arguments")
-
-	return run(modules)
-}
-
-// Handles the generate subcommand. Generates a test model file based on the
-// input modules.
-func handleGen(_ module.Modules) error {
-	var output string
-	fs := flag.NewFlagSet(FLAGSET_GEN, flag.ExitOnError)
-	fs.StringVar(&output, "output", "./arbiter.yaml", "Output path for the generated test model file.")
-	err := fs.Parse(os.Args[subcommandIndex+1:])
-	if err != nil {
-		fs.SetOutput(os.Stderr)
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	// TODO: generate using input modules
-	panic("not implemented")
-}
-
-// Handles the file subcommand, parsing the input test model file and running
-// the modules with the file's settings.
-func handleFile(_ module.Modules) error {
-	outputPath := "./arbiter.yaml"
-	fs := flag.NewFlagSet(FLAGSET_FILE, flag.ExitOnError)
-	fs.StringVar(&outputPath, "path", outputPath, "Path to a test model file.")
-	err := fs.Parse(os.Args[subcommandIndex+1:])
-	if err != nil {
-		fs.SetOutput(os.Stderr)
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	// TODO: parse and run from file
-	panic("not implemented")
 }
 
 // Runs the input modules and starts generating traffic. Creates a traffic

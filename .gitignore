@@ -32,7 +32,7 @@ go.work.sum
 samplemod
 !examples/samplemod
 arbiter
-arbiter-example
+!arbiter/
 
 # cov
 coverage

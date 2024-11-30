@@ -24,7 +24,9 @@ var (
 	ErrParseError = errors.New("error parsing CLI flags")
 )
 
-func Handle(subcommandIndex int, modules module.Modules) error {
+// Parse command line arguments for the input modules and populate args and
+// operations with parsed values.
+func Parse(subcommandIndex int, modules module.Modules) error {
 	for _, m := range modules {
 		for _, a := range m.Args() {
 			register(m.Name(), a)

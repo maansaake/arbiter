@@ -30,7 +30,7 @@ func TestHandleModule(t *testing.T) {
 	}
 	os.Args = []string{"subcommand", "-mod.count=12", "-mod.do.rate=100", "-mod.more.disable"}
 
-	err := Handle(0, module.Modules{mod})
+	err := Parse(0, module.Modules{mod})
 	if err != nil {
 		t.Fatal("should not have been an error")
 	}

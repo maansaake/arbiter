@@ -5,6 +5,6 @@ import "tres-bon.se/arbiter/pkg/module"
 
 const FLAGSET = "gen"
 
-func Handle(subcommandIndex int, _ module.Modules) error {
+func Generate(subcommandIndex int, _ module.Modules) error {
 	return nil
 }

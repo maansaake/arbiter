@@ -121,14 +121,14 @@ func Run(modules module.Modules) error {
 	// Check invoked subcommand
 	switch os.Args[subcommandIndex] {
 	case cli.FLAGSET:
-		if err := cli.Handle(subcommandIndex, modules); err != nil {
+		if err := cli.Parse(subcommandIndex, modules); err != nil {
 			return err
 		}
 		return run(modules)
 	case gen.FLAGSET:
-		return gen.Handle(subcommandIndex, modules)
+		return gen.Generate(subcommandIndex, modules)
 	case file.FLAGSET:
-		if err := file.Handle(subcommandIndex, modules); err != nil {
+		if err := file.Parse(subcommandIndex, modules); err != nil {
 			return err
 		}
 		return run(modules)
@@ -156,14 +156,9 @@ func run(modules module.Modules) error {
 			panic(err)
 		}
 	}
-
 	startLogger.Info("all modules started")
 
-	// Hook up monitor and reporter
-	// TODO: add choice of reporter implementation - future, new arbiter.Run(...)
 	reporter := &report.YAMLReporter{}
-	// TODO: add threshold support
-	// TODO: add choice of monitor implementations - future, new arbiter.Run(...)
 	monitor := &monitor.Monitor{Reporter: reporter}
 
 	if monitorPid != MONITOR_PID_DEFAULT {

@@ -59,6 +59,10 @@ var (
 	ErrDurationTooShort   = errors.New("duration has to be minimum 30 seconds")
 )
 
+func init() {
+	zerologr.SetLogger(zerologr.New(&zerologr.Opts{Console: true}).WithName("global"))
+}
+
 // Runs the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
 // runs out (5 minute default).
 func Run(modules module.Modules) error {

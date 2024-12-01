@@ -9,6 +9,7 @@ import (
 	"tres-bon.se/arbiter/pkg/monitor/log"
 	"tres-bon.se/arbiter/pkg/monitor/memory"
 	"tres-bon.se/arbiter/pkg/monitor/metric"
+	"tres-bon.se/arbiter/pkg/monitor/trigger"
 	"tres-bon.se/arbiter/pkg/report"
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
@@ -28,9 +29,17 @@ type Monitor struct {
 // ModuleInfo contains information about a module that the monitor needs to
 // do its work.
 type ModuleInfo struct {
+	// Monitoring metadata
 	PID            int
 	LogFile        string
 	MetricEndpoint string
+
+	// Triggers
+	CPUTriggers    []trigger.Trigger[float64]
+	VMSTrigger     []trigger.Trigger[uint]
+	RSSTrigger     []trigger.Trigger[uint]
+	LogTriggers    []trigger.Trigger[string]
+	MetricTriggers []trigger.Trigger[int]
 }
 
 var (

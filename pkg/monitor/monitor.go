@@ -25,6 +25,14 @@ type Monitor struct {
 	DisableMetricTicker bool
 }
 
+// ModuleInfo contains information about a module that the monitor needs to
+// do its work.
+type ModuleInfo struct {
+	PID            int
+	LogFile        string
+	MetricEndpoint string
+}
+
 var (
 	logger          logr.Logger
 	monitorInterval = 10 * time.Second

@@ -23,6 +23,7 @@ import (
 	"tres-bon.se/arbiter/pkg/monitor/memory"
 	"tres-bon.se/arbiter/pkg/monitor/metric"
 	"tres-bon.se/arbiter/pkg/report"
+	"tres-bon.se/arbiter/pkg/subcommand"
 	"tres-bon.se/arbiter/pkg/subcommand/cli"
 	"tres-bon.se/arbiter/pkg/subcommand/file"
 	"tres-bon.se/arbiter/pkg/subcommand/gen"
@@ -32,14 +33,14 @@ import (
 
 const (
 	MONITOR_DISABLE_METRIC_TICKER_DEFAULT = false
-	DISABLE_ARBITER_METRIC_SERVER         = false
+	DISABLE_ARBITER_METRIC_SERVER_DEFAULT = false
 )
 
 var (
 	// global flag vars.
 	duration                   time.Duration = time.Minute * 5
 	monitorDisableMetricTicker bool          = MONITOR_DISABLE_METRIC_TICKER_DEFAULT
-	disableMetricServer        bool          = DISABLE_ARBITER_METRIC_SERVER
+	disableMetricServer        bool          = DISABLE_ARBITER_METRIC_SERVER_DEFAULT
 
 	// subcommand parsing vars.
 	subcommands     = []string{arg.FLAGSET, gen.FLAGSET, file.FLAGSET}
@@ -145,7 +146,7 @@ func Run(modules module.Modules) error {
 // model based on the modules opertation settings. Aborts on SIGINT, SIGTERM
 // or when the test duration runs out. Will immediately exit if any module
 // returns an error from its call to Run().
-func run(meta []*module.Meta) error {
+func run(meta []*subcommand.ModuleMeta) error {
 	startLogger.Info("preparing to run the modules")
 
 	if err := startModules(meta); err != nil {
@@ -156,10 +157,7 @@ func run(meta []*module.Meta) error {
 
 	reporter := setupReporter()
 	monitor := setupMonitor(reporter, meta)
-	var metricServer *http.Server
-	if !disableMetricServer {
-		metricServer = setupMetricServer(monitor, meta)
-	}
+	metricServer := setupMetricServer(monitor, meta)
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
 	background := context.Background()
@@ -193,10 +191,10 @@ func run(meta []*module.Meta) error {
 	stopCtx, stopCancel := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
 	defer stopCancel()
 
-	if !disableMetricServer {
-		startLogger.Info("stopping metrics server")
+	if metricServer != nil {
+		startLogger.Info("stopping metric server")
 		if err := metricServer.Shutdown(stopCtx); err != nil {
-			startLogger.Error(err, "metrics server shutdown error")
+			startLogger.Error(err, "metric server shutdown error")
 		}
 	}
 
@@ -216,7 +214,7 @@ func run(meta []*module.Meta) error {
 	return nil
 }
 
-func startModules(meta []*module.Meta) error {
+func startModules(meta []*subcommand.ModuleMeta) error {
 	for _, m := range meta {
 		startLogger.Info("starting", "module", m.Name())
 		if err := m.Run(); err != nil {
@@ -230,8 +228,11 @@ func setupReporter() report.Reporter {
 	return &report.YAMLReporter{}
 }
 
-func setupMonitor(reporter report.Reporter, meta []*module.Meta) *monitor.Monitor {
-	monitor := &monitor.Monitor{Reporter: reporter}
+func setupMonitor(reporter report.Reporter, meta []*subcommand.ModuleMeta) *monitor.Monitor {
+	monitor := &monitor.Monitor{
+		Reporter:            reporter,
+		DisableMetricTicker: monitorDisableMetricTicker,
+	}
 
 	for _, m := range meta {
 		if m.PID != cli.NO_PERFORMANCE_PID {
@@ -249,48 +250,47 @@ func setupMonitor(reporter report.Reporter, meta []*module.Meta) *monitor.Monito
 		}
 	}
 
-	if monitorDisableMetricTicker {
-		monitor.DisableMetricTicker = true
-	}
-
 	return monitor
 }
 
-func setupMetricServer(monitor *monitor.Monitor, meta []*module.Meta) *http.Server {
+func setupMetricServer(monitor *monitor.Monitor, meta []*subcommand.ModuleMeta) *http.Server {
 	// Start metric server
 	var metricServer *http.Server
-	go func() {
-		metricServer = &http.Server{
-			Addr:    metricAddr,
-			Handler: http.DefaultServeMux, // Use the default handler
-		}
 
-		// Arbiter metrics
-		http.Handle("/metrics", promhttp.Handler())
-
-		// If metric endpoint(s) registered
-		for _, m := range meta {
-			if m.MetricEndpoint != cli.NO_METRIC_ENDPOINT {
-				http.HandleFunc(fmt.Sprintf("/metrics-%s", m.Name()), func(w http.ResponseWriter, r *http.Request) {
-					bs, err := monitor.PullMetrics()
-					if err != nil {
-						w.WriteHeader(500)
-					}
-					_, err = w.Write(bs)
-					if err != nil {
-						w.WriteHeader(500)
-					}
-				})
+	if !disableMetricServer {
+		go func() {
+			metricServer = &http.Server{
+				Addr:    metricAddr,
+				Handler: http.DefaultServeMux, // Use the default handler
 			}
-		}
 
-		startLogger.Info("running metrics server on", "address", metricAddr)
-		if err := metricServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			startLogger.Error(err, "unexpected error")
-		} else {
-			startLogger.Info("metrics server shut down")
-		}
-	}()
+			// Arbiter metrics
+			http.Handle("/metrics", promhttp.Handler())
+
+			// If metric endpoint(s) registered
+			for _, m := range meta {
+				if m.MetricEndpoint != cli.NO_METRIC_ENDPOINT {
+					http.HandleFunc(fmt.Sprintf("/metrics-%s", m.Name()), func(w http.ResponseWriter, r *http.Request) {
+						bs, err := monitor.PullMetrics()
+						if err != nil {
+							w.WriteHeader(500)
+						}
+						_, err = w.Write(bs)
+						if err != nil {
+							w.WriteHeader(500)
+						}
+					})
+				}
+			}
+
+			startLogger.Info("running metrics server on", "address", metricAddr)
+			if err := metricServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+				startLogger.Error(err, "unexpected error")
+			} else {
+				startLogger.Info("metrics server shut down")
+			}
+		}()
+	}
 
 	return metricServer
 }

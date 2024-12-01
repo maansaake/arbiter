@@ -7,6 +7,7 @@ import (
 	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/subcommand"
 )
 
 const (
@@ -17,19 +18,19 @@ const (
 
 // Parse command line arguments for the input modules and populate args and
 // operations with parsed values.
-func Register(subcommandIndex int, modules module.Modules) ([]*module.Meta, error) {
-	moduleMeta := make([]*module.Meta, len(modules))
+func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.ModuleMeta, error) {
+	moduleMeta := make([]*subcommand.ModuleMeta, len(modules))
 	for i, mod := range modules {
-		meta := module.NewMeta(mod)
-		meta.Monitoring.PID = NO_PERFORMANCE_PID
-		meta.Monitoring.LogFile = NO_LOG_FILE
-		meta.Monitoring.MetricEndpoint = NO_METRIC_ENDPOINT
+		meta := &subcommand.ModuleMeta{}
+		meta.PID = NO_PERFORMANCE_PID
+		meta.LogFile = NO_LOG_FILE
+		meta.MetricEndpoint = NO_METRIC_ENDPOINT
 
 		modArgs := make(arg.Args, 0, len(mod.Args())+(len(mod.Ops())*2))
 		modArgs = append(modArgs, mod.Args()...)
-		modArgs = append(modArgs, monitorPidArg(mod, meta.Monitoring.PID))
-		modArgs = append(modArgs, monitorLogFileArg(mod, meta.Monitoring.LogFile))
-		modArgs = append(modArgs, monitorMetricEndpointArg(mod, meta.Monitoring.MetricEndpoint))
+		modArgs = append(modArgs, monitorPidArg(mod, meta.PID))
+		modArgs = append(modArgs, monitorLogFileArg(mod, meta.LogFile))
+		modArgs = append(modArgs, monitorMetricEndpointArg(mod, meta.MetricEndpoint))
 
 		// Add operation args
 		for _, op := range mod.Ops() {

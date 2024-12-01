@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/module/op"
 	testmodule "tres-bon.se/arbiter/pkg/module/test"
 	"tres-bon.se/arbiter/pkg/report"
 	mockreport "tres-bon.se/arbiter/pkg/report/mock"
+	"tres-bon.se/arbiter/pkg/subcommand"
 	log "tres-bon.se/arbiter/pkg/zerologr"
 )
 
@@ -38,7 +38,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	err := Run(ctx, []*module.Meta{{Module: testmod}}, &report.YAMLReporter{})
+	err := Run(ctx, []*subcommand.ModuleMeta{{Module: testmod}}, &report.YAMLReporter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 }
 
 func TestRunNoOps(t *testing.T) {
-	err := Run(context.TODO(), []*module.Meta{{Module: testmodule.NewTestModule()}}, nil)
+	err := Run(context.TODO(), []*subcommand.ModuleMeta{{Module: testmodule.NewTestModule()}}, nil)
 	if err != nil && !errors.Is(err, ErrNoOpsToSchedule) {
 		t.Fatal("unexpected error type")
 	}
@@ -68,7 +68,7 @@ func TestRunZeroRate(t *testing.T) {
 			Rate: 0,
 		},
 	}
-	err := Run(context.TODO(), []*module.Meta{{Module: mod}}, nil)
+	err := Run(context.TODO(), []*subcommand.ModuleMeta{{Module: mod}}, nil)
 	if err != nil && !errors.Is(err, ErrZeroRate) {
 		t.Fatal("unexpected error type")
 	}
@@ -95,7 +95,7 @@ func TestReportOpToReporter(t *testing.T) {
 
 	reporter := mockreport.NewReporterMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter); err != nil {
+	if err := Run(ctx, []*subcommand.ModuleMeta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -128,7 +128,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 
 	reporter := mockreport.NewReporterMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter); err != nil {
+	if err := Run(ctx, []*subcommand.ModuleMeta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
 	}
 

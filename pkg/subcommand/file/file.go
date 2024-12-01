@@ -5,6 +5,6 @@ import "tres-bon.se/arbiter/pkg/module"
 
 const FLAGSET = "file"
 
-func Parse(subcommandIndex int, _ module.Modules) error {
-	return nil
+func Parse(subcommandIndex int, _ module.Modules) ([]*module.Meta, error) {
+	return nil, nil
 }

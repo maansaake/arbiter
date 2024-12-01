@@ -68,6 +68,9 @@ func Run(modules module.Modules) error {
 	if len(modules) != 1 {
 		panic("number of modules must be exactly one")
 	}
+	if err := module.Validate(modules); err != nil {
+		return err
+	}
 
 	flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = func() {
@@ -114,19 +117,21 @@ func Run(modules module.Modules) error {
 	switch os.Args[subcommandIndex] {
 	case arg.FLAGSET:
 		// Register module arguments and continue to run block.
-		if err := cli.Register(subcommandIndex, modules); err != nil {
+		if meta, err := cli.Register(subcommandIndex, modules); err != nil {
 			return err
+		} else {
+			return run(meta)
 		}
-		return run(modules)
 	case gen.FLAGSET:
 		// Generate run file based on input module.
 		return gen.Generate(subcommandIndex, modules)
 	case file.FLAGSET:
 		// Parse run file information and continue to run block.
-		if err := file.Parse(subcommandIndex, modules); err != nil {
+		if meta, err := file.Parse(subcommandIndex, modules); err != nil {
 			return err
+		} else {
+			return run(meta)
 		}
-		return run(modules)
 	default:
 		flag.CommandLine.SetOutput(os.Stderr)
 		err := fmt.Errorf("%w: %v", ErrSubcommandNotFound, os.Args)
@@ -140,24 +145,20 @@ func Run(modules module.Modules) error {
 // model based on the modules opertation settings. Aborts on SIGINT, SIGTERM
 // or when the test duration runs out. Will immediately exit if any module
 // returns an error from its call to Run().
-func run(modules module.Modules) error {
+func run(meta []*module.Meta) error {
 	startLogger.Info("preparing to run the modules")
 
-	// Start each module, exit on error
-	for _, m := range modules {
-		startLogger.Info("starting", "module", m.Name())
-		if err := m.Run(); err != nil {
-			startLogger.Error(err, "failed to start module", "module", m.Name())
-			panic(err)
-		}
+	if err := startModules(meta); err != nil {
+		startLogger.Error(err, "start failure")
+		return err
 	}
 	startLogger.Info("all modules started")
 
 	reporter := setupReporter()
-	monitor := setupMonitor(reporter, modules)
+	monitor := setupMonitor(reporter, meta)
 	var metricServer *http.Server
 	if !disableMetricServer {
-		metricServer = setupMetricServer(monitor, modules)
+		metricServer = setupMetricServer(monitor, meta)
 	}
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
@@ -171,7 +172,7 @@ func run(modules module.Modules) error {
 		panic(err)
 	}
 
-	if err := traffic.Run(deadlineCtx, modules, reporter); err != nil {
+	if err := traffic.Run(deadlineCtx, meta, reporter); err != nil {
 		startLogger.Error(err, "failed to start traffic")
 		panic(err)
 	}
@@ -203,7 +204,7 @@ func run(modules module.Modules) error {
 	traffic.AwaitStop()
 
 	startLogger.Info("stopping modules")
-	for _, m := range modules {
+	for _, m := range meta {
 		if err := m.Stop(); err != nil {
 			startLogger.Error(err, "module stop reported an error", "module", m.Name())
 		}
@@ -215,29 +216,36 @@ func run(modules module.Modules) error {
 	return nil
 }
 
+func startModules(meta []*module.Meta) error {
+	for _, m := range meta {
+		startLogger.Info("starting", "module", m.Name())
+		if err := m.Run(); err != nil {
+			return fmt.Errorf("failed to start module %s: %w", m.Name(), err)
+		}
+	}
+	return nil
+}
+
 func setupReporter() report.Reporter {
 	return &report.YAMLReporter{}
 }
 
-func setupMonitor(reporter report.Reporter, modules module.Modules) *monitor.Monitor {
+func setupMonitor(reporter report.Reporter, meta []*module.Meta) *monitor.Monitor {
 	monitor := &monitor.Monitor{Reporter: reporter}
 
-	for _, mod := range modules {
-		performancePIDArg := mod.MonitorPerformancePID()
-		if *performancePIDArg.Value != module.NO_PERFORMANCE_PID {
-			monitor.CPU = cpu.NewLocalCPUMonitor(int32(*performancePIDArg.Value))
-			monitor.Memory = memory.NewLocalMemoryMonitor(int32(*performancePIDArg.Value))
+	for _, m := range meta {
+		if m.PID != cli.NO_PERFORMANCE_PID {
+			monitor.CPU = cpu.NewLocalCPUMonitor(int32(m.PID))
+			monitor.Memory = memory.NewLocalMemoryMonitor(int32(m.PID))
 		}
 
-		fileArg := mod.MonitorFile()
-		if *fileArg.Value != module.NO_LOG_FILE {
-			monitor.Log = log.NewLogFileMonitor(*fileArg.Value)
+		if m.LogFile != cli.NO_LOG_FILE {
+			monitor.Log = log.NewLogFileMonitor(m.LogFile)
 		}
 
-		metricsEndpointArg := mod.MonitorMetricsEndpoint()
-		if *metricsEndpointArg.Value != module.NO_METRICS_ENDPOINT {
+		if m.MetricEndpoint != cli.NO_METRIC_ENDPOINT {
 			// TODO: metric endpoints should be per test module.
-			monitor.Metric = metric.NewMetricMonitor(*metricsEndpointArg.Value)
+			monitor.Metric = metric.NewMetricMonitor(m.MetricEndpoint)
 		}
 	}
 
@@ -248,7 +256,7 @@ func setupMonitor(reporter report.Reporter, modules module.Modules) *monitor.Mon
 	return monitor
 }
 
-func setupMetricServer(monitor *monitor.Monitor, modules module.Modules) *http.Server {
+func setupMetricServer(monitor *monitor.Monitor, meta []*module.Meta) *http.Server {
 	// Start metric server
 	var metricServer *http.Server
 	go func() {
@@ -261,9 +269,9 @@ func setupMetricServer(monitor *monitor.Monitor, modules module.Modules) *http.S
 		http.Handle("/metrics", promhttp.Handler())
 
 		// If metric endpoint(s) registered
-		for _, mod := range modules {
-			if *mod.MonitorMetricsEndpoint().Value != module.NO_METRICS_ENDPOINT {
-				http.HandleFunc(fmt.Sprintf("/metrics-%s", mod.Name()), func(w http.ResponseWriter, r *http.Request) {
+		for _, m := range meta {
+			if m.MetricEndpoint != cli.NO_METRIC_ENDPOINT {
+				http.HandleFunc(fmt.Sprintf("/metrics-%s", m.Name()), func(w http.ResponseWriter, r *http.Request) {
 					bs, err := monitor.PullMetrics()
 					if err != nil {
 						w.WriteHeader(500)

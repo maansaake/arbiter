@@ -24,8 +24,20 @@ func TestHandleModule(t *testing.T) {
 	}
 	os.Args = []string{"subcommand", "-mod.count=12", "-mod.do.rate=100", "-mod.more.disable"}
 
-	err := Register(0, module.Modules{mod})
+	meta, err := Register(0, module.Modules{mod})
 	if err != nil {
 		t.Fatal("should not have been an error")
+	}
+
+	for _, m := range meta {
+		if m.MetricEndpoint != NO_METRIC_ENDPOINT {
+			t.Fatal("should have been NO_METRIC_ENDPOINT")
+		}
+		if m.LogFile != NO_LOG_FILE {
+			t.Fatal("should have been NO_LOG_FILE")
+		}
+		if m.PID != NO_PERFORMANCE_PID {
+			t.Fatal("should have been NO_PERFORMANCE_PID")
+		}
 	}
 }

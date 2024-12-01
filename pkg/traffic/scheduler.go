@@ -34,14 +34,14 @@ var (
 // problems to the reporter. Run() is asynchronous and returns once the main
 // go-routine has been started. Run() will monitor the context's done channel
 // and stop gracefully once it's closed.
-func Run(ctx context.Context, modules module.Modules, r report.Reporter) error {
+func Run(ctx context.Context, meta []*module.Meta, r report.Reporter) error {
 	log.Info("running traffic generator")
 	// Run initialisation of traffic synchronously
 	reporter = r
 
 	ops := make([]*op.Op, 0, 5)
-	for _, module := range modules {
-		for _, op := range module.Ops() {
+	for _, m := range meta {
+		for _, op := range m.Ops() {
 			if op.Disabled {
 				continue
 			}

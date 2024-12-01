@@ -24,26 +24,8 @@ func TestHandleModule(t *testing.T) {
 	}
 	os.Args = []string{"subcommand", "-mod.count=12", "-mod.do.rate=100", "-mod.more.disable"}
 
-	err := Parse(0, module.Modules{mod})
+	err := Register(0, module.Modules{mod})
 	if err != nil {
 		t.Fatal("should not have been an error")
-	}
-	if *count.Value != 12 {
-		t.Fatal("should have been 12")
-	}
-	if *master.Value {
-		t.Fatal("should have been false")
-	}
-	if do.Disabled {
-		t.Fatal("do should be enabled")
-	}
-	if do.Rate != 100 {
-		t.Fatal("do rate should have been 100")
-	}
-	if !more.Disabled {
-		t.Fatal("more should be disabled")
-	}
-	if more.Rate != 0 {
-		t.Fatal("more rate should have been 0")
 	}
 }

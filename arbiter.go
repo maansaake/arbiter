@@ -113,13 +113,16 @@ func Run(modules module.Modules) error {
 	// Check invoked subcommand
 	switch os.Args[subcommandIndex] {
 	case arg.FLAGSET:
-		if err := cli.Parse(subcommandIndex, modules); err != nil {
+		// Register module arguments and continue to run block.
+		if err := cli.Register(subcommandIndex, modules); err != nil {
 			return err
 		}
 		return run(modules)
 	case gen.FLAGSET:
+		// Generate run file based on input module.
 		return gen.Generate(subcommandIndex, modules)
 	case file.FLAGSET:
+		// Parse run file information and continue to run block.
 		if err := file.Parse(subcommandIndex, modules); err != nil {
 			return err
 		}

@@ -3,7 +3,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
@@ -12,7 +11,7 @@ import (
 
 // Parse command line arguments for the input modules and populate args and
 // operations with parsed values.
-func Parse(subcommandIndex int, modules module.Modules) error {
+func Register(subcommandIndex int, modules module.Modules) error {
 	for _, mod := range modules {
 		modArgs := make(arg.Args, 0, len(mod.Args())+(len(mod.Ops())*2))
 		modArgs = append(modArgs, mod.Args()...)
@@ -28,7 +27,7 @@ func Parse(subcommandIndex int, modules module.Modules) error {
 		}
 	}
 
-	return arg.Parse(os.Args[subcommandIndex+1:])
+	return nil
 }
 
 func disableArg(op *op.Op) *arg.Arg[bool] {

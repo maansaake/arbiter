@@ -115,7 +115,7 @@ func TestRequiredMissing(t *testing.T) {
 		t.Fatal("parsing should have failed")
 	}
 
-	if !errors.Is(err, ErrParseError) {
+	if !errors.Is(err, ErrParse) {
 		t.Fatal("expected a ErrParseError")
 	}
 }
@@ -255,17 +255,6 @@ func TestValidationOk(t *testing.T) {
 	if *i.Value != 12 {
 		t.Fatal("should have been 12")
 	}
-}
-
-func TestPanicUnrecognizedType(t *testing.T) {
-	flagset = flag.NewFlagSet("cli", flag.ExitOnError)
-	required = []string{}
-
-	defer func() {
-		_ = recover()
-	}()
-	_ = register("ns", &Arg[float32]{})
-	t.Fatal("no panic? :(")
 }
 
 func TestPanicRegisterNilPointer(t *testing.T) {

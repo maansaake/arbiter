@@ -28,22 +28,25 @@ func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.Module
 		meta.LogFile = NO_LOG_FILE
 		meta.MetricEndpoint = NO_METRIC_ENDPOINT
 
-		modArgs := make(arg.Args, 0, len(mod.Args())+(len(mod.Ops())*2))
-		modArgs = append(modArgs, mod.Args()...)
-
+		numMonitorArgs := 8
+		monitorArgs := make(arg.Args, numMonitorArgs)
 		// Performance
-		modArgs = append(modArgs, monitorPidArg(meta.PID))
-		modArgs = append(modArgs, cpuTrigger(meta.ModuleInfo))
-		modArgs = append(modArgs, vmsTrigger(meta.ModuleInfo))
-		modArgs = append(modArgs, rssTrigger(meta.ModuleInfo))
+		monitorArgs[0] = monitorPidArg(meta.PID)
+		monitorArgs[1] = cpuTrigger(meta.ModuleInfo)
+		monitorArgs[2] = vmsTrigger(meta.ModuleInfo)
+		monitorArgs[3] = rssTrigger(meta.ModuleInfo)
 
 		// Logs
-		modArgs = append(modArgs, monitorLogFileArg(meta.LogFile))
-		modArgs = append(modArgs, logFileTrigger(meta.ModuleInfo))
+		monitorArgs[4] = monitorLogFileArg(meta.LogFile)
+		monitorArgs[5] = logFileTrigger(meta.ModuleInfo)
 
 		// Metrics
-		modArgs = append(modArgs, monitorMetricEndpointArg(meta.MetricEndpoint))
-		modArgs = append(modArgs, metricTrigger(meta.ModuleInfo))
+		monitorArgs[6] = monitorMetricEndpointArg(meta.MetricEndpoint)
+		monitorArgs[7] = metricTrigger(meta.ModuleInfo)
+
+		modArgs := make(arg.Args, 0, len(mod.Args())+(len(mod.Ops())*2)+len(monitorArgs))
+		modArgs = append(modArgs, mod.Args()...)
+		modArgs = append(modArgs, monitorArgs...)
 
 		// Add operation args
 		for _, op := range mod.Ops() {
@@ -133,7 +136,7 @@ func metricTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 
 func disableArg(op *op.Op) *arg.Arg[bool] {
 	return &arg.Arg[bool]{
-		Name:  fmt.Sprintf("%s.disable", op.Name),
+		Name:  fmt.Sprintf("op.%s.disable", op.Name),
 		Desc:  fmt.Sprintf("Disable %s.", op.Name),
 		Value: &op.Disabled,
 	}
@@ -141,7 +144,7 @@ func disableArg(op *op.Op) *arg.Arg[bool] {
 
 func rateArg(op *op.Op) *arg.Arg[uint] {
 	return &arg.Arg[uint]{
-		Name:  fmt.Sprintf("%s.rate", op.Name),
+		Name:  fmt.Sprintf("op.%s.rate", op.Name),
 		Desc:  fmt.Sprintf("Rate of %s per minute.", op.Name),
 		Value: &op.Rate,
 	}

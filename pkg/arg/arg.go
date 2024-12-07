@@ -10,7 +10,10 @@ import (
 )
 
 type (
-	Arg[T any] struct {
+	TypeConstraint interface {
+		~int | ~uint | ~float64 | ~string | ~bool
+	}
+	Arg[T TypeConstraint] struct {
 		Name     string
 		Desc     string
 		Required bool
@@ -18,8 +21,8 @@ type (
 		Handler  func(v T)
 		Valid    Validator[T]
 	}
-	Args             []any
-	Validator[T any] func(v T) bool
+	Args                        []any
+	Validator[T TypeConstraint] func(v T) bool
 )
 
 const FLAGSET = "cli"
@@ -31,7 +34,8 @@ var (
 	ErrNilPtr       = errors.New("Arg.Value must not be a nil pointer")
 	ErrRequiredBool = errors.New("a boolean arg cannot be marked required")
 	ErrInvalid      = errors.New("invalid value")
-	ErrParseError   = errors.New("error parsing CLI flags")
+	ErrParse        = errors.New("error parsing CLI flags")
+	ErrType         = errors.New("unsupported type")
 )
 
 func Register(prefix string, args Args) error {
@@ -57,7 +61,7 @@ func Parse(args []string) error {
 		}
 		flagset.SetOutput(os.Stderr)
 		flagset.Usage()
-		return fmt.Errorf("%w: %d required flags have been missed", ErrParseError, len(required))
+		return fmt.Errorf("%w: %d required flags have been missed", ErrParse, len(required))
 	}
 
 	return nil
@@ -77,9 +81,9 @@ func register(prefix string, argument any) error {
 		return registerString(prefix, typedArgument)
 	case *Arg[bool]:
 		return registerBool(prefix, typedArgument)
-	default:
-		panic("argument type not implemented")
 	}
+	// This is basically a type constraint mismatch.
+	return ErrType
 }
 
 func registerInt(prefix string, arg *Arg[int]) error {
@@ -191,7 +195,7 @@ func registerBool(prefix string, arg *Arg[bool]) error {
 	return nil
 }
 
-func verifyArgValue[T any](arg *Arg[T]) error {
+func verifyArgValue[T TypeConstraint](arg *Arg[T]) error {
 	if arg.Handler == nil && arg.Value == nil {
 		return fmt.Errorf("%w: '%s'", ErrNilPtr, arg.Name)
 	} else if arg.Value == nil {
@@ -203,7 +207,7 @@ func verifyArgValue[T any](arg *Arg[T]) error {
 }
 
 // Handle required, validation and all other actions.
-func generalHandler[T any](prefix string, arg *Arg[T]) error {
+func generalHandler[T TypeConstraint](prefix string, arg *Arg[T]) error {
 	if arg.Required {
 		// Find and pop arg from required slice
 		for i, an := range required {
@@ -224,6 +228,6 @@ func generalHandler[T any](prefix string, arg *Arg[T]) error {
 	return nil
 }
 
-func argPath[T any](prefix string, arg *Arg[T]) string {
+func argPath[T TypeConstraint](prefix string, arg *Arg[T]) string {
 	return fmt.Sprintf("%s.%s", prefix, arg.Name)
 }

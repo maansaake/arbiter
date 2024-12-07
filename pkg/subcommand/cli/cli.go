@@ -32,18 +32,18 @@ func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.Module
 		modArgs = append(modArgs, mod.Args()...)
 
 		// Performance
-		modArgs = append(modArgs, monitorPidArg(mod, meta.PID))
-		modArgs = append(modArgs, cpuTrigger(mod, meta.ModuleInfo))
-		modArgs = append(modArgs, vmsTrigger(mod, meta.ModuleInfo))
-		modArgs = append(modArgs, rssTrigger(mod, meta.ModuleInfo))
+		modArgs = append(modArgs, monitorPidArg(meta.PID))
+		modArgs = append(modArgs, cpuTrigger(meta.ModuleInfo))
+		modArgs = append(modArgs, vmsTrigger(meta.ModuleInfo))
+		modArgs = append(modArgs, rssTrigger(meta.ModuleInfo))
 
 		// Logs
-		modArgs = append(modArgs, monitorLogFileArg(mod, meta.LogFile))
-		modArgs = append(modArgs, logFileTrigger(mod, meta.ModuleInfo))
+		modArgs = append(modArgs, monitorLogFileArg(meta.LogFile))
+		modArgs = append(modArgs, logFileTrigger(meta.ModuleInfo))
 
 		// Metrics
-		modArgs = append(modArgs, monitorMetricEndpointArg(mod, meta.MetricEndpoint))
-		modArgs = append(modArgs, metricTrigger(mod, meta.ModuleInfo))
+		modArgs = append(modArgs, monitorMetricEndpointArg(meta.MetricEndpoint))
+		modArgs = append(modArgs, metricTrigger(meta.ModuleInfo))
 
 		// Add operation args
 		for _, op := range mod.Ops() {
@@ -61,15 +61,15 @@ func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.Module
 	return moduleMeta, arg.Parse(os.Args[subcommandIndex+1:])
 }
 
-func monitorPidArg(module module.Module, v int) *arg.Arg[int] {
+func monitorPidArg(v int) *arg.Arg[int] {
 	return &arg.Arg[int]{
 		Name:  "monitor.performance.pid",
-		Desc:  fmt.Sprintf("A PID to track performance metrics for %s.", module.Name()),
+		Desc:  "A PID to track performance metrics.",
 		Value: &v,
 	}
 }
 
-func cpuTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
+func cpuTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 	// Define an argument that can be set one or more times, each adding to the input moduleInfo.
 	return &arg.Arg[string]{
 		Name:    "monitor.cpu.trigger",
@@ -79,7 +79,7 @@ func cpuTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[s
 	}
 }
 
-func vmsTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
+func vmsTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 	return &arg.Arg[string]{
 		Name:    "monitor.vms.trigger",
 		Desc:    "Trigger(s) for VMS levels.",
@@ -88,44 +88,44 @@ func vmsTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[s
 	}
 }
 
-func rssTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
+func rssTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 	return &arg.Arg[string]{
-		Name:    "monitor.cpu.trigger",
-		Desc:    "Trigger(s) for CPU levels.",
+		Name:    "monitor.rss.trigger",
+		Desc:    "Trigger(s) for RSS levels.",
 		Valid:   trigger.ValidRSSTrigger,
 		Handler: moduleInfo.RegisterRSSTrigger,
 	}
 }
 
-func monitorLogFileArg(module module.Module, v string) *arg.Arg[string] {
+func monitorLogFileArg(v string) *arg.Arg[string] {
 	return &arg.Arg[string]{
 		Name:  "monitor.log.file",
-		Desc:  fmt.Sprintf("Full path to the log file of %s.", module.Name()),
+		Desc:  "Full path to a log file.",
 		Value: &v,
 	}
 }
 
-func logFileTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
+func logFileTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 	return &arg.Arg[string]{
-		Name:    "monitor.cpu.trigger",
-		Desc:    "Trigger(s) for CPU levels.",
+		Name:    "monitor.log.trigger",
+		Desc:    "Trigger(s) for log files.",
 		Valid:   trigger.ValidLogFileTrigger,
 		Handler: moduleInfo.RegisterLogFileTrigger,
 	}
 }
 
-func monitorMetricEndpointArg(module module.Module, v string) *arg.Arg[string] {
+func monitorMetricEndpointArg(v string) *arg.Arg[string] {
 	return &arg.Arg[string]{
 		Name:  "monitor.metric.endpoint",
-		Desc:  fmt.Sprintf("Metric endpoint (if any) of %s.", module.Name()),
+		Desc:  "Metric endpoint (if any).",
 		Value: &v,
 	}
 }
 
-func metricTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
+func metricTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 	return &arg.Arg[string]{
-		Name:    "monitor.cpu.trigger",
-		Desc:    "Trigger(s) for CPU levels.",
+		Name:    "monitor.metric.trigger",
+		Desc:    "Trigger(s) for metrics.",
 		Valid:   trigger.ValidMetricTrigger,
 		Handler: moduleInfo.RegisterMetricTrigger,
 	}

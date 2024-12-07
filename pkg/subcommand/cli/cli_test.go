@@ -40,4 +40,13 @@ func TestHandleModule(t *testing.T) {
 			t.Fatal("should have been NO_PERFORMANCE_PID")
 		}
 	}
+	if !more.Disabled {
+		t.Fatal("more should have been disabled")
+	}
+	if !(do.Rate == 100) {
+		t.Fatal("do rate should have been 100")
+	}
+	if *count.Value != 12 {
+		t.Fatal("module arg count should have been 12")
+	}
 }

@@ -15,9 +15,11 @@ type (
 		Desc     string
 		Required bool
 		Value    *T
-		Valid    func(v T) bool
+		Handler  func(v T)
+		Valid    Validator[T]
 	}
-	Args []any
+	Args             []any
+	Validator[T any] func(v T) bool
 )
 
 const FLAGSET = "cli"
@@ -190,8 +192,12 @@ func registerBool(prefix string, arg *Arg[bool]) error {
 }
 
 func verifyArgValue[T any](arg *Arg[T]) error {
-	if arg.Value == nil {
+	if arg.Handler == nil && arg.Value == nil {
 		return fmt.Errorf("%w: '%s'", ErrNilPtr, arg.Name)
+	} else if arg.Value == nil {
+		// For a Handler arg not having to declare a Value, simplifies things a
+		// bit.
+		arg.Value = new(T)
 	}
 	return nil
 }
@@ -209,6 +215,10 @@ func generalHandler[T any](prefix string, arg *Arg[T]) error {
 
 	if arg.Valid != nil && !arg.Valid(*arg.Value) {
 		return fmt.Errorf("%w: argument '%s' has invalid value '%v'", ErrInvalid, argPath(prefix, arg), arg.Value)
+	}
+
+	if arg.Handler != nil {
+		arg.Handler(*arg.Value)
 	}
 
 	return nil

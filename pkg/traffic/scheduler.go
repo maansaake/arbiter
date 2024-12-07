@@ -62,6 +62,7 @@ func Run(ctx context.Context, meta []*subcommand.ModuleMeta, r report.Reporter) 
 	for i, op := range ops {
 		// Tick op.Rate times per minute
 		workloads[i] = &workload{
+			//nolint:gosec
 			ticker: time.NewTicker(time.Minute / time.Duration(op.Rate)),
 			op:     op,
 		}

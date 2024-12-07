@@ -1,3 +1,7 @@
+run:
+  timeout: 2m
+  tests: false
+
 linters:
   disable-all: true
   enable:
@@ -15,3 +19,4 @@ linters:
     - gofumpt
     - goimports
     - misspell
+    - gosec

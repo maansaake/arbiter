@@ -240,7 +240,9 @@ func setupMonitor(reporter report.Reporter, meta []*subcommand.ModuleMeta) *moni
 
 	for _, m := range meta {
 		if m.PID != cli.NO_PERFORMANCE_PID {
+			//nolint:gosec
 			monitor.CPU = cpu.NewLocalCPUMonitor(int32(m.PID))
+			//nolint:gosec
 			monitor.Memory = memory.NewLocalMemoryMonitor(int32(m.PID))
 		}
 
@@ -263,6 +265,7 @@ func setupMetricServer(monitor *monitor.Monitor, meta []*subcommand.ModuleMeta) 
 
 	if !disableMetricServer {
 		go func() {
+			//nolint:gosec
 			metricServer = &http.Server{
 				Addr:    metricAddr,
 				Handler: http.DefaultServeMux, // Use the default handler

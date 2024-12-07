@@ -12,12 +12,12 @@ func TestResultString(t *testing.T) {
 }
 
 func TestRaiseClearInt(t *testing.T) {
-	trigger := New(&TriggerOpts[int]{
-		TriggerOn: ABOVE,
-		Raise:     10,
-		SendClear: true,
-		Clear:     10,
-	})
+	trigger := triggerImpl[int]{
+		triggerOn: ABOVE,
+		raise:     10,
+		sendClear: true,
+		clear:     10,
+	}
 
 	if trigger.Update(11) != RAISE {
 		t.Fatal("should be raise")
@@ -40,12 +40,12 @@ func TestRaiseClearInt(t *testing.T) {
 }
 
 func TestRaiseClearString(t *testing.T) {
-	trigger := New(&TriggerOpts[string]{
-		TriggerOn: EQUAL,
-		Raise:     "raising",
-		SendClear: true,
-		Clear:     "clearing",
-	})
+	trigger := triggerImpl[string]{
+		triggerOn: EQUAL,
+		raise:     "raising",
+		sendClear: true,
+		clear:     "clearing",
+	}
 
 	if trigger.Update("raising") != RAISE {
 		t.Fatal("should be raise")
@@ -59,54 +59,48 @@ func TestRaiseClearString(t *testing.T) {
 }
 
 func TestStringAbove(t *testing.T) {
-	defer func() {
-		if err := recover(); err == nil {
-			t.Fatal("a panic should have been raised")
-		}
-	}()
-	New(&TriggerOpts[string]{
+	err := Validate(&Opts[string]{
 		TriggerOn: ABOVE,
 		Raise:     "raising",
 		SendClear: true,
 		Clear:     "clearing",
 	})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
 }
 
 func TestAboveRaiseLowerThanClear(t *testing.T) {
-	defer func() {
-		if err := recover(); err == nil {
-			t.Fatal("a panic should have been raised")
-		}
-	}()
-	New(&TriggerOpts[int]{
+	err := Validate(&Opts[int]{
 		TriggerOn: ABOVE,
 		Raise:     8,
 		SendClear: true,
 		Clear:     10,
 	})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
 }
 
 func TestAboveOrEqualRaiseEqualToClear(t *testing.T) {
-	defer func() {
-		if err := recover(); err == nil {
-			t.Fatal("a panic should have been raised")
-		}
-	}()
-	New(&TriggerOpts[int]{
+	err := Validate(&Opts[int]{
 		TriggerOn: ABOVE_OR_EQUAL,
 		Raise:     10,
 		SendClear: true,
 		Clear:     10,
 	})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
 }
 
 func TestAboveOrEqualRaiseClear(t *testing.T) {
-	trigger := New(&TriggerOpts[int]{
-		TriggerOn: ABOVE_OR_EQUAL,
-		Raise:     11,
-		SendClear: true,
-		Clear:     10,
-	})
+	trigger := triggerImpl[int]{
+		triggerOn: ABOVE_OR_EQUAL,
+		raise:     11,
+		sendClear: true,
+		clear:     10,
+	}
 
 	if trigger.Update(11) != RAISE {
 		t.Fatal("should have been RAISE")
@@ -135,27 +129,24 @@ func TestAboveOrEqualRaiseClear(t *testing.T) {
 }
 
 func TestBelowRaiseLowerThanClear(t *testing.T) {
-	defer func() {
-		if err := recover(); err == nil {
-			t.Fatal("should have panicked")
-		}
-	}()
-
-	New(&TriggerOpts[int]{
+	err := Validate(&Opts[int]{
 		TriggerOn: BELOW,
 		Raise:     10,
 		SendClear: true,
 		Clear:     9,
 	})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
 }
 
 func TestBelowRaiseClear(t *testing.T) {
-	trigger := New(&TriggerOpts[int]{
-		TriggerOn: BELOW,
-		Raise:     10,
-		SendClear: true,
-		Clear:     10,
-	})
+	trigger := triggerImpl[int]{
+		triggerOn: BELOW,
+		raise:     10,
+		sendClear: true,
+		clear:     10,
+	}
 
 	if trigger.Update(10) != NOTHING {
 		t.Fatal("should have been NOTHING")
@@ -181,27 +172,24 @@ func TestBelowRaiseClear(t *testing.T) {
 }
 
 func TestBelowOrEqualClearEqualToRaise(t *testing.T) {
-	defer func() {
-		if err := recover(); err == nil {
-			t.Fatal("should have panicked")
-		}
-	}()
-
-	New(&TriggerOpts[int]{
+	err := Validate(&Opts[int]{
 		TriggerOn: BELOW_OR_EQUAL,
 		Raise:     10,
 		SendClear: true,
 		Clear:     10,
 	})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
 }
 
 func TestBelowOrEqualRaiseClear(t *testing.T) {
-	trigger := New(&TriggerOpts[int]{
-		TriggerOn: BELOW_OR_EQUAL,
-		Raise:     100,
-		SendClear: true,
-		Clear:     1000,
-	})
+	trigger := triggerImpl[int]{
+		triggerOn: BELOW_OR_EQUAL,
+		raise:     100,
+		sendClear: true,
+		clear:     1000,
+	}
 
 	if trigger.Update(500) != NOTHING {
 		t.Fatal("should have been NOTHING")
@@ -229,12 +217,12 @@ func TestBelowOrEqualRaiseClear(t *testing.T) {
 }
 
 func TestEqualRaiseClear(t *testing.T) {
-	trigger := New(&TriggerOpts[int]{
-		TriggerOn: EQUAL,
-		Raise:     100,
-		SendClear: true,
-		Clear:     1000,
-	})
+	trigger := triggerImpl[int]{
+		triggerOn: EQUAL,
+		raise:     100,
+		sendClear: true,
+		clear:     1000,
+	}
 
 	if trigger.Update(100) != RAISE {
 		t.Fatal("should have been RAISE")
@@ -259,5 +247,59 @@ func TestEqualRaiseClear(t *testing.T) {
 	}
 	if trigger.Update(1001) != NOTHING {
 		t.Fatal("should have been NOTHING")
+	}
+}
+
+func TestFrom(t *testing.T) {
+	trig := From[int]("ABOVE;12")
+	if trig.Update(12) != NOTHING {
+		t.Fatal("should have been NOTHING")
+	}
+	if trig.Update(13) != RAISE {
+		t.Fatal("should have been RAISE")
+	}
+	if trig.Update(0) != NOTHING {
+		t.Fatal("should have been NOTHING")
+	}
+
+	trig2 := From[uint]("ABOVE_OR_EQUAL;12,2")
+	if trig2.Update(12) != RAISE {
+		t.Fatal("should have been RAISE")
+	}
+	if trig2.Update(3) != NOTHING {
+		t.Fatal("should have been NOTHING")
+	}
+	if trig2.Update(2) != CLEAR {
+		t.Fatal("should have been CLEAR")
+	}
+}
+
+func TestNamedFrom(t *testing.T) {
+	name, trig := NamedFrom[int]("ABOVE;12;mike")
+	if name != "mike" {
+		t.Fatal("trigger name should have been mike")
+	}
+	if trig.Update(12) != NOTHING {
+		t.Fatal("should have been NOTHING")
+	}
+	if trig.Update(13) != RAISE {
+		t.Fatal("should have been RAISE")
+	}
+	if trig.Update(0) != NOTHING {
+		t.Fatal("should have been NOTHING")
+	}
+
+	name2, trig2 := NamedFrom[uint]("ABOVE_OR_EQUAL;12,2;molly")
+	if name2 != "molly" {
+		t.Fatal("trigger name should have been molly")
+	}
+	if trig2.Update(12) != RAISE {
+		t.Fatal("should have been RAISE")
+	}
+	if trig2.Update(3) != NOTHING {
+		t.Fatal("should have been NOTHING")
+	}
+	if trig2.Update(2) != CLEAR {
+		t.Fatal("should have been CLEAR")
 	}
 }

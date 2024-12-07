@@ -3,10 +3,15 @@
 package trigger
 
 import (
-	"cmp"
+	"errors"
+	"strconv"
+	"strings"
 )
 
 type (
+	TypeConstraint interface {
+		~int | ~uint | ~float64 | ~string
+	}
 	// Specifies what the Trigger should trigger on. Above, below, equal, etc. a
 	// certain value. Note that strings only allow equality checks.
 	TriggerOn int
@@ -23,11 +28,11 @@ type (
 	// "raise" Result is returned. The exception to this rule is strings, a
 	// string trigger will always yield a "raise" and "clear" Result when
 	// a matching string is provided.
-	Trigger[T cmp.Ordered] interface {
+	Trigger[T TypeConstraint] interface {
 		Update(val T) Result
 	}
 	// Options for constructing a new Trigger.
-	TriggerOpts[T cmp.Ordered] struct {
+	Opts[T TypeConstraint] struct {
 		// Decides when to trigger the input raise/clear values.
 		TriggerOn
 		// The value to send Raise Results for, depending on the TriggerOn value.
@@ -41,7 +46,7 @@ type (
 	}
 
 	// Implementation of the Trigger interface.
-	triggerImpl[T cmp.Ordered] struct {
+	triggerImpl[T TypeConstraint] struct {
 		triggerOn TriggerOn
 		raise     T
 		sendClear bool
@@ -77,6 +82,22 @@ const (
 	UNRECOGNIZED_RESULT = "unrecognized result"
 )
 
+func parseTriggerOn(str string) TriggerOn {
+	upper := strings.ToUpper(str)
+	switch upper {
+	case "ABOVE":
+		return ABOVE
+	case "ABOVE_OR_EQUAL":
+		return ABOVE_OR_EQUAL
+	case "BELOW":
+		return BELOW
+	case "BELOW_OR_EQUAL":
+		return BELOW_OR_EQUAL
+	default:
+		return EQUAL
+	}
+}
+
 func (r Result) String() string {
 	switch r {
 	case NOTHING:
@@ -87,6 +108,70 @@ func (r Result) String() string {
 		return "clear"
 	}
 	return UNRECOGNIZED_RESULT
+}
+
+func parseValue[T TypeConstraint](value string) T {
+	var zero T
+	switch any(zero).(type) {
+	case uint:
+		uiv, _ := strconv.ParseUint(value, 10, 0)
+		return any(uint(uiv)).(T)
+	case int:
+		iv, _ := strconv.ParseInt(value, 10, 0)
+		return any(int(iv)).(T)
+	case float64:
+		fv, _ := strconv.ParseFloat(value, 64)
+		return any(fv).(T)
+	case string:
+		return any(value).(T)
+	default:
+		panic("unsupported type")
+	}
+}
+
+// Parses the command line input into a trigger of a generic type.
+// A trigger has the form:
+// triggeron;raisevalue,clearvalue
+// Clear may be omitted.
+// triggeron;raisevalue
+// Neither this nor the named form of "NamedFrom" performs ANY error checking
+// as arguments will have passed validation prior to this stage.
+func From[T TypeConstraint](cmdline string) Trigger[T] {
+	t := &triggerImpl[T]{}
+
+	split := strings.Split(cmdline, ";")
+	values := strings.Split(split[1], ",")
+	t.triggerOn = parseTriggerOn(split[0])
+	t.raise = parseValue[T](values[0])
+
+	if len(values) > 1 {
+		t.sendClear = true
+		t.clear = parseValue[T](values[1])
+	}
+
+	return t
+}
+
+// Parses the command line input into a named trigger of a generic type. This
+// is used only for metrics at the moment, usage may be extended in the future.
+// A named trigger has the form:
+// triggeron;raisevalue,clearvalue;name
+// Clear may be omitted.
+// triggeron;raisevalue;name
+func NamedFrom[T TypeConstraint](cmdline string) (string, Trigger[T]) {
+	t := &triggerImpl[T]{}
+
+	split := strings.Split(cmdline, ";")
+	values := strings.Split(split[1], ",")
+	t.triggerOn = parseTriggerOn(split[0])
+	t.raise = parseValue[T](values[0])
+
+	if len(values) > 1 {
+		t.sendClear = true
+		t.clear = parseValue[T](values[1])
+	}
+
+	return split[2], t
 }
 
 // Create a new Trigger with the input options. Some rules apply to raise and
@@ -115,47 +200,36 @@ func (r Result) String() string {
 // behavior is in line with that of ABOVE, BELOW, etc. marking only the
 // crossing and clearing of defined thresholds, not re-confirming that the
 // trigger is still residing out-of-bounds.
-func New[T cmp.Ordered](opts *TriggerOpts[T]) Trigger[T] {
+func Validate[T TypeConstraint](opts *Opts[T]) error {
 	if opts.SendClear {
 		switch any(opts.Raise).(type) {
 		case string:
 			if opts.TriggerOn != EQUAL {
-				panic("string triggers must use EQUAL")
+				return errors.New("string triggers must use EQUAL")
 			}
 		default:
 			switch opts.TriggerOn {
 			case ABOVE:
 				if !(opts.Raise >= opts.Clear) {
-					panic("For ABOVE, raise can't be lower than clear")
+					return errors.New("For ABOVE, raise can't be lower than clear")
 				}
 			case ABOVE_OR_EQUAL:
 				if !(opts.Raise > opts.Clear) {
-					panic("For ABOVE_OR_EQUAL, raise can't be lower or equal to clear")
+					return errors.New("For ABOVE_OR_EQUAL, raise can't be lower or equal to clear")
 				}
 			case BELOW:
 				if !(opts.Raise <= opts.Clear) {
-					panic("For BELOW, raise can't be higher than clear")
+					return errors.New("For BELOW, raise can't be higher than clear")
 				}
 			case BELOW_OR_EQUAL:
 				if !(opts.Raise < opts.Clear) {
-					panic("For BELOW_OR_EQUAL, raise can't be higher or equal to clear")
+					return errors.New("For BELOW_OR_EQUAL, raise can't be higher or equal to clear")
 				}
 			}
 		}
 	}
 
-	t := &triggerImpl[T]{
-		triggerOn: opts.TriggerOn,
-		// lastValue is set to zero-value of the input type parameter
-		// But what if it's zero? I guess that's fine? If new value is above/below
-		// or matching the raise value exactly, then raise.
-		raise:     opts.Raise,
-		sendClear: opts.SendClear,
-		clear:     opts.Clear,
-		raised:    false,
-	}
-
-	return t
+	return nil
 }
 
 func (t *triggerImpl[T]) Update(val T) Result {

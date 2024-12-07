@@ -9,6 +9,7 @@ import (
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/module/op"
 	"tres-bon.se/arbiter/pkg/monitor"
+	"tres-bon.se/arbiter/pkg/monitor/trigger"
 	"tres-bon.se/arbiter/pkg/subcommand"
 )
 
@@ -29,12 +30,18 @@ func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.Module
 
 		modArgs := make(arg.Args, 0, len(mod.Args())+(len(mod.Ops())*2))
 		modArgs = append(modArgs, mod.Args()...)
+
+		// Performance
 		modArgs = append(modArgs, monitorPidArg(mod, meta.PID))
 		modArgs = append(modArgs, cpuTrigger(mod, meta.ModuleInfo))
 		modArgs = append(modArgs, vmsTrigger(mod, meta.ModuleInfo))
 		modArgs = append(modArgs, rssTrigger(mod, meta.ModuleInfo))
+
+		// Logs
 		modArgs = append(modArgs, monitorLogFileArg(mod, meta.LogFile))
 		modArgs = append(modArgs, logFileTrigger(mod, meta.ModuleInfo))
+
+		// Metrics
 		modArgs = append(modArgs, monitorMetricEndpointArg(mod, meta.MetricEndpoint))
 		modArgs = append(modArgs, metricTrigger(mod, meta.ModuleInfo))
 
@@ -63,15 +70,31 @@ func monitorPidArg(module module.Module, v int) *arg.Arg[int] {
 }
 
 func cpuTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
-	return &arg.Arg[string]{}
+	// Define an argument that can be set one or more times, each adding to the input moduleInfo.
+	return &arg.Arg[string]{
+		Name:    "monitor.cpu.trigger",
+		Desc:    "Trigger(s) for CPU levels.",
+		Valid:   trigger.ValidCPUTrigger,
+		Handler: moduleInfo.RegisterCPUTrigger,
+	}
 }
 
 func vmsTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
-	return &arg.Arg[string]{}
+	return &arg.Arg[string]{
+		Name:    "monitor.vms.trigger",
+		Desc:    "Trigger(s) for VMS levels.",
+		Valid:   trigger.ValidVMSTrigger,
+		Handler: moduleInfo.RegisterVMSTrigger,
+	}
 }
 
 func rssTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
-	return &arg.Arg[string]{}
+	return &arg.Arg[string]{
+		Name:    "monitor.cpu.trigger",
+		Desc:    "Trigger(s) for CPU levels.",
+		Valid:   trigger.ValidRSSTrigger,
+		Handler: moduleInfo.RegisterRSSTrigger,
+	}
 }
 
 func monitorLogFileArg(module module.Module, v string) *arg.Arg[string] {
@@ -83,7 +106,12 @@ func monitorLogFileArg(module module.Module, v string) *arg.Arg[string] {
 }
 
 func logFileTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
-	return &arg.Arg[string]{}
+	return &arg.Arg[string]{
+		Name:    "monitor.cpu.trigger",
+		Desc:    "Trigger(s) for CPU levels.",
+		Valid:   trigger.ValidLogFileTrigger,
+		Handler: moduleInfo.RegisterLogFileTrigger,
+	}
 }
 
 func monitorMetricEndpointArg(module module.Module, v string) *arg.Arg[string] {
@@ -95,7 +123,12 @@ func monitorMetricEndpointArg(module module.Module, v string) *arg.Arg[string] {
 }
 
 func metricTrigger(module module.Module, moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
-	return &arg.Arg[string]{}
+	return &arg.Arg[string]{
+		Name:    "monitor.cpu.trigger",
+		Desc:    "Trigger(s) for CPU levels.",
+		Valid:   trigger.ValidMetricTrigger,
+		Handler: moduleInfo.RegisterMetricTrigger,
+	}
 }
 
 func disableArg(op *op.Op) *arg.Arg[bool] {

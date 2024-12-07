@@ -22,7 +22,7 @@ func TestHandleModule(t *testing.T) {
 		SetArgs: arg.Args{count, master},
 		SetOps:  op.Ops{do, more},
 	}
-	os.Args = []string{"subcommand", "-mod.count=12", "-mod.do.rate=100", "-mod.more.disable"}
+	os.Args = []string{"subcommand", "-mod.count=12", "-mod.op.do.rate=100", "-mod.op.more.disable"}
 
 	meta, err := Register(0, module.Modules{mod})
 	if err != nil {

@@ -78,7 +78,7 @@ func cpuTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 		Name:    "monitor.cpu.trigger",
 		Desc:    "Trigger(s) for CPU levels.",
 		Valid:   trigger.ValidCPUTrigger,
-		Handler: moduleInfo.RegisterCPUTrigger,
+		Handler: moduleInfo.CPUTriggerFromCmdline,
 	}
 }
 
@@ -87,7 +87,7 @@ func vmsTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 		Name:    "monitor.vms.trigger",
 		Desc:    "Trigger(s) for VMS levels.",
 		Valid:   trigger.ValidVMSTrigger,
-		Handler: moduleInfo.RegisterVMSTrigger,
+		Handler: moduleInfo.VMSTriggerFromCmdline,
 	}
 }
 
@@ -96,7 +96,7 @@ func rssTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 		Name:    "monitor.rss.trigger",
 		Desc:    "Trigger(s) for RSS levels.",
 		Valid:   trigger.ValidRSSTrigger,
-		Handler: moduleInfo.RegisterRSSTrigger,
+		Handler: moduleInfo.RSSTriggerFromCmdline,
 	}
 }
 
@@ -113,7 +113,7 @@ func logFileTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 		Name:    "monitor.log.trigger",
 		Desc:    "Trigger(s) for log files.",
 		Valid:   trigger.ValidLogFileTrigger,
-		Handler: moduleInfo.RegisterLogFileTrigger,
+		Handler: moduleInfo.LogFileTriggerFromCmdline,
 	}
 }
 
@@ -130,7 +130,7 @@ func metricTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
 		Name:    "monitor.metric.trigger",
 		Desc:    "Trigger(s) for metrics.",
 		Valid:   trigger.ValidMetricTrigger,
-		Handler: moduleInfo.RegisterMetricTrigger,
+		Handler: moduleInfo.MetricTriggerFromCmdline,
 	}
 }
 

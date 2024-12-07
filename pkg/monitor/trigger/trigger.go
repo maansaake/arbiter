@@ -75,11 +75,20 @@ const (
 	// Yield raise when an input value is comparably equal to the raise limit.
 	// Yield clear when an input value is comparably equal to the clear limit.
 	EQUAL
+	UNKNOWN
 
 	NOTHING Result = iota
 	RAISE
 	CLEAR
 	UNRECOGNIZED_RESULT = "unrecognized result"
+)
+
+var (
+	ErrStringNotEqual           = errors.New("string triggers must use EQUAL")
+	ErrAboveRaiseLowerThanClear = errors.New("For ABOVE, raise can't be lower than clear")
+	ErrAboveOrEqClearTooHigh    = errors.New("For ABOVE_OR_EQUAL, raise can't be lower or equal to clear")
+	ErrBelowRaiseAboveClear     = errors.New("For BELOW, raise can't be higher than clear")
+	ErrBelowOrEqClearTooLow     = errors.New("For BELOW_OR_EQUAL, raise can't be higher or equal to clear")
 )
 
 func parseTriggerOn(str string) TriggerOn {
@@ -94,7 +103,7 @@ func parseTriggerOn(str string) TriggerOn {
 	case "BELOW_OR_EQUAL":
 		return BELOW_OR_EQUAL
 	default:
-		return EQUAL
+		return UNKNOWN
 	}
 }
 
@@ -110,20 +119,20 @@ func (r Result) String() string {
 	return UNRECOGNIZED_RESULT
 }
 
-func parseValue[T TypeConstraint](value string) T {
+func parseValue[T TypeConstraint](value string) (T, error) {
 	var zero T
 	switch any(zero).(type) {
 	case uint:
-		uiv, _ := strconv.ParseUint(value, 10, 0)
-		return any(uint(uiv)).(T)
+		uiv, err := strconv.ParseUint(value, 10, 0)
+		return any(uint(uiv)).(T), err
 	case int:
-		iv, _ := strconv.ParseInt(value, 10, 0)
-		return any(int(iv)).(T)
+		iv, err := strconv.ParseInt(value, 10, 0)
+		return any(int(iv)).(T), err
 	case float64:
-		fv, _ := strconv.ParseFloat(value, 64)
-		return any(fv).(T)
+		fv, err := strconv.ParseFloat(value, 64)
+		return any(fv).(T), err
 	case string:
-		return any(value).(T)
+		return any(value).(T), nil
 	default:
 		panic("unsupported type")
 	}
@@ -142,11 +151,11 @@ func From[T TypeConstraint](cmdline string) Trigger[T] {
 	split := strings.Split(cmdline, ";")
 	values := strings.Split(split[1], ",")
 	t.triggerOn = parseTriggerOn(split[0])
-	t.raise = parseValue[T](values[0])
+	t.raise, _ = parseValue[T](values[0])
 
 	if len(values) > 1 {
 		t.sendClear = true
-		t.clear = parseValue[T](values[1])
+		t.clear, _ = parseValue[T](values[1])
 	}
 
 	return t
@@ -164,21 +173,21 @@ func NamedFrom[T TypeConstraint](cmdline string) (string, Trigger[T]) {
 	split := strings.Split(cmdline, ";")
 	values := strings.Split(split[1], ",")
 	t.triggerOn = parseTriggerOn(split[0])
-	t.raise = parseValue[T](values[0])
+	t.raise, _ = parseValue[T](values[0])
 
 	if len(values) > 1 {
 		t.sendClear = true
-		t.clear = parseValue[T](values[1])
+		t.clear, _ = parseValue[T](values[1])
 	}
 
 	return split[2], t
 }
 
-// Create a new Trigger with the input options. Some rules apply to raise and
-// clear levels, or a panic is raised:
+// Validate a Trigger's opts with the input options. Some rules apply to raise
+// and clear levels, or an error is returned:
 //
 // For strings: no raise/clear levels are inspected, the strings are matched.
-// If any other TriggerOn value than EQUAL is input, a panic is raised.
+// If any other TriggerOn value than EQUAL is input, an error is returned.
 //
 // ABOVE: Raise must be higher or equal to clear, as raise is only triggered
 // by higher values than a potential matching clear.
@@ -205,31 +214,42 @@ func Validate[T TypeConstraint](opts *Opts[T]) error {
 		switch any(opts.Raise).(type) {
 		case string:
 			if opts.TriggerOn != EQUAL {
-				return errors.New("string triggers must use EQUAL")
+				return ErrStringNotEqual
 			}
 		default:
 			switch opts.TriggerOn {
 			case ABOVE:
 				if !(opts.Raise >= opts.Clear) {
-					return errors.New("For ABOVE, raise can't be lower than clear")
+					return ErrAboveRaiseLowerThanClear
 				}
 			case ABOVE_OR_EQUAL:
 				if !(opts.Raise > opts.Clear) {
-					return errors.New("For ABOVE_OR_EQUAL, raise can't be lower or equal to clear")
+					return ErrAboveOrEqClearTooHigh
 				}
 			case BELOW:
 				if !(opts.Raise <= opts.Clear) {
-					return errors.New("For BELOW, raise can't be higher than clear")
+					return ErrBelowRaiseAboveClear
 				}
 			case BELOW_OR_EQUAL:
 				if !(opts.Raise < opts.Clear) {
-					return errors.New("For BELOW_OR_EQUAL, raise can't be higher or equal to clear")
+					return ErrBelowOrEqClearTooLow
 				}
 			}
 		}
 	}
 
 	return nil
+}
+
+// Return a new Trigger[T] using the input options. Make sure to call Validate
+// first.
+func New[T TypeConstraint](opts *Opts[T]) Trigger[T] {
+	return &triggerImpl[T]{
+		triggerOn: opts.TriggerOn,
+		raise:     opts.Raise,
+		sendClear: opts.SendClear,
+		clear:     opts.Clear,
+	}
 }
 
 func (t *triggerImpl[T]) Update(val T) Result {

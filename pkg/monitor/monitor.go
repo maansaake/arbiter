@@ -42,23 +42,23 @@ type ModuleInfo struct {
 	MetricTriggers map[string][]trigger.Trigger[uint]
 }
 
-func (mi *ModuleInfo) RegisterCPUTrigger(cmdline string) {
+func (mi *ModuleInfo) CPUTriggerFromCmdline(cmdline string) {
 	mi.CPUTriggers = append(mi.CPUTriggers, trigger.From[float64](cmdline))
 }
 
-func (mi *ModuleInfo) RegisterVMSTrigger(cmdline string) {
+func (mi *ModuleInfo) VMSTriggerFromCmdline(cmdline string) {
 	mi.VMSTriggers = append(mi.VMSTriggers, trigger.From[uint](cmdline))
 }
 
-func (mi *ModuleInfo) RegisterRSSTrigger(cmdline string) {
+func (mi *ModuleInfo) RSSTriggerFromCmdline(cmdline string) {
 	mi.RSSTriggers = append(mi.RSSTriggers, trigger.From[uint](cmdline))
 }
 
-func (mi *ModuleInfo) RegisterLogFileTrigger(cmdline string) {
+func (mi *ModuleInfo) LogFileTriggerFromCmdline(cmdline string) {
 	mi.LogTriggers = append(mi.LogTriggers, trigger.From[string](cmdline))
 }
 
-func (mi *ModuleInfo) RegisterMetricTrigger(cmdline string) {
+func (mi *ModuleInfo) MetricTriggerFromCmdline(cmdline string) {
 	name, t := trigger.NamedFrom[uint](cmdline)
 	if _, ok := mi.MetricTriggers[name]; !ok {
 		mi.MetricTriggers[name] = make([]trigger.Trigger[uint], 0, 1)

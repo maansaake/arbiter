@@ -102,6 +102,8 @@ func parseTriggerOn(str string) TriggerOn {
 		return BELOW
 	case "BELOW_OR_EQUAL":
 		return BELOW_OR_EQUAL
+	case "EQUAL":
+		return EQUAL
 	default:
 		return UNKNOWN
 	}

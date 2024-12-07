@@ -12,12 +12,12 @@ func TestResultString(t *testing.T) {
 }
 
 func TestRaiseClearInt(t *testing.T) {
-	trigger := triggerImpl[int]{
-		triggerOn: ABOVE,
-		raise:     10,
-		sendClear: true,
-		clear:     10,
-	}
+	trigger := New(&Opts[int]{
+		TriggerOn: ABOVE,
+		Raise:     10,
+		SendClear: true,
+		Clear:     10,
+	})
 
 	if trigger.Update(11) != RAISE {
 		t.Fatal("should be raise")

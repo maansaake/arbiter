@@ -8,6 +8,6 @@ import (
 
 const FLAGSET = "file"
 
-func Parse(subcommandIndex int, _ module.Modules) ([]*subcommand.ModuleMeta, error) {
+func Parse(subcommandIndex int, _ module.Modules) ([]*subcommand.Meta, error) {
 	return nil, nil
 }

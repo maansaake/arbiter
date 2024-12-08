@@ -13,36 +13,30 @@ import (
 	"tres-bon.se/arbiter/pkg/subcommand"
 )
 
-const (
-	NO_PERFORMANCE_PID = -1
-	NO_LOG_FILE        = "none"
-	NO_METRIC_ENDPOINT = "none"
-)
-
 // Register command line arguments for the input modules.
-func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.ModuleMeta, error) {
-	moduleMeta := make([]*subcommand.ModuleMeta, len(modules))
+func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.Meta, error) {
+	moduleMeta := make([]*subcommand.Meta, len(modules))
 	for i, mod := range modules {
-		meta := &subcommand.ModuleMeta{Module: mod, ModuleInfo: &monitor.ModuleInfo{}}
-		meta.PID = NO_PERFORMANCE_PID
-		meta.LogFile = NO_LOG_FILE
-		meta.MetricEndpoint = NO_METRIC_ENDPOINT
+		meta := &subcommand.Meta{Module: mod, MonitorOpt: &monitor.Opt{}}
+		meta.MonitorOpt.PID = monitor.NO_PERFORMANCE_PID
+		meta.MonitorOpt.LogFile = monitor.NO_LOG_FILE
+		meta.MonitorOpt.MetricEndpoint = monitor.NO_METRIC_ENDPOINT
 
 		numMonitorArgs := 8
 		monitorArgs := make(arg.Args, numMonitorArgs)
 		// Performance
-		monitorArgs[0] = monitorPidArg(meta.PID)
-		monitorArgs[1] = cpuTrigger(meta.ModuleInfo)
-		monitorArgs[2] = vmsTrigger(meta.ModuleInfo)
-		monitorArgs[3] = rssTrigger(meta.ModuleInfo)
+		monitorArgs[0] = monitorPidArg(meta.MonitorOpt.PID)
+		monitorArgs[1] = cpuTrigger(meta.MonitorOpt)
+		monitorArgs[2] = vmsTrigger(meta.MonitorOpt)
+		monitorArgs[3] = rssTrigger(meta.MonitorOpt)
 
 		// Logs
-		monitorArgs[4] = monitorLogFileArg(meta.LogFile)
-		monitorArgs[5] = logFileTrigger(meta.ModuleInfo)
+		monitorArgs[4] = monitorLogFileArg(meta.MonitorOpt.LogFile)
+		monitorArgs[5] = logFileTrigger(meta.MonitorOpt)
 
 		// Metrics
-		monitorArgs[6] = monitorMetricEndpointArg(meta.MetricEndpoint)
-		monitorArgs[7] = metricTrigger(meta.ModuleInfo)
+		monitorArgs[6] = monitorMetricEndpointArg(meta.MonitorOpt.MetricEndpoint)
+		monitorArgs[7] = metricTrigger(meta.MonitorOpt)
 
 		modArgs := make(arg.Args, 0, len(mod.Args())+(len(mod.Ops())*2)+len(monitorArgs))
 		modArgs = append(modArgs, mod.Args()...)
@@ -72,31 +66,31 @@ func monitorPidArg(v int) *arg.Arg[int] {
 	}
 }
 
-func cpuTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
-	// Define an argument that can be set one or more times, each adding to the input moduleInfo.
+func cpuTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
+	// Define an argument that can be set one or more times, each adding to the input monitorOpt.
 	return &arg.Arg[string]{
 		Name:    "monitor.cpu.trigger",
 		Desc:    "Trigger(s) for CPU levels.",
 		Valid:   trigger.ValidCPUTrigger,
-		Handler: moduleInfo.CPUTriggerFromCmdline,
+		Handler: monitorOpt.CPUTriggerFromCmdline,
 	}
 }
 
-func vmsTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
+func vmsTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 	return &arg.Arg[string]{
 		Name:    "monitor.vms.trigger",
 		Desc:    "Trigger(s) for VMS levels.",
 		Valid:   trigger.ValidVMSTrigger,
-		Handler: moduleInfo.VMSTriggerFromCmdline,
+		Handler: monitorOpt.VMSTriggerFromCmdline,
 	}
 }
 
-func rssTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
+func rssTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 	return &arg.Arg[string]{
 		Name:    "monitor.rss.trigger",
 		Desc:    "Trigger(s) for RSS levels.",
 		Valid:   trigger.ValidRSSTrigger,
-		Handler: moduleInfo.RSSTriggerFromCmdline,
+		Handler: monitorOpt.RSSTriggerFromCmdline,
 	}
 }
 
@@ -108,12 +102,12 @@ func monitorLogFileArg(v string) *arg.Arg[string] {
 	}
 }
 
-func logFileTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
+func logFileTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 	return &arg.Arg[string]{
 		Name:    "monitor.log.trigger",
 		Desc:    "Trigger(s) for log files.",
 		Valid:   trigger.ValidLogFileTrigger,
-		Handler: moduleInfo.LogFileTriggerFromCmdline,
+		Handler: monitorOpt.LogFileTriggerFromCmdline,
 	}
 }
 
@@ -125,12 +119,12 @@ func monitorMetricEndpointArg(v string) *arg.Arg[string] {
 	}
 }
 
-func metricTrigger(moduleInfo *monitor.ModuleInfo) *arg.Arg[string] {
+func metricTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 	return &arg.Arg[string]{
 		Name:    "monitor.metric.trigger",
 		Desc:    "Trigger(s) for metrics.",
 		Valid:   trigger.ValidMetricTrigger,
-		Handler: moduleInfo.MetricTriggerFromCmdline,
+		Handler: monitorOpt.MetricTriggerFromCmdline,
 	}
 }
 

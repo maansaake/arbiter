@@ -23,7 +23,7 @@ func TestStartMonitorCPU(t *testing.T) {
 	})
 	monitor.CPU = mock
 
-	err := monitor.Start(ctx)
+	err := monitor.Start(ctx, []*Opt{})
 	if err != nil {
 		t.Fatalf("error starting monitor %v", err)
 	}
@@ -42,7 +42,7 @@ func TestStartMonitorMemory(t *testing.T) {
 	})
 	monitor.Memory = mock
 
-	err := monitor.Start(ctx)
+	err := monitor.Start(ctx, []*Opt{})
 	if err != nil {
 		t.Fatalf("error starting monitor %v", err)
 	}
@@ -61,7 +61,7 @@ func TestStartMonitorMetric(t *testing.T) {
 	})
 	monitor.Metric = mock
 
-	err := monitor.Start(ctx)
+	err := monitor.Start(ctx, []*Opt{})
 	if err != nil {
 		t.Fatalf("error starting monitor %v", err)
 	}
@@ -80,7 +80,7 @@ func TestStartMonitorLog(t *testing.T) {
 	})
 	monitor.Log = mock
 
-	err := monitor.Start(ctx)
+	err := monitor.Start(ctx, []*Opt{})
 	if err != nil {
 		t.Fatalf("error starting monitor %v", err)
 	}
@@ -96,7 +96,7 @@ func TestStartMonitorLogErr(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	monitor.Log = mock
 
-	err := monitor.Start(ctx)
+	err := monitor.Start(ctx, []*Opt{})
 	if err == nil {
 		t.Fatalf("monitor start should have thrown an error %v", err)
 	}

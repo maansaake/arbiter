@@ -7,14 +7,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"slices"
 	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/monitor"
@@ -32,15 +30,13 @@ import (
 )
 
 const (
-	MONITOR_DISABLE_METRIC_TICKER_DEFAULT = false
-	DISABLE_ARBITER_METRIC_SERVER_DEFAULT = false
+	EXTERNAL_PROMETHEUS_DEFAULT = false
 )
 
 var (
 	// global flag vars.
-	duration                   time.Duration = time.Minute * 5
-	monitorDisableMetricTicker bool          = MONITOR_DISABLE_METRIC_TICKER_DEFAULT
-	disableMetricServer        bool          = DISABLE_ARBITER_METRIC_SERVER_DEFAULT
+	duration           time.Duration = time.Minute * 5
+	externalPrometheus bool          = EXTERNAL_PROMETHEUS_DEFAULT
 
 	// subcommand parsing vars.
 	subcommands     = []string{arg.FLAGSET, gen.FLAGSET, file.FLAGSET}
@@ -51,7 +47,6 @@ var (
 
 	// metrics.
 	metricAddr = ":8888"
-	// metricPrefix = "arbiter"
 
 	ErrParseError         = errors.New("flag parse error")
 	ErrNoSubcommand       = errors.New("no subcommand given")
@@ -70,6 +65,7 @@ func Run(modules module.Modules) error {
 		return fmt.Sprintf("%-10s", fset)
 	}
 
+	// TODO: change to support > 1 module
 	if len(modules) != 1 {
 		panic("number of modules must be exactly one")
 	}
@@ -91,8 +87,8 @@ func Run(modules module.Modules) error {
 
 	// Global flags
 	flag.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
-	flag.BoolVar(&monitorDisableMetricTicker, "monitor.metric.disable.ticker", monitorDisableMetricTicker, "Disable the monitor metric ticker.")
-	flag.BoolVar(&disableMetricServer, "disable.metric.server", disableMetricServer, "Disable the arbiter metric server.")
+	flag.BoolVar(&externalPrometheus, "monitor.metric.external", externalPrometheus, "External Prometheus instance, disables internal metric ticker and creates a HTTP server for scraping.")
+	flag.StringVar(&metricAddr, "monitor.metric.external.addr", metricAddr, "Prometheus metric endpoint address.")
 
 	// To trigger on --help and parse global flags
 	flag.Parse()
@@ -150,7 +146,7 @@ func Run(modules module.Modules) error {
 // model based on the modules opertation settings. Aborts on SIGINT, SIGTERM
 // or when the test duration runs out. Will immediately exit if any module
 // returns an error from its call to Run().
-func run(meta []*subcommand.ModuleMeta) error {
+func run(meta subcommand.Metadata) error {
 	startLogger.Info("preparing to run the modules")
 
 	if err := startModules(meta); err != nil {
@@ -161,7 +157,6 @@ func run(meta []*subcommand.ModuleMeta) error {
 
 	reporter := setupReporter()
 	monitor := setupMonitor(reporter, meta)
-	metricServer := setupMetricServer(monitor, meta)
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
 	background := context.Background()
@@ -169,7 +164,8 @@ func run(meta []*subcommand.ModuleMeta) error {
 	deadlineCtx, deadlineStop := context.WithDeadline(background, deadline)
 	startLogger.Info("traffic will run until", "deadline", deadline)
 
-	if err := monitor.Start(deadlineCtx); err != nil {
+	// TODO: change to support > 1 module
+	if err := monitor.Start(deadlineCtx, meta.MonitorOpts()); err != nil {
 		startLogger.Error(err, "failed to start the monitor")
 		panic(err)
 	}
@@ -192,15 +188,6 @@ func run(meta []*subcommand.ModuleMeta) error {
 	deadlineStop()
 
 	startLogger = startLogger.WithName("stopping")
-	stopCtx, stopCancel := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
-	defer stopCancel()
-
-	if metricServer != nil {
-		startLogger.Info("stopping metric server")
-		if err := metricServer.Shutdown(stopCtx); err != nil {
-			startLogger.Error(err, "metric server shutdown error")
-		}
-	}
 
 	startLogger.Info("stopping traffic")
 	traffic.AwaitStop()
@@ -218,7 +205,7 @@ func run(meta []*subcommand.ModuleMeta) error {
 	return nil
 }
 
-func startModules(meta []*subcommand.ModuleMeta) error {
+func startModules(meta []*subcommand.Meta) error {
 	for _, m := range meta {
 		startLogger.Info("starting", "module", m.Name())
 		if err := m.Run(); err != nil {
@@ -232,72 +219,30 @@ func setupReporter() report.Reporter {
 	return &report.YAMLReporter{}
 }
 
-func setupMonitor(reporter report.Reporter, meta []*subcommand.ModuleMeta) *monitor.Monitor {
-	monitor := &monitor.Monitor{
-		Reporter:            reporter,
-		DisableMetricTicker: monitorDisableMetricTicker,
+func setupMonitor(reporter report.Reporter, metadata subcommand.Metadata) *monitor.Monitor {
+	m := &monitor.Monitor{
+		Reporter:           reporter,
+		ExternalPrometheus: externalPrometheus,
+		MetricAddr:         metricAddr,
 	}
 
-	for _, m := range meta {
-		if m.PID != cli.NO_PERFORMANCE_PID {
+	for _, meta := range metadata {
+		if meta.MonitorOpt.PID != monitor.NO_PERFORMANCE_PID {
 			//nolint:gosec
-			monitor.CPU = cpu.NewLocalCPUMonitor(int32(m.PID))
+			m.CPU = cpu.NewLocalCPUMonitor(int32(meta.MonitorOpt.PID))
 			//nolint:gosec
-			monitor.Memory = memory.NewLocalMemoryMonitor(int32(m.PID))
+			m.Memory = memory.NewLocalMemoryMonitor(int32(meta.MonitorOpt.PID))
 		}
 
-		if m.LogFile != cli.NO_LOG_FILE {
-			monitor.Log = log.NewLogFileMonitor(m.LogFile)
+		if meta.MonitorOpt.LogFile != monitor.NO_LOG_FILE {
+			m.Log = log.NewLogFileMonitor(meta.MonitorOpt.LogFile)
 		}
 
-		if m.MetricEndpoint != cli.NO_METRIC_ENDPOINT {
+		if meta.MonitorOpt.MetricEndpoint != monitor.NO_METRIC_ENDPOINT {
 			// TODO: metric endpoints should be per test module.
-			monitor.Metric = metric.NewMetricMonitor(m.MetricEndpoint)
+			m.Metric = metric.NewMetricMonitor(meta.MonitorOpt.MetricEndpoint)
 		}
 	}
 
-	return monitor
-}
-
-func setupMetricServer(monitor *monitor.Monitor, meta []*subcommand.ModuleMeta) *http.Server {
-	// Start metric server
-	var metricServer *http.Server
-
-	if !disableMetricServer {
-		go func() {
-			//nolint:gosec
-			metricServer = &http.Server{
-				Addr:    metricAddr,
-				Handler: http.DefaultServeMux, // Use the default handler
-			}
-
-			// Arbiter metrics
-			http.Handle("/metrics", promhttp.Handler())
-
-			// If metric endpoint(s) registered
-			for _, m := range meta {
-				if m.MetricEndpoint != cli.NO_METRIC_ENDPOINT {
-					http.HandleFunc(fmt.Sprintf("/metrics-%s", m.Name()), func(w http.ResponseWriter, r *http.Request) {
-						bs, err := monitor.PullMetrics()
-						if err != nil {
-							w.WriteHeader(500)
-						}
-						_, err = w.Write(bs)
-						if err != nil {
-							w.WriteHeader(500)
-						}
-					})
-				}
-			}
-
-			startLogger.Info("running metrics server on", "address", metricAddr)
-			if err := metricServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-				startLogger.Error(err, "unexpected error")
-			} else {
-				startLogger.Info("metrics server shut down")
-			}
-		}()
-	}
-
-	return metricServer
+	return m
 }

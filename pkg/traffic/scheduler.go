@@ -14,6 +14,7 @@ import (
 )
 
 type workload struct {
+	name   string
 	ticker *time.Ticker
 	op     *op.Op
 }
@@ -34,14 +35,14 @@ var (
 // problems to the reporter. Run() is asynchronous and returns once the main
 // go-routine has been started. Run() will monitor the context's done channel
 // and stop gracefully once it's closed.
-func Run(ctx context.Context, meta []*subcommand.Meta, r report.Reporter) error {
+func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) error {
 	log.Info("running traffic generator")
 	// Run initialisation of traffic synchronously
 	reporter = r
 
-	ops := make([]*op.Op, 0, 5)
-	for _, m := range meta {
-		for _, op := range m.Ops() {
+	workloads = make([]*workload, 0, len(metadata)*2)
+	for _, meta := range metadata {
+		for _, op := range meta.Ops() {
 			if op.Disabled {
 				continue
 			}
@@ -50,22 +51,17 @@ func Run(ctx context.Context, meta []*subcommand.Meta, r report.Reporter) error 
 				return fmt.Errorf("%w: %s", ErrZeroRate, op.Name)
 			}
 
-			ops = append(ops, op)
+			workloads = append(workloads, &workload{
+				name: meta.Name(),
+				//nolint:gosec
+				ticker: time.NewTicker(time.Minute / time.Duration(op.Rate)),
+				op:     op,
+			})
 		}
 	}
 
-	if len(ops) == 0 {
+	if len(workloads) == 0 {
 		return ErrNoOpsToSchedule
-	}
-
-	workloads = make([]*workload, len(ops))
-	for i, op := range ops {
-		// Tick op.Rate times per minute
-		workloads[i] = &workload{
-			//nolint:gosec
-			ticker: time.NewTicker(time.Minute / time.Duration(op.Rate)),
-			op:     op,
-		}
 	}
 
 	// Start traffic generation in separate go-routine, run until context is done
@@ -119,7 +115,7 @@ func handleWorkload(ctx context.Context, index int, workload *workload) {
 			}
 
 			// Report to reporter
-			reporter.Op(&res, err)
+			reporter.Op(workload.name, &res, err)
 		}
 	}
 }

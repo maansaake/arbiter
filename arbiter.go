@@ -16,10 +16,6 @@ import (
 	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/monitor"
-	"tres-bon.se/arbiter/pkg/monitor/cpu"
-	"tres-bon.se/arbiter/pkg/monitor/log"
-	"tres-bon.se/arbiter/pkg/monitor/memory"
-	"tres-bon.se/arbiter/pkg/monitor/metric"
 	"tres-bon.se/arbiter/pkg/report"
 	"tres-bon.se/arbiter/pkg/subcommand"
 	"tres-bon.se/arbiter/pkg/subcommand/cli"
@@ -30,12 +26,14 @@ import (
 )
 
 const (
+	DURATION_DEFAULT            = time.Minute * 5
 	EXTERNAL_PROMETHEUS_DEFAULT = false
+	METRIC_ADDR_DEFAULT         = ":8888"
 )
 
 var (
 	// global flag vars.
-	duration           time.Duration = time.Minute * 5
+	duration           time.Duration = DURATION_DEFAULT
 	externalPrometheus bool          = EXTERNAL_PROMETHEUS_DEFAULT
 
 	// subcommand parsing vars.
@@ -46,7 +44,7 @@ var (
 	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).WithName("start")
 
 	// metrics.
-	metricAddr = ":8888"
+	metricAddr = METRIC_ADDR_DEFAULT
 
 	ErrParseError         = errors.New("flag parse error")
 	ErrNoSubcommand       = errors.New("no subcommand given")
@@ -165,7 +163,7 @@ func run(meta subcommand.Metadata) error {
 	startLogger.Info("traffic will run until", "deadline", deadline)
 
 	// TODO: change to support > 1 module
-	if err := monitor.Start(deadlineCtx, meta.MonitorOpts()); err != nil {
+	if err := monitor.Start(deadlineCtx); err != nil {
 		startLogger.Error(err, "failed to start the monitor")
 		panic(err)
 	}
@@ -220,29 +218,10 @@ func setupReporter() report.Reporter {
 }
 
 func setupMonitor(reporter report.Reporter, metadata subcommand.Metadata) *monitor.Monitor {
-	m := &monitor.Monitor{
-		Reporter:           reporter,
-		ExternalPrometheus: externalPrometheus,
-		MetricAddr:         metricAddr,
-	}
-
-	for _, meta := range metadata {
-		if meta.MonitorOpt.PID != monitor.NO_PERFORMANCE_PID {
-			//nolint:gosec
-			m.CPU = cpu.NewLocalCPUMonitor(int32(meta.MonitorOpt.PID))
-			//nolint:gosec
-			m.Memory = memory.NewLocalMemoryMonitor(int32(meta.MonitorOpt.PID))
-		}
-
-		if meta.MonitorOpt.LogFile != monitor.NO_LOG_FILE {
-			m.Log = log.NewLogFileMonitor(meta.MonitorOpt.LogFile)
-		}
-
-		if meta.MonitorOpt.MetricEndpoint != monitor.NO_METRIC_ENDPOINT {
-			// TODO: metric endpoints should be per test module.
-			m.Metric = metric.NewMetricMonitor(meta.MonitorOpt.MetricEndpoint)
-		}
-	}
+	m := monitor.New(metadata.MonitorOpts()...)
+	m.Reporter = reporter
+	m.ExternalPrometheus = externalPrometheus
+	m.MetricAddr = metricAddr
 
 	return m
 }

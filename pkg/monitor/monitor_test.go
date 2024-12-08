@@ -13,7 +13,7 @@ import (
 )
 
 func TestStartMonitorCPU(t *testing.T) {
-	monitor := &Monitor{}
+	monitor := New()
 	monitorInterval = 1 * time.Microsecond
 
 	mock := cpu.NewCPUMonitorMock(0, nil)
@@ -21,9 +21,9 @@ func TestStartMonitorCPU(t *testing.T) {
 	mock.SetOnRead(func() {
 		cancel()
 	})
-	monitor.CPU = mock
+	monitor.cpuMonitors["bla"] = mock
 
-	err := monitor.Start(ctx, []*Opt{})
+	err := monitor.Start(ctx)
 	if err != nil {
 		t.Fatalf("error starting monitor %v", err)
 	}
@@ -32,7 +32,7 @@ func TestStartMonitorCPU(t *testing.T) {
 }
 
 func TestStartMonitorMemory(t *testing.T) {
-	monitor := &Monitor{}
+	monitor := New()
 	monitorInterval = 1 * time.Microsecond
 
 	mock := memory.NewMemoryMock(0, 0, nil)
@@ -40,9 +40,9 @@ func TestStartMonitorMemory(t *testing.T) {
 	mock.SetOnRead(func() {
 		cancel()
 	})
-	monitor.Memory = mock
+	monitor.memMonitors["bla"] = mock
 
-	err := monitor.Start(ctx, []*Opt{})
+	err := monitor.Start(ctx)
 	if err != nil {
 		t.Fatalf("error starting monitor %v", err)
 	}
@@ -51,7 +51,7 @@ func TestStartMonitorMemory(t *testing.T) {
 }
 
 func TestStartMonitorMetric(t *testing.T) {
-	monitor := &Monitor{}
+	monitor := New()
 	monitorInterval = 1 * time.Microsecond
 
 	mock := metric.NewMetricMock(nil, nil)
@@ -59,9 +59,9 @@ func TestStartMonitorMetric(t *testing.T) {
 	mock.SetOnRead(func() {
 		cancel()
 	})
-	monitor.Metric = mock
+	monitor.metricMonitors["bla"] = mock
 
-	err := monitor.Start(ctx, []*Opt{})
+	err := monitor.Start(ctx)
 	if err != nil {
 		t.Fatalf("error starting monitor %v", err)
 	}
@@ -70,7 +70,7 @@ func TestStartMonitorMetric(t *testing.T) {
 }
 
 func TestStartMonitorLog(t *testing.T) {
-	monitor := &Monitor{}
+	monitor := New()
 	monitorInterval = 1 * time.Microsecond
 
 	mock := log.NewLogMock(nil)
@@ -78,9 +78,9 @@ func TestStartMonitorLog(t *testing.T) {
 	mock.SetOnRead(func() {
 		cancel()
 	})
-	monitor.Log = mock
+	monitor.logMonitors["bla"] = mock
 
-	err := monitor.Start(ctx, []*Opt{})
+	err := monitor.Start(ctx)
 	if err != nil {
 		t.Fatalf("error starting monitor %v", err)
 	}
@@ -89,14 +89,14 @@ func TestStartMonitorLog(t *testing.T) {
 }
 
 func TestStartMonitorLogErr(t *testing.T) {
-	monitor := &Monitor{}
+	monitor := New()
 	monitorInterval = 1 * time.Microsecond
 
 	mock := log.NewLogMock(errors.New("bla"))
 	ctx, cancel := context.WithCancel(context.Background())
-	monitor.Log = mock
+	monitor.logMonitors["bla"] = mock
 
-	err := monitor.Start(ctx, []*Opt{})
+	err := monitor.Start(ctx)
 	if err == nil {
 		t.Fatalf("monitor start should have thrown an error %v", err)
 	}

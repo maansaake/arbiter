@@ -3,6 +3,7 @@ package monitor
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -102,4 +103,20 @@ func TestStartMonitorLogErr(t *testing.T) {
 	}
 
 	cancel()
+}
+
+func TestAdd(t *testing.T) {
+	m := New()
+
+	m.Add(&Opt{
+		Name: "pid",
+		PID:  os.Getpid(),
+	})
+
+	if _, ok := m.cpuMonitors["pid"]; !ok {
+		t.Fatal("expected 1 CPU monitor")
+	}
+	if _, ok := m.memMonitors["pid"]; !ok {
+		t.Fatal("expected 1 memory monitor")
+	}
 }

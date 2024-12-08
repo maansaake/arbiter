@@ -75,6 +75,9 @@ const (
 )
 
 var (
+	logger          logr.Logger
+	monitorInterval = 10 * time.Second
+
 	ErrMetricNotFound         = errors.New("metric not found")
 	ErrMetricTypeNotSupported = errors.New("metric type not supported")
 )
@@ -102,11 +105,6 @@ func (mi *Opt) MetricTriggerFromCmdline(cmdline string) {
 	}
 	mi.MetricTriggers[name] = append(mi.MetricTriggers[name], t)
 }
-
-var (
-	logger          logr.Logger
-	monitorInterval = 10 * time.Second
-)
 
 func New(opts ...*Opt) *Monitor {
 	m := &Monitor{

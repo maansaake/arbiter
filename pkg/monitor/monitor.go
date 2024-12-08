@@ -82,6 +82,25 @@ var (
 	ErrMetricTypeNotSupported = errors.New("metric type not supported")
 )
 
+func DefaultOpt() *Opt {
+	return &Opt{
+		PID:            NO_PERFORMANCE_PID,
+		MetricEndpoint: NO_METRIC_ENDPOINT,
+		LogFile:        NO_LOG_FILE,
+		CPUTriggers:    make([]trigger.Trigger[float64], 0),
+		VMSTriggers:    make([]trigger.Trigger[uint], 0),
+		RSSTriggers:    make([]trigger.Trigger[uint], 0),
+		MetricTriggers: make(map[string][]trigger.Trigger[float64]),
+		LogTriggers:    make([]trigger.Trigger[string], 0),
+	}
+}
+
+func (o *Opt) String() string {
+	return fmt.Sprintf("Opt{PID: %d, Metric: %s, Log: %s, CPUT: %d, VMST: %d, RSST: %d, MetricT: %d, LogT: %d}",
+		o.PID, o.MetricEndpoint, o.LogFile, len(o.CPUTriggers), len(o.VMSTriggers), len(o.RSSTriggers), len(o.MetricTriggers), len(o.LogTriggers),
+	)
+}
+
 func (o *Opt) CPUTriggerFromCmdline(cmdline string) {
 	o.CPUTriggers = append(o.CPUTriggers, trigger.From[float64](cmdline))
 }

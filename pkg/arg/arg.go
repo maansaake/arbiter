@@ -218,7 +218,7 @@ func generalHandler[T TypeConstraint](prefix string, arg *Arg[T]) error {
 	}
 
 	if arg.Valid != nil && !arg.Valid(*arg.Value) {
-		return fmt.Errorf("%w: argument '%s' has invalid value '%v'", ErrInvalid, argPath(prefix, arg), arg.Value)
+		return fmt.Errorf("%w: argument '%s' has invalid value '%v'", ErrInvalid, argPath(prefix, arg), *arg.Value)
 	}
 
 	if arg.Handler != nil {

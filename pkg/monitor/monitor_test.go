@@ -107,11 +107,12 @@ func TestStartMonitorLogErr(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	m := New()
+	m.ExternalPrometheus = true
 
-	m.Add(&Opt{
-		Name: "pid",
-		PID:  os.Getpid(),
-	})
+	pidOpt := DefaultOpt()
+	pidOpt.Name = "pid"
+	pidOpt.PID = os.Getpid()
+	m.Add(pidOpt)
 
 	if _, ok := m.cpuMonitors["pid"]; !ok {
 		t.Fatal("expected 1 CPU monitor")
@@ -119,4 +120,26 @@ func TestAdd(t *testing.T) {
 	if _, ok := m.memMonitors["pid"]; !ok {
 		t.Fatal("expected 1 memory monitor")
 	}
+
+	metricOpt := DefaultOpt()
+	metricOpt.Name = "metric"
+	metricOpt.MetricEndpoint = "not none"
+	m.Add(metricOpt)
+
+	if _, ok := m.metricMonitors["metric"]; !ok {
+		t.Fatal("expected 1 metric monitor")
+	}
+
+	logOpt := DefaultOpt()
+	logOpt.Name = "log"
+	logOpt.LogFile = "logfilepath"
+	m.Add(logOpt)
+
+	if _, ok := m.logMonitors["log"]; !ok {
+		t.Fatal("expected 1 log monitor")
+	}
+}
+
+func TestOpt(t *testing.T) {
+
 }

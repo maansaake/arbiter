@@ -17,10 +17,7 @@ import (
 func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.Meta, error) {
 	moduleMeta := make([]*subcommand.Meta, len(modules))
 	for i, mod := range modules {
-		meta := &subcommand.Meta{Module: mod, MonitorOpt: &monitor.Opt{}}
-		meta.MonitorOpt.PID = monitor.NO_PERFORMANCE_PID
-		meta.MonitorOpt.LogFile = monitor.NO_LOG_FILE
-		meta.MonitorOpt.MetricEndpoint = monitor.NO_METRIC_ENDPOINT
+		meta := &subcommand.Meta{Module: mod, MonitorOpt: monitor.DefaultOpt()}
 
 		numMonitorArgs := 8
 		monitorArgs := make(arg.Args, numMonitorArgs)

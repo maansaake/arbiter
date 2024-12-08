@@ -23,24 +23,49 @@ func TestHandleModule(t *testing.T) {
 		SetArgs: arg.Args{count, master},
 		SetOps:  op.Ops{do, more},
 	}
-	os.Args = []string{"subcommand", "-mod.count=12", "-mod.op.do.rate=100", "-mod.op.more.disable"}
+	os.Args = []string{
+		"subcommand",
+		"-mod.count=12",
+		"-mod.op.do.rate=100",
+		"-mod.op.more.disable",
+		"-mod.monitor.cpu.trigger=ABOVE;12",
+		"-mod.monitor.metric.trigger=ABOVE_OR_EQUAL;12,10;metricname",
+		"-mod.monitor.vms.trigger=BELOW;12,14",
+		"-mod.monitor.rss.trigger=BELOW;12,14",
+		"-mod.monitor.log.trigger=EQUAL;somestring",
+	}
 
 	meta, err := Register(0, module.Modules{mod})
 	if err != nil {
 		t.Fatal("should not have been an error")
 	}
 
-	for _, m := range meta {
-		if m.MonitorOpt.MetricEndpoint != monitor.NO_METRIC_ENDPOINT {
-			t.Fatal("should have been NO_METRIC_ENDPOINT")
-		}
-		if m.MonitorOpt.LogFile != monitor.NO_LOG_FILE {
-			t.Fatal("should have been NO_LOG_FILE")
-		}
-		if m.MonitorOpt.PID != monitor.NO_PERFORMANCE_PID {
-			t.Fatal("should have been NO_PERFORMANCE_PID")
-		}
+	m := meta[0]
+	if m.MonitorOpt.MetricEndpoint != monitor.NO_METRIC_ENDPOINT {
+		t.Fatal("should have been NO_METRIC_ENDPOINT")
 	}
+	if m.MonitorOpt.LogFile != monitor.NO_LOG_FILE {
+		t.Fatal("should have been NO_LOG_FILE")
+	}
+	if m.MonitorOpt.PID != monitor.NO_PERFORMANCE_PID {
+		t.Fatal("should have been NO_PERFORMANCE_PID")
+	}
+	if len(m.MonitorOpt.CPUTriggers) != 1 {
+		t.Fatal("should have been 1 CPU trigger")
+	}
+	if len(m.MonitorOpt.VMSTriggers) != 1 {
+		t.Fatal("should have been 1 VMS trigger")
+	}
+	if len(m.MonitorOpt.RSSTriggers) != 1 {
+		t.Fatal("should have been 1 RSS trigger")
+	}
+	if len(m.MonitorOpt.MetricTriggers) != 1 {
+		t.Fatal("should have been 1 metric trigger")
+	}
+	if len(m.MonitorOpt.LogTriggers) != 1 {
+		t.Fatal("should have been 1 log trigger")
+	}
+
 	if !more.Disabled {
 		t.Fatal("more should have been disabled")
 	}

@@ -9,7 +9,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 	"tres-bon.se/arbiter/pkg/module/op"
-	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
 type (
@@ -42,7 +41,6 @@ func (r *yamlReporter) Start(ctx context.Context) {
 			select {
 			case f := <-r.synchronizer:
 				f()
-				zerologr.Info("synchronizer called func", "report", r.report)
 			case <-ctx.Done():
 				return
 			}
@@ -51,7 +49,6 @@ func (r *yamlReporter) Start(ctx context.Context) {
 }
 
 func (r *yamlReporter) Op(module string, res *op.Result, err error) {
-	zerologr.Info("reporter got op", "mod", module, "op", res.Name)
 	r.synchronizer <- r.handleOp(module, res, err)
 }
 
@@ -67,30 +64,31 @@ func (r *yamlReporter) handleOp(module string, res *op.Result, err error) func()
 		_, ok = r.report.Modules[module].Operations[res.Name]
 		if !ok {
 			r.report.Modules[module].Operations[res.Name] = &operations{
-				Executions: 1,
-				Timing: &operationTiming{
-					Longest:  res.Duration,
-					Shortest: res.Duration,
-					Average:  res.Duration,
-					total:    res.Duration,
-				},
+				Timing: &operationTiming{},
 				Errors: make([]string, 0),
 			}
-		} else {
-			r.report.Modules[module].Operations[res.Name].Executions++
+		}
+		r.report.Modules[module].Operations[res.Name].Executions++
 
-			if err != nil {
-				r.report.Modules[module].Operations[res.Name].Errors = append(r.report.Modules[module].Operations[res.Name].Errors, err.Error())
-			} else {
-				if res.Duration > r.report.Modules[module].Operations[res.Name].Timing.Longest {
-					r.report.Modules[module].Operations[res.Name].Timing.Longest = res.Duration
-				}
-				if res.Duration < r.report.Modules[module].Operations[res.Name].Timing.Shortest {
-					r.report.Modules[module].Operations[res.Name].Timing.Shortest = res.Duration
-				}
-				r.report.Modules[module].Operations[res.Name].Timing.total += res.Duration
-				r.report.Modules[module].Operations[res.Name].Timing.Average = r.report.Modules[module].Operations[res.Name].Timing.total / time.Duration(r.report.Modules[module].Operations[res.Name].Executions)
+		if err != nil {
+			r.report.Modules[module].Operations[res.Name].Errors = append(r.report.Modules[module].Operations[res.Name].Errors, err.Error())
+		} else {
+			if r.report.Modules[module].Operations[res.Name].Timing.count == 0 {
+				r.report.Modules[module].Operations[res.Name].Timing.Longest = res.Duration
+				r.report.Modules[module].Operations[res.Name].Timing.Shortest = res.Duration
+				r.report.Modules[module].Operations[res.Name].Timing.Average = res.Duration
 			}
+			r.report.Modules[module].Operations[res.Name].Timing.count++
+
+			if res.Duration > r.report.Modules[module].Operations[res.Name].Timing.Longest {
+				r.report.Modules[module].Operations[res.Name].Timing.Longest = res.Duration
+			}
+			if res.Duration < r.report.Modules[module].Operations[res.Name].Timing.Shortest {
+				r.report.Modules[module].Operations[res.Name].Timing.Shortest = res.Duration
+			}
+
+			r.report.Modules[module].Operations[res.Name].Timing.total += res.Duration
+			r.report.Modules[module].Operations[res.Name].Timing.Average = r.report.Modules[module].Operations[res.Name].Timing.total / time.Duration(r.report.Modules[module].Operations[res.Name].Timing.count)
 		}
 	}
 }

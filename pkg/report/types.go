@@ -73,4 +73,5 @@ type operationTiming struct {
 	Shortest time.Duration `yaml:"shortest"`
 	Average  time.Duration `yaml:"average"`
 	total    time.Duration `yaml:"-"`
+	count    int64         `yaml:"-"`
 }

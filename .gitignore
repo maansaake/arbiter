@@ -38,3 +38,6 @@ arbiter
 coverage
 coverage-profile
 coverprofile
+
+# arbiter
+report.yaml

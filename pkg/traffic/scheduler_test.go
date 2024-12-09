@@ -9,7 +9,6 @@ import (
 
 	"tres-bon.se/arbiter/pkg/module/op"
 	testmodule "tres-bon.se/arbiter/pkg/module/test"
-	"tres-bon.se/arbiter/pkg/report"
 	mockreport "tres-bon.se/arbiter/pkg/report/mock"
 	"tres-bon.se/arbiter/pkg/subcommand"
 	log "tres-bon.se/arbiter/pkg/zerologr"
@@ -38,7 +37,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	err := Run(ctx, []*subcommand.Meta{{Module: testmod}}, &report.YAMLReporter{})
+	err := Run(ctx, []*subcommand.Meta{{Module: testmod}}, &mockreport.ReporterMock{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +120,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 			Rate: 6000,
 			Do: func() (op.Result, error) {
 				defer wg.Done()
-				return op.Result{DurationOverride: 12 * time.Millisecond}, nil
+				return op.Result{Duration: 12 * time.Millisecond}, nil
 			},
 		},
 	}

@@ -1,6 +1,8 @@
 package mockreport
 
 import (
+	"context"
+
 	"tres-bon.se/arbiter/pkg/module/op"
 	"tres-bon.se/arbiter/pkg/report"
 )
@@ -8,6 +10,11 @@ import (
 type ReporterMock struct {
 	Results []*op.Result
 	Errors  []error
+}
+
+// Start implements report.Reporter.
+func (r *ReporterMock) Start(context.Context) {
+	panic("unimplemented")
 }
 
 func NewReporterMock() report.Reporter {
@@ -18,7 +25,22 @@ func NewReporterMock() report.Reporter {
 }
 
 // Finalise implements report.Reporter.
-func (r *ReporterMock) Finalise() {
+func (r *ReporterMock) Finalise() error {
+	panic("unimplemented")
+}
+
+// CPU implements report.Reporter.
+func (r *ReporterMock) CPU(module string, value float64) {
+	panic("unimplemented")
+}
+
+// RSS implements report.Reporter.
+func (r *ReporterMock) RSS(module string, value uint) {
+	panic("unimplemented")
+}
+
+// VMS implements report.Reporter.
+func (r *ReporterMock) VMS(module string, value uint) {
 	panic("unimplemented")
 }
 
@@ -46,12 +68,12 @@ func (r *ReporterMock) CPUTrigger(string, string, float64) {
 }
 
 // MetricErr implements report.Reporter.
-func (r *ReporterMock) MetricErr(string, error) {
+func (r *ReporterMock) MetricErr(string, string, error) {
 	panic("unimplemented")
 }
 
 // MetricTrigger implements report.Reporter.
-func (r *ReporterMock) MetricTrigger(string, string, float64) {
+func (r *ReporterMock) MetricTrigger(string, string, string, float64) {
 	panic("unimplemented")
 }
 

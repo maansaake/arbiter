@@ -1,22 +1,128 @@
 package report
 
-import "tres-bon.se/arbiter/pkg/module/op"
+import (
+	"bytes"
+	"context"
+	"io"
+	"os"
+	"time"
 
-type YAMLReporter struct{}
+	"gopkg.in/yaml.v3"
+	"tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/zerologr"
+)
 
-func NewYAML() Reporter {
-	return &YAMLReporter{}
+type (
+	yamlReporter struct {
+		path string
+		*report
+		synchronizer chan func()
+	}
+	YAMLOpts struct {
+		Path string
+	}
+)
+
+func NewYAML(opts *YAMLOpts) Reporter {
+	reporter := &yamlReporter{
+		report: &report{
+			Start:   time.Now(),
+			Modules: make(map[string]*modules),
+		},
+		path:         opts.Path,
+		synchronizer: make(chan func()),
+	}
+
+	return reporter
 }
 
-func (r *YAMLReporter) Op(name string, res *op.Result, err error) {}
-func (r *YAMLReporter) LogErr(name string, err error)             {}
-func (r *YAMLReporter) LogTrigger(name, result, value string)     {}
-func (r *YAMLReporter) CPUErr(string, error)                      {}
-func (r *YAMLReporter) CPUTrigger(string, string, float64)        {}
-func (r *YAMLReporter) MetricErr(string, error)                   {}
-func (r *YAMLReporter) MetricTrigger(string, string, float64)     {}
-func (r *YAMLReporter) RSSErr(string, error)                      {}
-func (r *YAMLReporter) RSSTrigger(string, string, uint)           {}
-func (r *YAMLReporter) VMSErr(string, error)                      {}
-func (r *YAMLReporter) VMSTrigger(string, string, uint)           {}
-func (r *YAMLReporter) Finalise()                                 {}
+func (r *yamlReporter) Start(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case f := <-r.synchronizer:
+				f()
+				zerologr.Info("synchronizer called func", "report", r.report)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+func (r *yamlReporter) Op(module string, res *op.Result, err error) {
+	zerologr.Info("reporter got op", "mod", module, "op", res.Name)
+	r.synchronizer <- r.handleOp(module, res, err)
+}
+
+func (r *yamlReporter) handleOp(module string, res *op.Result, err error) func() {
+	return func() {
+		_, ok := r.report.Modules[module]
+		if !ok {
+			r.report.Modules[module] = &modules{
+				Operations: make(map[string]*operations),
+			}
+		}
+
+		_, ok = r.report.Modules[module].Operations[res.Name]
+		if !ok {
+			r.report.Modules[module].Operations[res.Name] = &operations{
+				Executions: 1,
+				Timing: &operationTiming{
+					Longest:  res.Duration,
+					Shortest: res.Duration,
+					Average:  res.Duration,
+					total:    res.Duration,
+				},
+				Errors: make([]string, 0),
+			}
+		} else {
+			r.report.Modules[module].Operations[res.Name].Executions++
+
+			if err != nil {
+				r.report.Modules[module].Operations[res.Name].Errors = append(r.report.Modules[module].Operations[res.Name].Errors, err.Error())
+			} else {
+				if res.Duration > r.report.Modules[module].Operations[res.Name].Timing.Longest {
+					r.report.Modules[module].Operations[res.Name].Timing.Longest = res.Duration
+				}
+				if res.Duration < r.report.Modules[module].Operations[res.Name].Timing.Shortest {
+					r.report.Modules[module].Operations[res.Name].Timing.Shortest = res.Duration
+				}
+				r.report.Modules[module].Operations[res.Name].Timing.total += res.Duration
+				r.report.Modules[module].Operations[res.Name].Timing.Average = r.report.Modules[module].Operations[res.Name].Timing.total / time.Duration(r.report.Modules[module].Operations[res.Name].Executions)
+			}
+		}
+	}
+}
+
+func (r *yamlReporter) LogErr(module string, err error)                              {}
+func (r *yamlReporter) LogTrigger(module, result, value string)                      {}
+func (r *yamlReporter) CPU(module string, value float64)                             {}
+func (r *yamlReporter) CPUErr(module string, err error)                              {}
+func (r *yamlReporter) CPUTrigger(module string, res string, val float64)            {}
+func (r *yamlReporter) RSS(module string, value uint)                                {}
+func (r *yamlReporter) RSSErr(module string, err error)                              {}
+func (r *yamlReporter) RSSTrigger(module string, res string, val uint)               {}
+func (r *yamlReporter) VMS(module string, value uint)                                {}
+func (r *yamlReporter) VMSErr(module string, err error)                              {}
+func (r *yamlReporter) VMSTrigger(module string, res string, val uint)               {}
+func (r *yamlReporter) MetricErr(module, metric string, err error)                   {}
+func (r *yamlReporter) MetricTrigger(module, metric string, res string, val float64) {}
+func (r *yamlReporter) Finalise() error {
+	r.report.End = time.Now()
+	r.report.Duration = r.report.End.Sub(r.report.Start)
+
+	file, err := os.Create(r.path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	bs, err := yaml.Marshal(r.report)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(file, bytes.NewReader(bs))
+	return err
+}

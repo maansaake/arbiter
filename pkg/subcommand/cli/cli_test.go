@@ -29,13 +29,14 @@ func TestHandleModule(t *testing.T) {
 		"-mod.op.do.rate=100",
 		"-mod.op.more.disable",
 		"-mod.monitor.cpu.trigger=ABOVE;12",
+		"-mod.monitor.cpu.trigger=ABOVE;15",
 		"-mod.monitor.metric.trigger=ABOVE_OR_EQUAL;12,10;metricname",
 		"-mod.monitor.vms.trigger=BELOW;12,14",
 		"-mod.monitor.rss.trigger=BELOW;12,14",
 		"-mod.monitor.log.trigger=EQUAL;somestring",
 	}
 
-	meta, err := Register(0, module.Modules{mod})
+	meta, err := Parse(0, module.Modules{mod})
 	if err != nil {
 		t.Fatal("should not have been an error")
 	}
@@ -50,8 +51,8 @@ func TestHandleModule(t *testing.T) {
 	if m.MonitorOpt.PID != monitor.NO_PERFORMANCE_PID {
 		t.Fatal("should have been NO_PERFORMANCE_PID")
 	}
-	if len(m.MonitorOpt.CPUTriggers) != 1 {
-		t.Fatal("should have been 1 CPU trigger")
+	if len(m.MonitorOpt.CPUTriggers) != 2 {
+		t.Fatal("should have been 2 CPU triggers")
 	}
 	if len(m.MonitorOpt.VMSTriggers) != 1 {
 		t.Fatal("should have been 1 VMS trigger")

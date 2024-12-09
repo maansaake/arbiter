@@ -29,6 +29,7 @@ const (
 	DURATION_DEFAULT            = time.Minute * 5
 	EXTERNAL_PROMETHEUS_DEFAULT = false
 	METRIC_ADDR_DEFAULT         = ":8888"
+	REPORT_PATH_DEFAULT         = "report.yaml"
 )
 
 var (
@@ -45,6 +46,9 @@ var (
 
 	// metrics.
 	metricAddr = METRIC_ADDR_DEFAULT
+
+	// report
+	reportPath = REPORT_PATH_DEFAULT
 
 	ErrParseError         = errors.New("flag parse error")
 	ErrNoSubcommand       = errors.New("no subcommand given")
@@ -87,6 +91,7 @@ func Run(modules module.Modules) error {
 	flag.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
 	flag.BoolVar(&externalPrometheus, "monitor.metric.external", externalPrometheus, "External Prometheus instance, disables internal metric ticker and creates a HTTP server for scraping.")
 	flag.StringVar(&metricAddr, "monitor.metric.external.addr", metricAddr, "Prometheus metric endpoint address.")
+	flag.StringVar(&reportPath, "report.path", reportPath, "Path to the final report.")
 
 	// To trigger on --help and parse global flags
 	flag.Parse()
@@ -115,14 +120,14 @@ func Run(modules module.Modules) error {
 	// Check invoked subcommand
 	switch os.Args[subcommandIndex] {
 	case arg.FLAGSET:
-		// Register module arguments and continue to run block.
-		if meta, err := cli.Register(subcommandIndex, modules); err != nil {
+		// Parse module arguments and continue to run block.
+		if meta, err := cli.Parse(subcommandIndex, modules); err != nil {
 			return err
 		} else {
 			return run(meta)
 		}
 	case gen.FLAGSET:
-		// Generate run file based on input module.
+		// Generate run file based on input modules.
 		return gen.Generate(subcommandIndex, modules)
 	case file.FLAGSET:
 		// Parse run file information and continue to run block.
@@ -144,17 +149,17 @@ func Run(modules module.Modules) error {
 // model based on the modules opertation settings. Aborts on SIGINT, SIGTERM
 // or when the test duration runs out. Will immediately exit if any module
 // returns an error from its call to Run().
-func run(meta subcommand.Metadata) error {
+func run(metadata subcommand.Metadata) error {
 	startLogger.Info("preparing to run the modules")
 
-	if err := startModules(meta); err != nil {
+	if err := startModules(metadata); err != nil {
 		startLogger.Error(err, "start failure")
 		return err
 	}
 	startLogger.Info("all modules started")
 
 	reporter := setupReporter()
-	monitor := setupMonitor(reporter, meta)
+	monitor := setupMonitor(reporter, metadata)
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
 	background := context.Background()
@@ -162,13 +167,15 @@ func run(meta subcommand.Metadata) error {
 	deadlineCtx, deadlineStop := context.WithDeadline(background, deadline)
 	startLogger.Info("traffic will run until", "deadline", deadline)
 
-	// TODO: change to support > 1 module
+	reporterCtx, reporterCancel := context.WithCancel(background)
+	reporter.Start(reporterCtx)
+
 	if err := monitor.Start(deadlineCtx); err != nil {
 		startLogger.Error(err, "failed to start the monitor")
 		panic(err)
 	}
 
-	if err := traffic.Run(deadlineCtx, meta, reporter); err != nil {
+	if err := traffic.Run(deadlineCtx, metadata, reporter); err != nil {
 		startLogger.Error(err, "failed to start traffic")
 		panic(err)
 	}
@@ -190,17 +197,18 @@ func run(meta subcommand.Metadata) error {
 	startLogger.Info("stopping traffic")
 	traffic.AwaitStop()
 
+	// Stop it here to allow the scheduler to report all before shutting down.
+	reporterCancel()
+
 	startLogger.Info("stopping modules")
-	for _, m := range meta {
+	for _, m := range metadata {
 		if err := m.Stop(); err != nil {
 			startLogger.Error(err, "module stop reported an error", "module", m.Name())
 		}
 	}
 
 	startLogger.Info("finalising report")
-	reporter.Finalise()
-
-	return nil
+	return reporter.Finalise()
 }
 
 func startModules(meta []*subcommand.Meta) error {
@@ -214,7 +222,11 @@ func startModules(meta []*subcommand.Meta) error {
 }
 
 func setupReporter() report.Reporter {
-	return &report.YAMLReporter{}
+	reporter := report.NewYAML(&report.YAMLOpts{
+		Path: reportPath,
+	})
+
+	return reporter
 }
 
 func setupMonitor(reporter report.Reporter, metadata subcommand.Metadata) *monitor.Monitor {

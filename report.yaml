@@ -1,0 +1,15 @@
+start: 2024-12-09T22:10:38.020024+01:00
+end: 2024-12-09T22:11:08.024116+01:00
+duration: 30.003504981s
+modules:
+    sample:
+        cpu: null
+        mem: null
+        operations:
+            test:
+                executions: 29
+                timing:
+                    longest: 2.601781ms
+                    shortest: 2.124222ms
+                    average: 2.39909ms
+                errors: []

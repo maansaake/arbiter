@@ -1,6 +1,8 @@
 package samplemodule
 
 import (
+	"time"
+
 	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/module/op"
@@ -13,25 +15,15 @@ type SampleModule struct {
 
 func NewSampleModule() module.Module {
 	return &SampleModule{
-		args: arg.Args{
-			&arg.Arg[bool]{
-				Name:  "disable",
-				Desc:  "Set if this module should be disabled.",
-				Value: new(bool),
-			},
-			&arg.Arg[int]{
-				Name:  "routines",
-				Desc:  "Sets the number of go-routines",
-				Value: new(int),
-			},
-		},
+		args: arg.Args{},
 		ops: op.Ops{
 			&op.Op{
-				Name:     "lockunlock",
-				Desc:     "Locks and unlocks after a small delay",
+				Name:     "test",
+				Desc:     "Does nothing and returns after a short delay.",
 				Disabled: false,
 				Rate:     60,
 				Do: func() (op.Result, error) {
+					time.Sleep(2 * time.Millisecond)
 					return op.Result{}, nil
 				},
 			},

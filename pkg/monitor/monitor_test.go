@@ -141,5 +141,12 @@ func TestAdd(t *testing.T) {
 }
 
 func TestOpt(t *testing.T) {
+	opt := DefaultOpt()
+	opt.Name = "name"
 
+	opt.CPUTriggerFromCmdline("ABOVE;12")
+
+	if len(opt.CPUTriggers) != 1 {
+		t.Fatal("CPU trigger expected to be added")
+	}
 }

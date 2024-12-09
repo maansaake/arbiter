@@ -9,13 +9,14 @@ import (
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/module/op"
 	"tres-bon.se/arbiter/pkg/monitor"
+	"tres-bon.se/arbiter/pkg/monitor/cpu"
 	"tres-bon.se/arbiter/pkg/monitor/trigger"
 	"tres-bon.se/arbiter/pkg/subcommand"
 )
 
-// Register command line arguments for the input modules.
-func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.Meta, error) {
-	moduleMeta := make([]*subcommand.Meta, len(modules))
+// Parse command line arguments for the input modules.
+func Parse(subcommandIndex int, modules module.Modules) (subcommand.Metadata, error) {
+	metadata := make(subcommand.Metadata, len(modules))
 	for i, mod := range modules {
 		meta := &subcommand.Meta{Module: mod, MonitorOpt: monitor.DefaultOpt()}
 
@@ -49,10 +50,10 @@ func Register(subcommandIndex int, modules module.Modules) ([]*subcommand.Meta, 
 			return nil, err
 		}
 
-		moduleMeta[i] = meta
+		metadata[i] = meta
 	}
 
-	return moduleMeta, arg.Parse(os.Args[subcommandIndex+1:])
+	return metadata, arg.Parse(os.Args[subcommandIndex+1:])
 }
 
 func monitorPidArg(v int) *arg.Arg[int] {
@@ -60,6 +61,7 @@ func monitorPidArg(v int) *arg.Arg[int] {
 		Name:  "monitor.performance.pid",
 		Desc:  "A PID to track performance metrics.",
 		Value: &v,
+		Valid: cpu.ValidPID,
 	}
 }
 

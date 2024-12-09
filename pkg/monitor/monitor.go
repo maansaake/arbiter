@@ -281,7 +281,7 @@ func (m *Monitor) Start(ctx context.Context) error {
 					for name, reader := range m.metricMonitors {
 						rawMetrics, err := reader.Pull()
 						if err != nil {
-							m.Reporter.MetricErr(name, err)
+							m.Reporter.MetricErr(name, "none", err)
 						} else {
 							m.handleMetricUpdate(name, rawMetrics)
 						}
@@ -307,7 +307,7 @@ func (m *Monitor) Start(ctx context.Context) error {
 func (m *Monitor) PullMetrics(name string) ([]byte, error) {
 	rawMetrics, err := m.metricMonitors[name].Pull()
 	if err != nil {
-		m.Reporter.MetricErr(name, err)
+		m.Reporter.MetricErr(name, "none", err)
 	} else {
 		m.handleMetricUpdate(name, rawMetrics)
 	}
@@ -348,13 +348,13 @@ func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 	parser := expfmt.TextParser{}
 	families, err := parser.TextToMetricFamilies(bytes.NewReader(rawMetrics))
 	if err != nil {
-		m.Reporter.MetricErr(name, err)
+		m.Reporter.MetricErr(name, "none", err)
 		return
 	}
 
 	for metricName, triggers := range m.metricTriggers[name] {
 		if family, ok := families[metricName]; !ok {
-			m.Reporter.MetricErr(name, fmt.Errorf("%w: %s", ErrMetricNotFound, metricName))
+			m.Reporter.MetricErr(name, metricName, ErrMetricNotFound)
 		} else {
 			for _, metric := range family.Metric {
 				// TODO: add label support for triggers
@@ -366,7 +366,7 @@ func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 				case io_prometheus_client.MetricType_GAUGE:
 					val = metric.Gauge.GetValue()
 				default:
-					m.Reporter.MetricErr(name, fmt.Errorf("%w: %s", ErrMetricTypeNotSupported, family.GetType()))
+					m.Reporter.MetricErr(name, metricName, fmt.Errorf("%w: %s", ErrMetricTypeNotSupported, family.GetType()))
 					return
 				}
 
@@ -374,7 +374,7 @@ func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 					res := trig.Update(val)
 
 					if res == trigger.RAISE || res == trigger.CLEAR {
-						m.Reporter.MetricTrigger(name, res.String(), val)
+						m.Reporter.MetricTrigger(name, metricName, res.String(), val)
 					}
 				}
 			}

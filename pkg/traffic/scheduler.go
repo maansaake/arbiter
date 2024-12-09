@@ -106,11 +106,9 @@ func handleWorkload(ctx context.Context, index int, workload *workload) {
 			start := time.Now()
 			res, err := workload.op.Do()
 
-			// If override is set by the user module, use the overridden duration.
-			if res.DurationOverride != 0 {
-				res.Duration = res.DurationOverride
-				// Else calculate from start timestamp
-			} else {
+			res.Name = workload.op.Name
+
+			if res.Duration == 0 {
 				res.Duration = time.Since(start)
 			}
 

@@ -13,7 +13,7 @@ type (
 	Ops    []*Op
 	Do     func() (Result, error)
 	Result struct {
-		Duration         time.Duration
-		DurationOverride time.Duration
+		Name     string
+		Duration time.Duration
 	}
 )

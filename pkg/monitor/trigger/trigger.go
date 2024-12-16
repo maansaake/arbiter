@@ -44,7 +44,6 @@ type (
 		// the clear field leads to a clear Result.
 		Clear T
 	}
-
 	// Implementation of the Trigger interface.
 	triggerImpl[T TypeConstraint] struct {
 		triggerOn TriggerOn

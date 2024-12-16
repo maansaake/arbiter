@@ -17,6 +17,7 @@ import (
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/monitor"
 	"tres-bon.se/arbiter/pkg/report"
+	yamlreport "tres-bon.se/arbiter/pkg/report/yaml"
 	"tres-bon.se/arbiter/pkg/subcommand"
 	"tres-bon.se/arbiter/pkg/subcommand/cli"
 	"tres-bon.se/arbiter/pkg/subcommand/file"
@@ -222,7 +223,7 @@ func startModules(meta []*subcommand.Meta) error {
 }
 
 func setupReporter() report.Reporter {
-	reporter := report.NewYAML(&report.YAMLOpts{
+	reporter := yamlreport.New(&yamlreport.Opts{
 		Path: reportPath,
 	})
 

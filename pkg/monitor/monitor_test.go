@@ -11,10 +11,12 @@ import (
 	"tres-bon.se/arbiter/pkg/monitor/log"
 	"tres-bon.se/arbiter/pkg/monitor/memory"
 	"tres-bon.se/arbiter/pkg/monitor/metric"
+	"tres-bon.se/arbiter/pkg/monitor/trigger"
 )
 
 func TestStartMonitorCPU(t *testing.T) {
 	monitor := New()
+	monitor.ExternalPrometheus = true
 	monitorInterval = 1 * time.Microsecond
 
 	mock := cpu.NewCPUMonitorMock(0, nil)
@@ -30,6 +32,10 @@ func TestStartMonitorCPU(t *testing.T) {
 	}
 
 	<-ctx.Done()
+	err = monitor.Stop()
+	if err != nil {
+		t.Fatal("failed to stop monitor")
+	}
 }
 
 func TestStartMonitorMemory(t *testing.T) {
@@ -49,6 +55,10 @@ func TestStartMonitorMemory(t *testing.T) {
 	}
 
 	<-ctx.Done()
+	err = monitor.Stop()
+	if err != nil {
+		t.Fatal("failed to stop monitor")
+	}
 }
 
 func TestStartMonitorMetric(t *testing.T) {
@@ -68,6 +78,10 @@ func TestStartMonitorMetric(t *testing.T) {
 	}
 
 	<-ctx.Done()
+	err = monitor.Stop()
+	if err != nil {
+		t.Fatal("failed to stop monitor")
+	}
 }
 
 func TestStartMonitorLog(t *testing.T) {
@@ -87,6 +101,10 @@ func TestStartMonitorLog(t *testing.T) {
 	}
 
 	<-ctx.Done()
+	err = monitor.Stop()
+	if err != nil {
+		t.Fatal("failed to stop monitor")
+	}
 }
 
 func TestStartMonitorLogErr(t *testing.T) {
@@ -103,16 +121,18 @@ func TestStartMonitorLogErr(t *testing.T) {
 	}
 
 	cancel()
+	err = monitor.Stop()
+	if err != nil {
+		t.Fatal("failed to stop monitor")
+	}
 }
 
 func TestAdd(t *testing.T) {
-	m := New()
-	m.ExternalPrometheus = true
-
 	pidOpt := DefaultOpt()
 	pidOpt.Name = "pid"
 	pidOpt.PID = os.Getpid()
-	m.Add(pidOpt)
+	m := New(pidOpt)
+	m.ExternalPrometheus = true
 
 	if _, ok := m.cpuMonitors["pid"]; !ok {
 		t.Fatal("expected 1 CPU monitor")
@@ -124,6 +144,7 @@ func TestAdd(t *testing.T) {
 	metricOpt := DefaultOpt()
 	metricOpt.Name = "metric"
 	metricOpt.MetricEndpoint = "not none"
+	metricOpt.MetricTriggers["metric"] = []trigger.Trigger[float64]{}
 	m.Add(metricOpt)
 
 	if _, ok := m.metricMonitors["metric"]; !ok {
@@ -145,8 +166,24 @@ func TestOpt(t *testing.T) {
 	opt.Name = "name"
 
 	opt.CPUTriggerFromCmdline("ABOVE;12")
+	opt.VMSTriggerFromCmdline("ABOVE;12")
+	opt.RSSTriggerFromCmdline("ABOVE;12")
+	opt.MetricTriggerFromCmdline("metric;ABOVE;12")
+	opt.LogFileTriggerFromCmdline("EQUAL;phrase")
 
 	if len(opt.CPUTriggers) != 1 {
 		t.Fatal("CPU trigger expected to be added")
+	}
+	if len(opt.VMSTriggers) != 1 {
+		t.Fatal("VMS trigger expected to be added")
+	}
+	if len(opt.RSSTriggers) != 1 {
+		t.Fatal("RSS trigger expected to be added")
+	}
+	if len(opt.MetricTriggers) != 1 {
+		t.Fatal("Metric trigger expected to be added")
+	}
+	if len(opt.LogTriggers) != 1 {
+		t.Fatal("Log trigger expected to be added")
 	}
 }

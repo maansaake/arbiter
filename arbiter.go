@@ -196,7 +196,11 @@ func run(metadata subcommand.Metadata) error {
 	startLogger = startLogger.WithName("stopping")
 
 	startLogger.Info("stopping traffic")
-	traffic.AwaitStop()
+	traffic.Stop()
+	err := monitor.Stop()
+	if err != nil {
+		startLogger.Error(err, "error when stopping monitor")
+	}
 
 	// Stop it here to allow the scheduler to report all before shutting down.
 	reporterCancel()

@@ -32,6 +32,7 @@ type (
 		MetricAddr string
 
 		// INTERNAL
+		stop chan interface{}
 
 		// Metric service instance (if external prometheus is true)
 		metricServer *http.Server
@@ -52,19 +53,24 @@ type (
 	// Opt contains information about a module that the monitor needs to
 	// do its work.
 	Opt struct {
+		// Module name
 		Name string
 
-		// Monitoring metadata
+		// Monitoring metadata, enables and disables certain monitoring aspects.
 		PID            int
 		LogFile        string
 		MetricEndpoint string
 
 		// Triggers
-		CPUTriggers    []trigger.Trigger[float64]
-		VMSTriggers    []trigger.Trigger[uint]
-		RSSTriggers    []trigger.Trigger[uint]
+		// CPU triggers
+		CPUTriggers []trigger.Trigger[float64]
+		// Memory triggers
+		VMSTriggers []trigger.Trigger[uint]
+		RSSTriggers []trigger.Trigger[uint]
+		// Named metrics with a slice of triggers per metric.
 		MetricTriggers map[string][]trigger.Trigger[float64]
-		LogTriggers    []trigger.Trigger[string]
+		// String triggers for logs.
+		LogTriggers []trigger.Trigger[string]
 	}
 )
 
@@ -95,12 +101,6 @@ func DefaultOpt() *Opt {
 	}
 }
 
-func (o *Opt) String() string {
-	return fmt.Sprintf("Opt{PID: %d, Metric: %s, Log: %s, CPUT: %d, VMST: %d, RSST: %d, MetricT: %d, LogT: %d}",
-		o.PID, o.MetricEndpoint, o.LogFile, len(o.CPUTriggers), len(o.VMSTriggers), len(o.RSSTriggers), len(o.MetricTriggers), len(o.LogTriggers),
-	)
-}
-
 func (o *Opt) CPUTriggerFromCmdline(cmdline string) {
 	o.CPUTriggers = append(o.CPUTriggers, trigger.From[float64](cmdline))
 }
@@ -117,16 +117,17 @@ func (o *Opt) LogFileTriggerFromCmdline(cmdline string) {
 	o.LogTriggers = append(o.LogTriggers, trigger.From[string](cmdline))
 }
 
-func (mi *Opt) MetricTriggerFromCmdline(cmdline string) {
+func (o *Opt) MetricTriggerFromCmdline(cmdline string) {
 	name, t := trigger.NamedFrom[float64](cmdline)
-	if _, ok := mi.MetricTriggers[name]; !ok {
-		mi.MetricTriggers[name] = make([]trigger.Trigger[float64], 0, 1)
+	if _, ok := o.MetricTriggers[name]; !ok {
+		o.MetricTriggers[name] = make([]trigger.Trigger[float64], 0, 1)
 	}
-	mi.MetricTriggers[name] = append(mi.MetricTriggers[name], t)
+	o.MetricTriggers[name] = append(o.MetricTriggers[name], t)
 }
 
 func New(opts ...*Opt) *Monitor {
 	m := &Monitor{
+		stop:           make(chan interface{}, 4),
 		cpuMonitors:    make(map[string]cpu.CPU),
 		cpuTriggers:    make(map[string][]trigger.Trigger[float64]),
 		memMonitors:    make(map[string]memory.Memory),
@@ -233,6 +234,8 @@ func (m *Monitor) Start(ctx context.Context) error {
 					}
 				case <-ctx.Done():
 					tick.Stop()
+					// 1
+					m.stop <- true
 					return
 				}
 			}
@@ -264,6 +267,8 @@ func (m *Monitor) Start(ctx context.Context) error {
 					}
 				case <-ctx.Done():
 					tick.Stop()
+					// 2
+					m.stop <- true
 					return
 				}
 			}
@@ -288,6 +293,8 @@ func (m *Monitor) Start(ctx context.Context) error {
 					}
 				case <-ctx.Done():
 					tick.Stop()
+					// 3
+					m.stop <- true
 					return
 				}
 			}
@@ -296,6 +303,18 @@ func (m *Monitor) Start(ctx context.Context) error {
 
 	for name, logMonitor := range m.logMonitors {
 		err := logMonitor.Stream(ctx, m.logHandler(name))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *Monitor) Stop() error {
+	logger.Info("stopping the monitor")
+	if m.ExternalPrometheus {
+		err := m.metricServer.Close()
 		if err != nil {
 			return err
 		}
@@ -319,7 +338,11 @@ func (m *Monitor) handleCPUUpdate(name string, cpu float64) {
 		res := trig.Update(cpu)
 
 		if res == trigger.RAISE || res == trigger.CLEAR {
-			m.Reporter.CPUTrigger(name, &report.TriggerReport[float64]{})
+			m.Reporter.CPUTrigger(name, &report.TriggerReport[float64]{
+				Timestamp: time.Now(),
+				Type:      res.String(),
+				Value:     cpu,
+			})
 		}
 	}
 }
@@ -329,7 +352,11 @@ func (m *Monitor) handleRSSUpdate(name string, rss uint) {
 		res := trig.Update(rss)
 
 		if res == trigger.RAISE || res == trigger.CLEAR {
-			m.Reporter.RSSTrigger(name, &report.TriggerReport[uint]{})
+			m.Reporter.RSSTrigger(name, &report.TriggerReport[uint]{
+				Timestamp: time.Now(),
+				Type:      res.String(),
+				Value:     rss,
+			})
 		}
 	}
 }
@@ -339,7 +366,11 @@ func (m *Monitor) handleVMSUpdate(name string, vms uint) {
 		res := trig.Update(vms)
 
 		if res == trigger.RAISE || res == trigger.CLEAR {
-			m.Reporter.RSSTrigger(name, &report.TriggerReport[uint]{})
+			m.Reporter.RSSTrigger(name, &report.TriggerReport[uint]{
+				Timestamp: time.Now(),
+				Type:      res.String(),
+				Value:     vms,
+			})
 		}
 	}
 }
@@ -374,7 +405,11 @@ func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 					res := trig.Update(val)
 
 					if res == trigger.RAISE || res == trigger.CLEAR {
-						m.Reporter.MetricTrigger(name, metricName, &report.TriggerReport[float64]{})
+						m.Reporter.MetricTrigger(name, metricName, &report.TriggerReport[float64]{
+							Timestamp: time.Now(),
+							Type:      res.String(),
+							Value:     val,
+						})
 					}
 				}
 			}
@@ -383,15 +418,25 @@ func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 }
 
 func (m *Monitor) logHandler(name string) log.LogHandler {
-	return func(log string, err error) {
+	return func(logEvent string, err error) {
 		if err != nil {
+			if errors.Is(err, log.ErrStopped) {
+				// 4
+				m.stop <- true
+				return
+			}
+
 			m.Reporter.LogErr(name, err)
 		} else {
 			for _, trig := range m.logTriggers[name] {
-				res := trig.Update(log)
+				res := trig.Update(logEvent)
 
 				if res == trigger.RAISE || res == trigger.CLEAR {
-					m.Reporter.LogTrigger(name, &report.TriggerReport[string]{})
+					m.Reporter.LogTrigger(name, &report.TriggerReport[string]{
+						Timestamp: time.Now(),
+						Type:      res.String(),
+						Value:     logEvent,
+					})
 				}
 			}
 		}

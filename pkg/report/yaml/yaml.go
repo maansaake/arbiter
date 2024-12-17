@@ -187,6 +187,28 @@ func (r *YAMLReporter) Finalise() error {
 	r.report.End = time.Now()
 	r.report.Duration = r.report.End.Sub(r.report.Start)
 
+	for _, mod := range r.report.Modules {
+		if mod.CPU.readings == 0 {
+			mod.CPU = nil
+		}
+		if mod.Mem.RSS.readings == 0 && mod.Mem.VMS.readings == 0 {
+			mod.Mem = nil
+		} else {
+			if mod.Mem.RSS.readings == 0 {
+				mod.Mem.RSS = nil
+			}
+			if mod.Mem.VMS.readings == 0 {
+				mod.Mem.VMS = nil
+			}
+		}
+		if len(mod.Metric.Errs) == 0 && len(mod.Metric.Triggers) == 0 {
+			mod.Metric = nil
+		}
+		if len(mod.Log.Errs) == 0 && len(mod.Log.Triggers) == 0 {
+			mod.Log = nil
+		}
+	}
+
 	file, err := os.Create(r.path)
 	if err != nil {
 		return err
@@ -194,6 +216,7 @@ func (r *YAMLReporter) Finalise() error {
 	defer file.Close()
 
 	encoder := yaml.NewEncoder(file)
+	defer encoder.Close()
 	encoder.SetIndent(2)
 	return encoder.Encode(r.report)
 }

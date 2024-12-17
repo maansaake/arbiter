@@ -33,7 +33,7 @@ var (
 
 	ErrNilPtr       = errors.New("Arg.Value must not be a nil pointer")
 	ErrRequiredBool = errors.New("a boolean arg cannot be marked required")
-	ErrInvalid      = errors.New("invalid value")
+	ErrInvalid      = errors.New("validator failed")
 	ErrParse        = errors.New("error parsing CLI flags")
 	ErrType         = errors.New("unsupported type")
 )
@@ -218,7 +218,7 @@ func generalHandler[T TypeConstraint](prefix string, arg *Arg[T]) error {
 	}
 
 	if arg.Valid != nil && !arg.Valid(*arg.Value) {
-		return fmt.Errorf("%w: argument '%s' has invalid value '%v'", ErrInvalid, argPath(prefix, arg), *arg.Value)
+		return ErrInvalid
 	}
 
 	if arg.Handler != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"tres-bon.se/arbiter/pkg/module/op"
@@ -22,7 +21,9 @@ type workload struct {
 var (
 	reporter report.Reporter
 
-	workloads []*workload
+	workloads      []*workload
+	stop           chan string
+	cleanupTimeout = 5 * time.Second
 )
 
 var (
@@ -65,40 +66,42 @@ func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) e
 	}
 
 	// Start traffic generation in separate go-routine, run until context is done
+	// Create stop channel that workloads will report to when stopping.
+	stop = make(chan string, len(workloads))
 	run(ctx)
 
 	return nil
 }
 
-func AwaitStop() {
-	log.Info("awaiting cleanup of traffic generator")
+func Stop() {
+	log.Info("cleaning up the traffic generator")
+	stopCount := 0
 	for {
-		<-time.After(10 * time.Millisecond)
-		// We want there to be only nil pointers, then tickers have been cleaned
-		// up.
-		if slices.IndexFunc(
-			workloads, func(wl *workload) bool { return wl != nil },
-		) == -1 {
+		select {
+		case <-time.After(cleanupTimeout):
+			log.Error(errors.New("failed to clean up in time"), "timeout", cleanupTimeout)
 			return
+		case name := <-stop:
+			log.Info("workload stopped", "name", name)
+			stopCount++
+			if stopCount == len(workloads) {
+				log.Info("all workloads have stopped")
+				return
+			}
 		}
 	}
 }
 
 func run(ctx context.Context) {
-	for i, workload := range workloads {
+	for _, workload := range workloads {
 		// Index passed to allow easy self deletion.
-		go handleWorkload(ctx, i, workload)
+		go handleWorkload(ctx, workload)
 	}
 }
 
-func handleWorkload(ctx context.Context, index int, workload *workload) {
+func handleWorkload(ctx context.Context, workload *workload) {
 	for {
 		select {
-		case <-ctx.Done():
-			log.Info("stopping workload for operation", "op", workload.op.Name)
-			workload.ticker.Stop()
-			workloads[index] = nil
-			return
 		case t := <-workload.ticker.C:
 			log.V(100).Info("tick", "mod", workload.mod, "op", workload.op.Name, "time", t)
 
@@ -112,6 +115,11 @@ func handleWorkload(ctx context.Context, index int, workload *workload) {
 
 			// Report to reporter
 			reporter.Op(workload.mod, workload.op.Name, &res, err)
+		case <-ctx.Done():
+			log.Info("stopping workload", "mod", workload.mod, "op", workload.op.Name)
+			workload.ticker.Stop()
+			stop <- fmt.Sprintf("%s: %s", workload.mod, workload.op.Name)
+			return
 		}
 	}
 }

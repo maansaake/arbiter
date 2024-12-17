@@ -23,7 +23,7 @@ type (
 		Buffer int
 	}
 	// Implements the reporter interface.
-	yamlReporter struct {
+	YAMLReporter struct {
 		// The final path of the YAML report.
 		path string
 		// The YAML report.
@@ -43,8 +43,10 @@ type (
 	}
 )
 
+var _ report.Reporter = &YAMLReporter{}
+
 // Create a new YAML reporter.
-func New(opts *Opts) report.Reporter {
+func New(opts *Opts) *YAMLReporter {
 	var start time.Time
 	var buffer int
 	if opts.Buffer > 0 {
@@ -59,7 +61,7 @@ func New(opts *Opts) report.Reporter {
 		start = opts.Start
 	}
 
-	reporter := &yamlReporter{
+	reporter := &YAMLReporter{
 		report: &yamlReport{
 			Start:   start,
 			Modules: make(map[string]*module),
@@ -73,7 +75,7 @@ func New(opts *Opts) report.Reporter {
 }
 
 // Start the YAML reporter and run until the context is cancelled.
-func (r *yamlReporter) Start(ctx context.Context) {
+func (r *YAMLReporter) Start(ctx context.Context) {
 	go func() {
 		for {
 			select {
@@ -94,91 +96,91 @@ func (r *yamlReporter) Start(ctx context.Context) {
 	}()
 }
 
-func (r *yamlReporter) Op(mod, op string, res *op.Result, err error) {
+func (r *YAMLReporter) Op(mod, op string, res *op.Result, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addOp(op, res, err)
 	}
 }
 
-func (r *yamlReporter) LogErr(mod string, err error) {
+func (r *YAMLReporter) LogErr(mod string, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addLogErr(err)
 	}
 }
 
-func (r *yamlReporter) LogTrigger(mod string, tr *report.TriggerReport[string]) {
+func (r *YAMLReporter) LogTrigger(mod string, tr *report.TriggerReport[string]) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addLogTrigger(tr)
 	}
 }
 
-func (r *yamlReporter) CPU(mod string, value float64) {
+func (r *YAMLReporter) CPU(mod string, value float64) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addCPU(value)
 	}
 }
 
-func (r *yamlReporter) CPUErr(mod string, err error) {
+func (r *YAMLReporter) CPUErr(mod string, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addCPUErr(err)
 	}
 }
 
-func (r *yamlReporter) CPUTrigger(mod string, tr *report.TriggerReport[float64]) {
+func (r *YAMLReporter) CPUTrigger(mod string, tr *report.TriggerReport[float64]) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addCPUTrigger(tr)
 	}
 }
 
-func (r *yamlReporter) RSS(mod string, value uint) {
+func (r *YAMLReporter) RSS(mod string, value uint) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addRSS(value)
 	}
 }
 
-func (r *yamlReporter) RSSErr(mod string, err error) {
+func (r *YAMLReporter) RSSErr(mod string, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addRSSErr(err)
 	}
 }
 
-func (r *yamlReporter) RSSTrigger(mod string, tr *report.TriggerReport[uint]) {
+func (r *YAMLReporter) RSSTrigger(mod string, tr *report.TriggerReport[uint]) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addRSSTrigger(tr)
 	}
 }
 
-func (r *yamlReporter) VMS(mod string, value uint) {
+func (r *YAMLReporter) VMS(mod string, value uint) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addVMS(value)
 	}
 }
 
-func (r *yamlReporter) VMSErr(mod string, err error) {
+func (r *YAMLReporter) VMSErr(mod string, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addVMSErr(err)
 	}
 }
 
-func (r *yamlReporter) VMSTrigger(mod string, tr *report.TriggerReport[uint]) {
+func (r *YAMLReporter) VMSTrigger(mod string, tr *report.TriggerReport[uint]) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addVMSTrigger(tr)
 	}
 }
 
-func (r *yamlReporter) MetricErr(mod, metric string, err error) {
+func (r *YAMLReporter) MetricErr(mod, metric string, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addMetricErr(metric, err)
 	}
 }
 
-func (r *yamlReporter) MetricTrigger(mod, metric string, tr *report.TriggerReport[float64]) {
+func (r *YAMLReporter) MetricTrigger(mod, metric string, tr *report.TriggerReport[float64]) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addMetricTrigger(metric, tr)
 	}
 }
 
-func (r *yamlReporter) Finalise() error {
+func (r *YAMLReporter) Finalise() error {
 	// Await synchronizer
 	<-r.stopped
 

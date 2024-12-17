@@ -73,7 +73,7 @@ func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) e
 func AwaitStop() {
 	log.Info("awaiting cleanup of traffic generator")
 	for {
-		<-time.After(1 * time.Millisecond)
+		<-time.After(10 * time.Millisecond)
 		// We want there to be only nil pointers, then tickers have been cleaned
 		// up.
 		if slices.IndexFunc(
@@ -100,7 +100,7 @@ func handleWorkload(ctx context.Context, index int, workload *workload) {
 			workloads[index] = nil
 			return
 		case t := <-workload.ticker.C:
-			log.V(100).Info("tick", "op", workload.op.Name, "time", t)
+			log.V(100).Info("tick", "mod", workload.mod, "op", workload.op.Name, "time", t)
 
 			// Run Op and calculate duration.
 			start := time.Now()

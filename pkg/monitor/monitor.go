@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -32,7 +31,8 @@ type (
 		MetricAddr string
 
 		// INTERNAL
-		stop chan interface{}
+		procs int
+		stop  chan bool
 
 		// Metric service instance (if external prometheus is true)
 		metricServer *http.Server
@@ -81,11 +81,13 @@ const (
 )
 
 var (
-	logger          logr.Logger
+	logger          = zerologr.New(&zerologr.Opts{Console: true}).WithName("monitor")
 	monitorInterval = 10 * time.Second
+	stopTimeout     = 5 * time.Second
 
 	ErrMetricNotFound         = errors.New("metric not found")
 	ErrMetricTypeNotSupported = errors.New("metric type not supported")
+	ErrStopTimeout            = errors.New("stop exceeded timeout")
 )
 
 func DefaultOpt() *Opt {
@@ -127,7 +129,6 @@ func (o *Opt) MetricTriggerFromCmdline(cmdline string) {
 
 func New(opts ...*Opt) *Monitor {
 	m := &Monitor{
-		stop:           make(chan interface{}, 4),
 		cpuMonitors:    make(map[string]cpu.CPU),
 		cpuTriggers:    make(map[string][]trigger.Trigger[float64]),
 		memMonitors:    make(map[string]memory.Memory),
@@ -194,8 +195,6 @@ func (m *Monitor) Add(opt *Opt) {
 }
 
 func (m *Monitor) Start(ctx context.Context) error {
-	logger = zerologr.New(&zerologr.Opts{Console: true})
-
 	if m.ExternalPrometheus {
 		go func() {
 			//nolint:gosec
@@ -216,96 +215,32 @@ func (m *Monitor) Start(ctx context.Context) error {
 		}()
 	}
 
+	m.procs = 0
 	if len(m.cpuMonitors) != 0 {
-		go func() {
-			tick := time.NewTicker(monitorInterval)
-			for {
-				select {
-				case <-tick.C:
-					logger.Info("cpu monitor tick")
-
-					for name, reader := range m.cpuMonitors {
-						cpu, err := reader.Read()
-						if err != nil {
-							m.Reporter.CPUErr(name, err)
-						} else {
-							m.handleCPUUpdate(name, cpu)
-						}
-					}
-				case <-ctx.Done():
-					tick.Stop()
-					// 1
-					m.stop <- true
-					return
-				}
-			}
-		}()
+		go m.startCPUTicker(ctx)
+		m.procs++
 	}
 
 	if len(m.memMonitors) != 0 {
-		go func() {
-			tick := time.NewTicker(monitorInterval)
-			for {
-				select {
-				case <-tick.C:
-					logger.Info("memory monitor tick")
-
-					for name, reader := range m.memMonitors {
-						rss, err := reader.RSS()
-						if err != nil {
-							m.Reporter.RSSErr(name, err)
-						} else {
-							m.handleRSSUpdate(name, rss)
-						}
-
-						vms, err := reader.VMS()
-						if err != nil {
-							m.Reporter.VMSErr(name, err)
-						} else {
-							m.handleVMSUpdate(name, vms)
-						}
-					}
-				case <-ctx.Done():
-					tick.Stop()
-					// 2
-					m.stop <- true
-					return
-				}
-			}
-		}()
+		go m.startMemoryTicker(ctx)
+		m.procs++
 	}
 
 	if len(m.metricMonitors) != 0 && !m.ExternalPrometheus {
-		go func() {
-			tick := time.NewTicker(monitorInterval)
-			for {
-				select {
-				case <-tick.C:
-					logger.Info("metric monitor tick")
-
-					for name, reader := range m.metricMonitors {
-						rawMetrics, err := reader.Pull()
-						if err != nil {
-							m.Reporter.MetricErr(name, "none", err)
-						} else {
-							m.handleMetricUpdate(name, rawMetrics)
-						}
-					}
-				case <-ctx.Done():
-					tick.Stop()
-					// 3
-					m.stop <- true
-					return
-				}
-			}
-		}()
+		go m.startMetricTicker(ctx)
+		m.procs++
 	}
 
 	for name, logMonitor := range m.logMonitors {
+		m.procs++
 		err := logMonitor.Stream(ctx, m.logHandler(name))
 		if err != nil {
 			return err
 		}
+	}
+
+	if m.procs > 0 {
+		m.stop = make(chan bool, m.procs)
 	}
 
 	return nil
@@ -320,6 +255,20 @@ func (m *Monitor) Stop() error {
 		}
 	}
 
+	if m.procs > 0 {
+		stopCount := 0
+		for {
+			select {
+			case <-time.After(stopTimeout):
+				return fmt.Errorf("%w: %v", ErrStopTimeout, stopTimeout)
+			case <-m.stop:
+				stopCount++
+				if stopCount == m.procs {
+					return nil
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -331,6 +280,91 @@ func (m *Monitor) PullMetrics(name string) ([]byte, error) {
 		m.handleMetricUpdate(name, rawMetrics)
 	}
 	return rawMetrics, err
+}
+
+func (m *Monitor) startCPUTicker(ctx context.Context) {
+	logger.Info("starting CPU ticker")
+	tick := time.NewTicker(monitorInterval)
+	for {
+		select {
+		case <-tick.C:
+			logger.Info("cpu monitor tick")
+
+			for name, reader := range m.cpuMonitors {
+				cpu, err := reader.Read()
+				if err != nil {
+					m.Reporter.CPUErr(name, err)
+				} else {
+					m.handleCPUUpdate(name, cpu)
+				}
+			}
+		case <-ctx.Done():
+			tick.Stop()
+			// 1
+			m.stop <- true
+			logger.Info("stopped CPU ticker")
+			return
+		}
+	}
+}
+
+func (m *Monitor) startMemoryTicker(ctx context.Context) {
+	logger.Info("starting memory ticker")
+	tick := time.NewTicker(monitorInterval)
+	for {
+		select {
+		case <-tick.C:
+			logger.Info("memory monitor tick")
+
+			for name, reader := range m.memMonitors {
+				rss, err := reader.RSS()
+				if err != nil {
+					m.Reporter.RSSErr(name, err)
+				} else {
+					m.handleRSSUpdate(name, rss)
+				}
+
+				vms, err := reader.VMS()
+				if err != nil {
+					m.Reporter.VMSErr(name, err)
+				} else {
+					m.handleVMSUpdate(name, vms)
+				}
+			}
+		case <-ctx.Done():
+			tick.Stop()
+			// 2
+			m.stop <- true
+			logger.Info("stopped memory ticker")
+			return
+		}
+	}
+}
+
+func (m *Monitor) startMetricTicker(ctx context.Context) {
+	logger.Info("starting metric ticker")
+	tick := time.NewTicker(monitorInterval)
+	for {
+		select {
+		case <-tick.C:
+			logger.Info("metric monitor tick")
+
+			for name, reader := range m.metricMonitors {
+				rawMetrics, err := reader.Pull()
+				if err != nil {
+					m.Reporter.MetricErr(name, "none", err)
+				} else {
+					m.handleMetricUpdate(name, rawMetrics)
+				}
+			}
+		case <-ctx.Done():
+			tick.Stop()
+			// 3
+			m.stop <- true
+			logger.Info("stopped metric ticker")
+			return
+		}
+	}
 }
 
 func (m *Monitor) handleCPUUpdate(name string, cpu float64) {
@@ -423,6 +457,7 @@ func (m *Monitor) logHandler(name string) log.LogHandler {
 			if errors.Is(err, log.ErrStopped) {
 				// 4
 				m.stop <- true
+				logger.Info("stopped log handler")
 				return
 			}
 

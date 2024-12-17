@@ -8,25 +8,15 @@ import (
 )
 
 type ReporterMock struct {
-	Results []*op.Result
-	Errors  []error
+	OpResults []*op.Result
+	OpErrors  []error
 }
 
-// Start implements report.Reporter.
-func (r *ReporterMock) Start(context.Context) {
-	panic("unimplemented")
-}
-
-func NewReporterMock() report.Reporter {
+func NewMock() report.Reporter {
 	return &ReporterMock{
-		Results: make([]*op.Result, 0, 1),
-		Errors:  make([]error, 0, 1),
+		OpResults: make([]*op.Result, 0, 1),
+		OpErrors:  make([]error, 0, 1),
 	}
-}
-
-// Finalise implements report.Reporter.
-func (r *ReporterMock) Finalise() error {
-	panic("unimplemented")
 }
 
 // CPU implements report.Reporter.
@@ -34,8 +24,67 @@ func (r *ReporterMock) CPU(module string, value float64) {
 	panic("unimplemented")
 }
 
+// CPUErr implements report.Reporter.
+func (r *ReporterMock) CPUErr(module string, err error) {
+	panic("unimplemented")
+}
+
+// CPUTrigger implements report.Reporter.
+func (r *ReporterMock) CPUTrigger(module string, tr *report.TriggerReport[float64]) {
+	panic("unimplemented")
+}
+
+// Finalise implements report.Reporter.
+func (r *ReporterMock) Finalise() error {
+	panic("unimplemented")
+}
+
+// LogErr implements report.Reporter.
+func (r *ReporterMock) LogErr(module string, err error) {
+	panic("unimplemented")
+}
+
+// LogTrigger implements report.Reporter.
+func (r *ReporterMock) LogTrigger(module string, tr *report.TriggerReport[string]) {
+	panic("unimplemented")
+}
+
+// MetricErr implements report.Reporter.
+func (r *ReporterMock) MetricErr(module string, metric string, err error) {
+	panic("unimplemented")
+}
+
+// MetricTrigger implements report.Reporter.
+func (r *ReporterMock) MetricTrigger(module string, metric string, tr *report.TriggerReport[float64]) {
+	panic("unimplemented")
+}
+
+// Op implements report.Reporter.
+func (r *ReporterMock) Op(module, op string, result *op.Result, err error) {
+	if err != nil {
+		r.OpErrors = append(r.OpErrors, err)
+	} else {
+		r.OpResults = append(r.OpResults, result)
+	}
+}
+
 // RSS implements report.Reporter.
 func (r *ReporterMock) RSS(module string, value uint) {
+	panic("unimplemented")
+}
+
+// RSSErr implements report.Reporter.
+func (r *ReporterMock) RSSErr(module string, err error) {
+	panic("unimplemented")
+}
+
+// RSSTrigger implements report.Reporter.
+func (r *ReporterMock) RSSTrigger(module string, tr *report.TriggerReport[uint]) {
+	panic("unimplemented")
+}
+
+// Start implements report.Reporter.
+func (r *ReporterMock) Start(context.Context) {
 	panic("unimplemented")
 }
 
@@ -44,55 +93,12 @@ func (r *ReporterMock) VMS(module string, value uint) {
 	panic("unimplemented")
 }
 
-// Op implements report.Reporter.
-func (r *ReporterMock) Op(name string, res *op.Result, err error) {
-	r.Results = append(r.Results, res)
-	r.Errors = append(r.Errors, err)
-}
-
-func (r *ReporterMock) LogErr(name string, err error) {}
-
-// LogTrigger implements report.Reporter.
-func (r *ReporterMock) LogTrigger(string, string, string) {
-	panic("unimplemented")
-}
-
-// CPUErr implements report.Reporter.
-func (r *ReporterMock) CPUErr(string, error) {
-	panic("unimplemented")
-}
-
-// CPUTrigger implements report.Reporter.
-func (r *ReporterMock) CPUTrigger(string, string, float64) {
-	panic("unimplemented")
-}
-
-// MetricErr implements report.Reporter.
-func (r *ReporterMock) MetricErr(string, string, error) {
-	panic("unimplemented")
-}
-
-// MetricTrigger implements report.Reporter.
-func (r *ReporterMock) MetricTrigger(string, string, string, float64) {
-	panic("unimplemented")
-}
-
-// RSSErr implements report.Reporter.
-func (r *ReporterMock) RSSErr(string, error) {
-	panic("unimplemented")
-}
-
-// RSSTrigger implements report.Reporter.
-func (r *ReporterMock) RSSTrigger(string, string, uint) {
-	panic("unimplemented")
-}
-
 // VMSErr implements report.Reporter.
-func (r *ReporterMock) VMSErr(string, error) {
+func (r *ReporterMock) VMSErr(module string, err error) {
 	panic("unimplemented")
 }
 
 // VMSTrigger implements report.Reporter.
-func (r *ReporterMock) VMSTrigger(string, string, uint) {
+func (r *ReporterMock) VMSTrigger(module string, tr *report.TriggerReport[uint]) {
 	panic("unimplemented")
 }

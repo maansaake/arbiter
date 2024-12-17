@@ -10,7 +10,7 @@ import (
 type (
 	Reporter interface {
 		Start(context.Context)
-		Op(module string, result *op.Result, err error)
+		Op(module, op string, result *op.Result, err error)
 		LogErr(module string, err error)
 		LogTrigger(module string, tr *TriggerReport[string])
 		CPU(module string, value float64)
@@ -27,8 +27,8 @@ type (
 		Finalise() error
 	}
 	TriggerReport[T ~int | ~uint | ~float64 | ~string] struct {
-		Timestamp time.Time
-		Type      string
-		Value     T
+		Timestamp time.Time `yaml:"timestamp"`
+		Type      string    `yaml:"type"`
+		Value     T         `yaml:"value"`
 	}
 )

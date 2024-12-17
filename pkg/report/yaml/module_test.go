@@ -11,7 +11,7 @@ import (
 
 func TestAddOpToModule(t *testing.T) {
 	m := newModule()
-	m.addOp(&op.Result{Name: "op", Duration: time.Second}, nil)
+	m.addOp("op", &op.Result{Duration: time.Second}, nil)
 
 	v, ok := m.Operations["op"]
 	if !ok {
@@ -36,7 +36,7 @@ func TestAddOpToModule(t *testing.T) {
 		t.Fatal("expected 1 second")
 	}
 
-	m.addOp(&op.Result{Name: "op", Duration: time.Second}, nil)
+	m.addOp("op", &op.Result{Duration: time.Second}, nil)
 
 	if v.Timing.total != 2*time.Second {
 		t.Fatal("expected 2 seconds in total")
@@ -51,7 +51,7 @@ func TestAddOpToModule(t *testing.T) {
 		t.Fatal("expected 2 execs")
 	}
 
-	m.addOp(&op.Result{Name: "op", Duration: time.Second}, errors.New("error"))
+	m.addOp("op", &op.Result{Duration: time.Second}, errors.New("error"))
 	if v.Executions != 3 {
 		t.Fatal("expected 3 execs")
 	}
@@ -59,7 +59,7 @@ func TestAddOpToModule(t *testing.T) {
 		t.Fatal("expected 2 count")
 	}
 
-	m.addOp(&op.Result{Name: "op", Duration: 4 * time.Second}, nil)
+	m.addOp("op", &op.Result{Duration: 4 * time.Second}, nil)
 	if v.Executions != 4 {
 		t.Fatal("expected 4 execs")
 	}
@@ -81,13 +81,13 @@ func TestAddLogErrToModule(t *testing.T) {
 	m := newModule()
 	m.addLogErr(errors.New("log error"))
 
-	if len(m.Log.errs) != 1 {
+	if len(m.Log.Errs) != 1 {
 		t.Fatal("should have been 1 log error")
 	}
 
 	m.addLogErr(errors.New("log error"))
 
-	if len(m.Log.errs) != 2 {
+	if len(m.Log.Errs) != 2 {
 		t.Fatal("should have been 2 log errors")
 	}
 }
@@ -100,8 +100,8 @@ func TestAddLogTriggerToModule(t *testing.T) {
 		Value:     "some log message",
 	})
 
-	if len(m.Log.triggers) != 1 {
-		t.Fatal("should have been 1 log error")
+	if len(m.Log.Triggers) != 1 {
+		t.Fatal("should have been 1 log triggers")
 	}
 
 	m.addLogTrigger(&report.TriggerReport[string]{
@@ -110,8 +110,8 @@ func TestAddLogTriggerToModule(t *testing.T) {
 		Value:     "some log message",
 	})
 
-	if len(m.Log.triggers) != 2 {
-		t.Fatal("should have been 2 log errors")
+	if len(m.Log.Triggers) != 2 {
+		t.Fatal("should have been 2 log triggers")
 	}
 }
 
@@ -148,5 +148,203 @@ func TestAddCPUToModule(t *testing.T) {
 	}
 	if m.CPU.High != 12.12 {
 		t.Fatal("should have been 12.12")
+	}
+}
+
+func TestAddCPUErrToModule(t *testing.T) {
+	m := newModule()
+	m.addCPUErr(errors.New("some error"))
+
+	if len(m.CPU.Errs) != 1 {
+		t.Fatal("should have been 1")
+	}
+}
+
+func TestAddCPUTriggerToModule(t *testing.T) {
+	m := newModule()
+	m.addCPUTrigger(&report.TriggerReport[float64]{
+		Timestamp: time.Now(),
+		Type:      "raise",
+		Value:     12.12,
+	})
+
+	if len(m.CPU.Triggers) != 1 {
+		t.Fatal("should have been 1")
+	}
+}
+
+func TestAddRSSToModule(t *testing.T) {
+	m := newModule()
+	m.addRSS(12)
+
+	if m.Mem.RSS.readings != 1 {
+		t.Fatal("should have been 1 reading")
+	}
+	if m.Mem.RSS.High != 12 {
+		t.Fatal("high should have been 12")
+	}
+	if m.Mem.RSS.Low != 12 {
+		t.Fatal("low should have been 12")
+	}
+	if m.Mem.RSS.Average != 12 {
+		t.Fatal("average should have been 12")
+	}
+
+	m.addRSS(28)
+	if m.Mem.RSS.High != 28 {
+		t.Fatal("high should have been 28")
+	}
+	if m.Mem.RSS.Low != 12 {
+		t.Fatal("low should have been 12")
+	}
+	if m.Mem.RSS.Average != 20 {
+		t.Fatal("average should have been 20")
+	}
+	if m.Mem.RSS.readings != 2 {
+		t.Fatal("readings should have been 2")
+	}
+}
+
+func TestAddRSSErrToModule(t *testing.T) {
+	m := newModule()
+	m.addRSSErr(errors.New("some error"))
+
+	if len(m.Mem.RSS.Errs) != 1 {
+		t.Fatal("num errors should have been 1")
+	}
+
+	m.addRSSErr(errors.New("some error"))
+
+	if len(m.Mem.RSS.Errs) != 2 {
+		t.Fatal("num errors should have been 2")
+	}
+}
+
+func TestAddRSSTriggerToModule(t *testing.T) {
+	m := newModule()
+	m.addRSSTrigger(&report.TriggerReport[uint]{
+		Timestamp: time.Now(),
+		Type:      "raise",
+		Value:     12,
+	})
+
+	if len(m.Mem.RSS.Triggers) != 1 {
+		t.Fatal("num errors should have been 1")
+	}
+
+	m.addRSSTrigger(&report.TriggerReport[uint]{
+		Timestamp: time.Now(),
+		Type:      "raise",
+		Value:     12,
+	})
+
+	if len(m.Mem.RSS.Triggers) != 2 {
+		t.Fatal("num errors should have been 2")
+	}
+}
+
+func TestAddVMSToModule(t *testing.T) {
+	m := newModule()
+	m.addVMS(12)
+
+	if m.Mem.VMS.readings != 1 {
+		t.Fatal("readings should have been 1")
+	}
+	if m.Mem.VMS.High != 12 {
+		t.Fatal("high should have been 12")
+	}
+	if m.Mem.VMS.Low != 12 {
+		t.Fatal("low should have been 12")
+	}
+	if m.Mem.VMS.Average != 12 {
+		t.Fatal("average should have been 12")
+	}
+
+	m.addVMS(10)
+
+	if m.Mem.VMS.High != 12 {
+		t.Fatal("high should have been 12")
+	}
+	if m.Mem.VMS.Low != 10 {
+		t.Fatal("low should have been 10")
+	}
+	if m.Mem.VMS.Average != 11 {
+		t.Fatal("average should have been 11")
+	}
+}
+
+func TestAddVMSErrToModule(t *testing.T) {
+	m := newModule()
+	m.addVMSErr(errors.New("some error"))
+
+	if len(m.Mem.VMS.Errs) != 1 {
+		t.Fatal("num VMS errors should be 1")
+	}
+
+	m.addVMSErr(errors.New("some error"))
+
+	if len(m.Mem.VMS.Errs) != 2 {
+		t.Fatal("num VMS errors should be 2")
+	}
+}
+
+func TestAddVMSTriggerToModule(t *testing.T) {
+	m := newModule()
+	m.addVMSTrigger(&report.TriggerReport[uint]{
+		Timestamp: time.Now(),
+		Type:      "clear",
+		Value:     12,
+	})
+
+	if len(m.Mem.VMS.Triggers) != 1 {
+		t.Fatal("num VMS triggers should be 1")
+	}
+
+	m.addVMSTrigger(&report.TriggerReport[uint]{
+		Timestamp: time.Now(),
+		Type:      "clear",
+		Value:     12,
+	})
+
+	if len(m.Mem.VMS.Triggers) != 2 {
+		t.Fatal("num VMS triggers should be 2")
+	}
+}
+
+func TestAddMetricErrToModule(t *testing.T) {
+	m := newModule()
+	m.addMetricErr(errors.New("some error"))
+
+	if len(m.Metric.Errs) != 1 {
+		t.Fatal("should have been 1 error")
+	}
+
+	m.addMetricErr(errors.New("some error"))
+
+	if len(m.Metric.Errs) != 2 {
+		t.Fatal("should have been 2 error2")
+	}
+}
+
+func TestAddMetricTriggerToModule(t *testing.T) {
+	m := newModule()
+	m.addMetricTrigger(&report.TriggerReport[float64]{
+		Timestamp: time.Now(),
+		Type:      "raise",
+		Value:     12.12,
+	})
+
+	if len(m.Metric.Triggers) != 1 {
+		t.Fatal("should have been 1 trigger")
+	}
+
+	m.addMetricTrigger(&report.TriggerReport[float64]{
+		Timestamp: time.Now(),
+		Type:      "raise",
+		Value:     12.12,
+	})
+
+	if len(m.Metric.Triggers) != 2 {
+		t.Fatal("should have been 2 triggers")
 	}
 }

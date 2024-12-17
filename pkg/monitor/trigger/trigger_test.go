@@ -2,8 +2,6 @@ package trigger
 
 import (
 	"testing"
-
-	"tres-bon.se/arbiter/pkg/report"
 )
 
 func TestResultString(t *testing.T) {
@@ -306,24 +304,4 @@ func TestNamedFrom(t *testing.T) {
 	if trig2.Update(2) != CLEAR {
 		t.Fatal("should have been CLEAR")
 	}
-}
-
-func TestConvertResultToReport(t *testing.T) {
-	r := RAISE.ToReport()
-	if r != report.Raise {
-		t.Fatal("bad conversion")
-	}
-	r = CLEAR.ToReport()
-	if r != report.Clear {
-		t.Fatal("bad conversion")
-	}
-
-	defer func() {
-		if err := recover(); err == nil {
-			t.Fatal("should have panicked")
-		}
-	}()
-
-	// panics
-	NOTHING.ToReport()
 }

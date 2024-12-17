@@ -14,9 +14,9 @@ import (
 )
 
 type workload struct {
-	name   string
-	ticker *time.Ticker
+	mod    string
 	op     *op.Op
+	ticker *time.Ticker
 }
 
 var (
@@ -52,7 +52,7 @@ func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) e
 			}
 
 			workloads = append(workloads, &workload{
-				name: meta.Name(),
+				mod: meta.Name(),
 				//nolint:gosec
 				ticker: time.NewTicker(time.Minute / time.Duration(op.Rate)),
 				op:     op,
@@ -106,14 +106,12 @@ func handleWorkload(ctx context.Context, index int, workload *workload) {
 			start := time.Now()
 			res, err := workload.op.Do()
 
-			res.Name = workload.op.Name
-
 			if res.Duration == 0 {
 				res.Duration = time.Since(start)
 			}
 
 			// Report to reporter
-			reporter.Op(workload.name, &res, err)
+			reporter.Op(workload.mod, workload.op.Name, &res, err)
 		}
 	}
 }

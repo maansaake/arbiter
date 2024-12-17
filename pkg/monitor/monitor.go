@@ -319,7 +319,7 @@ func (m *Monitor) handleCPUUpdate(name string, cpu float64) {
 		res := trig.Update(cpu)
 
 		if res == trigger.RAISE || res == trigger.CLEAR {
-			m.Reporter.CPUTrigger(name, res.String(), cpu)
+			m.Reporter.CPUTrigger(name, &report.TriggerReport[float64]{})
 		}
 	}
 }
@@ -329,7 +329,7 @@ func (m *Monitor) handleRSSUpdate(name string, rss uint) {
 		res := trig.Update(rss)
 
 		if res == trigger.RAISE || res == trigger.CLEAR {
-			m.Reporter.RSSTrigger(name, res.String(), rss)
+			m.Reporter.RSSTrigger(name, &report.TriggerReport[uint]{})
 		}
 	}
 }
@@ -339,7 +339,7 @@ func (m *Monitor) handleVMSUpdate(name string, vms uint) {
 		res := trig.Update(vms)
 
 		if res == trigger.RAISE || res == trigger.CLEAR {
-			m.Reporter.RSSTrigger(name, res.String(), vms)
+			m.Reporter.RSSTrigger(name, &report.TriggerReport[uint]{})
 		}
 	}
 }
@@ -374,7 +374,7 @@ func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 					res := trig.Update(val)
 
 					if res == trigger.RAISE || res == trigger.CLEAR {
-						m.Reporter.MetricTrigger(name, metricName, res.String(), val)
+						m.Reporter.MetricTrigger(name, metricName, &report.TriggerReport[float64]{})
 					}
 				}
 			}
@@ -391,7 +391,7 @@ func (m *Monitor) logHandler(name string) log.LogHandler {
 				res := trig.Update(log)
 
 				if res == trigger.RAISE || res == trigger.CLEAR {
-					m.Reporter.LogTrigger(name, res.String(), log)
+					m.Reporter.LogTrigger(name, &report.TriggerReport[string]{})
 				}
 			}
 		}

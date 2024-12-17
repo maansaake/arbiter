@@ -55,9 +55,9 @@ func (r *yamlReporter) Start(ctx context.Context) {
 	}()
 }
 
-func (r *yamlReporter) Op(mod string, res *op.Result, err error) {
+func (r *yamlReporter) Op(mod, op string, res *op.Result, err error) {
 	r.synchronizer <- func() {
-		r.yamlReport.module(mod).addOp(res, err)
+		r.yamlReport.module(mod).addOp(op, res, err)
 	}
 }
 

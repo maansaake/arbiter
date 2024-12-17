@@ -15,12 +15,6 @@ import (
 )
 
 func TestRunAndAwaitStop(t *testing.T) {
-	// log.VFieldName = "v"
-	// log.SetLogger(log.New(&log.Opts{
-	// 	Console: true,
-	// 	V:       100,
-	// }))
-
 	opWg := sync.WaitGroup{}
 	opWg.Add(2)
 
@@ -92,7 +86,7 @@ func TestReportOpToReporter(t *testing.T) {
 		},
 	}
 
-	reporter := mockreport.NewReporterMock()
+	reporter := mockreport.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
@@ -104,7 +98,7 @@ func TestReportOpToReporter(t *testing.T) {
 	// This should ensure the reporter mock has received the Op report.
 	AwaitStop()
 
-	if reporter.(*mockreport.ReporterMock).Results[0].Duration == 0 {
+	if reporter.(*mockreport.ReporterMock).OpResults[0].Duration == 0 {
 		t.Fatal("duration was not reported to reporter")
 	}
 }
@@ -125,7 +119,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 		},
 	}
 
-	reporter := mockreport.NewReporterMock()
+	reporter := mockreport.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
@@ -137,7 +131,45 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 	// This should ensure the reporter mock has received the Op report.
 	AwaitStop()
 
-	if reporter.(*mockreport.ReporterMock).Results[0].Duration != 12*time.Millisecond {
+	if reporter.(*mockreport.ReporterMock).OpResults[0].Duration != 12*time.Millisecond {
 		t.Fatal("duration override was not used")
+	}
+}
+
+func TestReportOpErr(t *testing.T) {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	mod := testmodule.NewTestModule()
+	mod.(*testmodule.TestModule).SetOps = op.Ops{
+		{
+			Name: "test",
+			Rate: 6000,
+			Do: func() (op.Result, error) {
+				defer wg.Done()
+				return op.Result{Duration: 12 * time.Millisecond}, errors.New("some error")
+			},
+		},
+	}
+
+	reporter := mockreport.NewMock()
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
+		t.Fatal(err)
+	}
+
+	wg.Wait()
+	cancel()
+
+	// This should ensure the reporter mock has received the Op report.
+	AwaitStop()
+
+	mock := reporter.(*mockreport.ReporterMock)
+
+	if len(mock.OpResults) != 0 {
+		t.Fatal("unexpected op results found")
+	}
+	if len(mock.OpErrors) != 1 {
+		t.Fatal("unexpected number of op errors")
 	}
 }

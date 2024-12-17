@@ -3,15 +3,18 @@ package yaml
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
+	"gopkg.in/yaml.v3"
 	"tres-bon.se/arbiter/pkg/module/op"
 	"tres-bon.se/arbiter/pkg/report"
 )
 
 func TestYAMLReporter(t *testing.T) {
-	reporter := New(&Opts{Buffer: 100, Path: "report.yaml"})
+	reportPath := "report.yaml"
+	reporter := New(&Opts{Buffer: 100, Path: reportPath})
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	reporter.Start(ctx)
@@ -70,5 +73,25 @@ func TestYAMLReporter(t *testing.T) {
 	err := reporter.Finalise()
 	if err != nil {
 		t.Fatal("error on finalise", err)
+	}
+
+	start := yamlReporter.report.Start
+	end := yamlReporter.report.End
+
+	bs, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatal("failed to read file:", reportPath)
+	}
+	parsedReport := &yamlReport{}
+	err = yaml.Unmarshal(bs, parsedReport)
+	if err != nil {
+		t.Fatal("failed to unmarshal report")
+	}
+
+	if !start.Equal(parsedReport.Start) {
+		t.Fatal("start should have matched", "old", start, "new", parsedReport.Start)
+	}
+	if !end.Equal(parsedReport.End) {
+		t.Fatal("end should have matched", "old", end, "new", parsedReport.End)
 	}
 }

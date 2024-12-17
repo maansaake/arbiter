@@ -313,38 +313,38 @@ func TestAddVMSTriggerToModule(t *testing.T) {
 
 func TestAddMetricErrToModule(t *testing.T) {
 	m := newModule()
-	m.addMetricErr(errors.New("some error"))
+	m.addMetricErr("metric", errors.New("some error"))
 
-	if len(m.Metric.Errs) != 1 {
+	if len(m.Metric.Errs["metric"]) != 1 {
 		t.Fatal("should have been 1 error")
 	}
 
-	m.addMetricErr(errors.New("some error"))
+	m.addMetricErr("metric", errors.New("some error"))
 
-	if len(m.Metric.Errs) != 2 {
+	if len(m.Metric.Errs["metric"]) != 2 {
 		t.Fatal("should have been 2 error2")
 	}
 }
 
 func TestAddMetricTriggerToModule(t *testing.T) {
 	m := newModule()
-	m.addMetricTrigger(&report.TriggerReport[float64]{
+	m.addMetricTrigger("metric", &report.TriggerReport[float64]{
 		Timestamp: time.Now(),
 		Type:      "raise",
 		Value:     12.12,
 	})
 
-	if len(m.Metric.Triggers) != 1 {
+	if len(m.Metric.Triggers["metric"]) != 1 {
 		t.Fatal("should have been 1 trigger")
 	}
 
-	m.addMetricTrigger(&report.TriggerReport[float64]{
+	m.addMetricTrigger("metric", &report.TriggerReport[float64]{
 		Timestamp: time.Now(),
 		Type:      "raise",
 		Value:     12.12,
 	})
 
-	if len(m.Metric.Triggers) != 2 {
+	if len(m.Metric.Triggers["metric"]) != 2 {
 		t.Fatal("should have been 2 triggers")
 	}
 }

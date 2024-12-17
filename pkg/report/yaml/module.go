@@ -21,7 +21,7 @@ type (
 		Average  float64                          `yaml:"average"`
 		High     float64                          `yaml:"high"`
 		Low      float64                          `yaml:"low"`
-		Errs     []error                          `yaml:"errors"`
+		Errs     []string                         `yaml:"errors"`
 		Triggers []*report.TriggerReport[float64] `yaml:"triggers"`
 	}
 	mem struct {
@@ -29,12 +29,12 @@ type (
 		VMS *vms `yaml:"vms"`
 	}
 	log struct {
-		Errs     []error                         `yaml:"errors"`
+		Errs     []string                        `yaml:"errors"`
 		Triggers []*report.TriggerReport[string] `yaml:"triggers"`
 	}
 	metric struct {
-		Errs     []error                          `yaml:"errors"`
-		Triggers []*report.TriggerReport[float64] `yaml:"triggers"`
+		Errs     map[string][]string                         `yaml:"errors"`
+		Triggers map[string][]*report.TriggerReport[float64] `yaml:"triggers"`
 	}
 	rss struct {
 		readings uint                          `yaml:"-"`
@@ -42,7 +42,7 @@ type (
 		Average  uint                          `yaml:"average"`
 		High     uint                          `yaml:"high"`
 		Low      uint                          `yaml:"low"`
-		Errs     []error                       `yaml:"errors"`
+		Errs     []string                      `yaml:"errors"`
 		Triggers []*report.TriggerReport[uint] `yaml:"triggers"`
 	}
 	vms struct {
@@ -51,7 +51,7 @@ type (
 		Average  uint                          `yaml:"average"`
 		High     uint                          `yaml:"high"`
 		Low      uint                          `yaml:"low"`
-		Errs     []error                       `yaml:"errors"`
+		Errs     []string                      `yaml:"errors"`
 		Triggers []*report.TriggerReport[uint] `yaml:"triggers"`
 	}
 	operation struct {
@@ -77,8 +77,11 @@ func newModule() *module {
 			RSS: &rss{},
 			VMS: &vms{},
 		},
-		Log:        &log{},
-		Metric:     &metric{},
+		Log: &log{},
+		Metric: &metric{
+			Errs:     make(map[string][]string),
+			Triggers: make(map[string][]*report.TriggerReport[float64]),
+		},
 		Operations: make(map[string]*operation),
 	}
 }
@@ -117,7 +120,7 @@ func (m *module) addOp(name string, res *moduleop.Result, err error) {
 }
 
 func (m *module) addLogErr(err error) {
-	m.Log.Errs = append(m.Log.Errs, err)
+	m.Log.Errs = append(m.Log.Errs, err.Error())
 }
 
 func (m *module) addLogTrigger(tr *report.TriggerReport[string]) {
@@ -144,7 +147,7 @@ func (m *module) addCPU(val float64) {
 }
 
 func (m *module) addCPUErr(err error) {
-	m.CPU.Errs = append(m.CPU.Errs, err)
+	m.CPU.Errs = append(m.CPU.Errs, err.Error())
 }
 
 func (m *module) addCPUTrigger(tr *report.TriggerReport[float64]) {
@@ -172,7 +175,7 @@ func (m *module) addRSS(value uint) {
 }
 
 func (m *module) addRSSErr(err error) {
-	m.Mem.RSS.Errs = append(m.Mem.RSS.Errs, err)
+	m.Mem.RSS.Errs = append(m.Mem.RSS.Errs, err.Error())
 }
 
 func (m *module) addRSSTrigger(tr *report.TriggerReport[uint]) {
@@ -200,17 +203,17 @@ func (m *module) addVMS(value uint) {
 }
 
 func (m *module) addVMSErr(err error) {
-	m.Mem.VMS.Errs = append(m.Mem.VMS.Errs, err)
+	m.Mem.VMS.Errs = append(m.Mem.VMS.Errs, err.Error())
 }
 
 func (m *module) addVMSTrigger(tr *report.TriggerReport[uint]) {
 	m.Mem.VMS.Triggers = append(m.Mem.VMS.Triggers, tr)
 }
 
-func (m *module) addMetricErr(err error) {
-	m.Metric.Errs = append(m.Metric.Errs, err)
+func (m *module) addMetricErr(metric string, err error) {
+	m.Metric.Errs[metric] = append(m.Metric.Errs[metric], err.Error())
 }
 
-func (m *module) addMetricTrigger(tr *report.TriggerReport[float64]) {
-	m.Metric.Triggers = append(m.Metric.Triggers, tr)
+func (m *module) addMetricTrigger(metric string, tr *report.TriggerReport[float64]) {
+	m.Metric.Triggers[metric] = append(m.Metric.Triggers[metric], tr)
 }

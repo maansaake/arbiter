@@ -249,14 +249,14 @@ func (m *Monitor) Start(ctx context.Context) error {
 func (m *Monitor) Stop() error {
 	logger.Info("stopping the monitor")
 	if m.ExternalPrometheus {
-
+		logger.Info("stopping metric server")
 		if m.metricServer != nil {
 			err := m.metricServer.Close()
 			if err != nil {
 				return err
 			}
 		} else {
-			logger.Info("start error must have occurred, there is no metric server to stop")
+			logger.Info("something went wrong, there is no metric server to stop")
 		}
 	}
 

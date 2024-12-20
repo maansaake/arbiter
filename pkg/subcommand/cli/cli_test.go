@@ -7,7 +7,6 @@ import (
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/module/arg"
 	"tres-bon.se/arbiter/pkg/module/op"
-	testmodule "tres-bon.se/arbiter/pkg/module/test"
 	"tres-bon.se/arbiter/pkg/monitor"
 )
 
@@ -18,7 +17,7 @@ func TestParse(t *testing.T) {
 	do := &op.Op{Name: "do"}
 	more := &op.Op{Name: "more"}
 
-	mod := &testmodule.TestModule{
+	mod := &module.MockModule{
 		SetName: "mod",
 		SetArgs: arg.Args{count, master},
 		SetOps:  op.Ops{do, more},

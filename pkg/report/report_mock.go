@@ -1,10 +1,9 @@
-package mockreport
+package report
 
 import (
 	"context"
 
 	"tres-bon.se/arbiter/pkg/module/op"
-	"tres-bon.se/arbiter/pkg/report"
 )
 
 type ReporterMock struct {
@@ -12,7 +11,9 @@ type ReporterMock struct {
 	OpErrors  []error
 }
 
-func NewMock() report.Reporter {
+var _ Reporter = &ReporterMock{}
+
+func NewMock() *ReporterMock {
 	return &ReporterMock{
 		OpResults: make([]*op.Result, 0, 1),
 		OpErrors:  make([]error, 0, 1),
@@ -30,7 +31,7 @@ func (r *ReporterMock) CPUErr(module string, err error) {
 }
 
 // CPUTrigger implements report.Reporter.
-func (r *ReporterMock) CPUTrigger(module string, tr *report.TriggerReport[float64]) {
+func (r *ReporterMock) CPUTrigger(module string, tr *TriggerReport[float64]) {
 	panic("unimplemented")
 }
 
@@ -45,7 +46,7 @@ func (r *ReporterMock) LogErr(module string, err error) {
 }
 
 // LogTrigger implements report.Reporter.
-func (r *ReporterMock) LogTrigger(module string, tr *report.TriggerReport[string]) {
+func (r *ReporterMock) LogTrigger(module string, tr *TriggerReport[string]) {
 	panic("unimplemented")
 }
 
@@ -55,7 +56,7 @@ func (r *ReporterMock) MetricErr(module string, metric string, err error) {
 }
 
 // MetricTrigger implements report.Reporter.
-func (r *ReporterMock) MetricTrigger(module string, metric string, tr *report.TriggerReport[float64]) {
+func (r *ReporterMock) MetricTrigger(module string, metric string, tr *TriggerReport[float64]) {
 	panic("unimplemented")
 }
 
@@ -79,7 +80,7 @@ func (r *ReporterMock) RSSErr(module string, err error) {
 }
 
 // RSSTrigger implements report.Reporter.
-func (r *ReporterMock) RSSTrigger(module string, tr *report.TriggerReport[uint]) {
+func (r *ReporterMock) RSSTrigger(module string, tr *TriggerReport[uint]) {
 	panic("unimplemented")
 }
 
@@ -99,6 +100,6 @@ func (r *ReporterMock) VMSErr(module string, err error) {
 }
 
 // VMSTrigger implements report.Reporter.
-func (r *ReporterMock) VMSTrigger(module string, tr *report.TriggerReport[uint]) {
+func (r *ReporterMock) VMSTrigger(module string, tr *TriggerReport[uint]) {
 	panic("unimplemented")
 }

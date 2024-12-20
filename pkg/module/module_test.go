@@ -7,12 +7,35 @@ import (
 	"tres-bon.se/arbiter/pkg/module/op"
 )
 
+func TestMock(t *testing.T) {
+	mod := NewMock()
+	_ = mod.Name()
+	_ = mod.Desc()
+	_ = mod.Ops()
+	_ = mod.Args()
+	if err := mod.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := mod.Stop(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestValidateModules(t *testing.T) {
 	tests := []struct {
 		name          string
 		module        func() Module
 		expectedError error
 	}{
+		{
+			name: "reserved module name",
+			module: func() Module {
+				mock := NewMock()
+				mock.SetName = "arbiter"
+				return mock
+			},
+			expectedError: ErrReservedPrefix,
+		},
 		{
 			name: "invalid module name",
 			module: func() Module {

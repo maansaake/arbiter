@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/module/op"
-	testmodule "tres-bon.se/arbiter/pkg/module/test"
-	mockreport "tres-bon.se/arbiter/pkg/report/mock"
+	"tres-bon.se/arbiter/pkg/report"
 	"tres-bon.se/arbiter/pkg/subcommand"
 	log "tres-bon.se/arbiter/pkg/zerologr"
 )
@@ -18,8 +18,8 @@ func TestRunAndAwaitStop(t *testing.T) {
 	opWg := sync.WaitGroup{}
 	opWg.Add(2)
 
-	testmod := testmodule.NewTestModule()
-	testmod.(*testmodule.TestModule).SetOps = op.Ops{
+	mock := module.NewMock()
+	mock.SetOps = op.Ops{
 		{
 			Name: "test",
 			Rate: 6000,
@@ -31,7 +31,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	err := Run(ctx, []*subcommand.Meta{{Module: testmod}}, &mockreport.ReporterMock{})
+	err := Run(ctx, []*subcommand.Meta{{Module: mock}}, report.NewMock())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 }
 
 func TestRunNoOps(t *testing.T) {
-	err := Run(context.TODO(), []*subcommand.Meta{{Module: testmodule.NewTestModule()}}, nil)
+	err := Run(context.TODO(), []*subcommand.Meta{{Module: module.NewMock()}}, nil)
 	if err != nil && !errors.Is(err, ErrNoOpsToSchedule) {
 		t.Fatal("unexpected error type")
 	}
@@ -54,8 +54,8 @@ func TestRunNoOps(t *testing.T) {
 }
 
 func TestRunZeroRate(t *testing.T) {
-	mod := testmodule.NewTestModule()
-	mod.(*testmodule.TestModule).SetOps = op.Ops{
+	mod := module.NewMock()
+	mod.SetOps = op.Ops{
 		{
 			Name: "test",
 			Rate: 0,
@@ -74,8 +74,8 @@ func TestReportOpToReporter(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	mod := testmodule.NewTestModule()
-	mod.(*testmodule.TestModule).SetOps = op.Ops{
+	mod := module.NewMock()
+	mod.SetOps = op.Ops{
 		{
 			Name: "test",
 			Rate: 6000,
@@ -86,7 +86,7 @@ func TestReportOpToReporter(t *testing.T) {
 		},
 	}
 
-	reporter := mockreport.NewMock()
+	reporter := report.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestReportOpToReporter(t *testing.T) {
 	// This should ensure the reporter mock has received the Op report.
 	Stop()
 
-	if reporter.(*mockreport.ReporterMock).OpResults[0].Duration == 0 {
+	if reporter.OpResults[0].Duration == 0 {
 		t.Fatal("duration was not reported to reporter")
 	}
 }
@@ -107,8 +107,8 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	mod := testmodule.NewTestModule()
-	mod.(*testmodule.TestModule).SetOps = op.Ops{
+	mod := module.NewMock()
+	mod.SetOps = op.Ops{
 		{
 			Name: "test",
 			Rate: 6000,
@@ -119,7 +119,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 		},
 	}
 
-	reporter := mockreport.NewMock()
+	reporter := report.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
@@ -131,7 +131,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 	// This should ensure the reporter mock has received the Op report.
 	Stop()
 
-	if reporter.(*mockreport.ReporterMock).OpResults[0].Duration != 12*time.Millisecond {
+	if reporter.OpResults[0].Duration != 12*time.Millisecond {
 		t.Fatal("duration override was not used")
 	}
 }
@@ -140,8 +140,8 @@ func TestReportOpErr(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	mod := testmodule.NewTestModule()
-	mod.(*testmodule.TestModule).SetOps = op.Ops{
+	mod := module.NewMock()
+	mod.SetOps = op.Ops{
 		{
 			Name: "test",
 			Rate: 6000,
@@ -152,7 +152,7 @@ func TestReportOpErr(t *testing.T) {
 		},
 	}
 
-	reporter := mockreport.NewMock()
+	reporter := report.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
@@ -164,12 +164,10 @@ func TestReportOpErr(t *testing.T) {
 	// This should ensure the reporter mock has received the Op report.
 	Stop()
 
-	mock := reporter.(*mockreport.ReporterMock)
-
-	if len(mock.OpResults) != 0 {
+	if len(reporter.OpResults) != 0 {
 		t.Fatal("unexpected op results found")
 	}
-	if len(mock.OpErrors) != 1 {
+	if len(reporter.OpErrors) != 1 {
 		t.Fatal("unexpected number of op errors")
 	}
 }

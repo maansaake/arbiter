@@ -232,11 +232,11 @@ func (m *Monitor) Start(ctx context.Context) error {
 	}
 
 	for name, logMonitor := range m.logMonitors {
-		m.procs++
 		err := logMonitor.Stream(ctx, m.logHandler(name))
 		if err != nil {
 			return err
 		}
+		m.procs++
 	}
 
 	if m.procs > 0 {

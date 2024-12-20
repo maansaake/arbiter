@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
-	log "tres-bon.se/arbiter/pkg/zerologr"
+	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
 type logFile struct {
@@ -61,7 +61,7 @@ func (l *logFile) Stream(ctx context.Context, handler LogHandler) error {
 }
 
 func (l *logFile) monitorEvents(ctx context.Context) {
-	log.Info("starting file monitor for new events")
+	zerologr.Info("starting file monitor for new events")
 
 	// Buffer will contain bytes from incomplete written log lines, this is
 	// intentional. Once a new write event is received, the stored chunk should
@@ -139,7 +139,7 @@ func (l *logFile) monitorEvents(ctx context.Context) {
 				}
 			}
 		case <-ctx.Done():
-			log.Info("closing watcher")
+			zerologr.Info("closing watcher")
 			l.watcher.Close()
 			l.handler("", ErrStopped)
 			return

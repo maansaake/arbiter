@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	log "tres-bon.se/arbiter/pkg/zerologr"
+	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
 func TestFileLogStreamStart(t *testing.T) {
@@ -41,8 +42,6 @@ func TestFileLogErrorFileDoesNotExist(t *testing.T) {
 }
 
 func TestFileLogEmitEvent(t *testing.T) {
-	log.SetLogger(log.New(&log.Opts{Console: true}))
-
 	fileName := "./dynamic_log_file.log"
 	f, err := os.Create(fileName)
 	if err != nil {
@@ -51,7 +50,6 @@ func TestFileLogEmitEvent(t *testing.T) {
 	defer func() {
 		// not much to do about the error at this stage :)
 		_ = os.Remove(fileName)
-		log.SetLogger(logr.Logger{})
 	}()
 	f.Close()
 
@@ -62,8 +60,11 @@ func TestFileLogEmitEvent(t *testing.T) {
 	gotEvent.Add(events)
 	ctx, cancel := context.WithCancel(context.Background())
 	err = log.Stream(ctx, func(logEvent string, err error) {
+		if errors.Is(err, ErrStopped) {
+			return
+		}
 		if err != nil {
-			t.Fatalf("unexpected log event error: %s", err)
+			t.Fatalf("unexpected log event error: %v", err)
 		}
 
 		t.Logf("log event: %s", logEvent)
@@ -215,11 +216,11 @@ func TestFileLogPartialWrite(t *testing.T) {
 
 func TestFileLogContextDone(t *testing.T) {
 	filePath := "./context.log"
-	log.SetLogger(log.New(&log.Opts{Console: true}))
+	zerologr.SetLogger(zerologr.New(&zerologr.Opts{Console: true}))
 	defer func() {
 		// not much to do about the error at this stage :)
 		_ = os.Remove(filePath)
-		log.SetLogger(logr.Logger{})
+		zerologr.SetLogger(logr.Logger{})
 	}()
 	f, err := os.Create(filePath)
 	if err != nil {

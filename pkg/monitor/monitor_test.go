@@ -34,7 +34,7 @@ func TestStartMonitorCPU(t *testing.T) {
 	<-ctx.Done()
 	err = monitor.Stop()
 	if err != nil {
-		t.Fatal("failed to stop monitor")
+		t.Fatal("failed to stop monitor", err)
 	}
 }
 
@@ -80,7 +80,7 @@ func TestStartMonitorMetric(t *testing.T) {
 	<-ctx.Done()
 	err = monitor.Stop()
 	if err != nil {
-		t.Fatal("failed to stop monitor")
+		t.Fatal("failed to stop monitor", err)
 	}
 }
 
@@ -103,7 +103,7 @@ func TestStartMonitorLog(t *testing.T) {
 	<-ctx.Done()
 	err = monitor.Stop()
 	if err != nil {
-		t.Fatal("failed to stop monitor")
+		t.Fatal("failed to stop monitor", err)
 	}
 }
 
@@ -119,12 +119,7 @@ func TestStartMonitorLogErr(t *testing.T) {
 	if err == nil {
 		t.Fatalf("monitor start should have thrown an error %v", err)
 	}
-
 	cancel()
-	err = monitor.Stop()
-	if err != nil {
-		t.Fatal("failed to stop monitor")
-	}
 }
 
 func TestAdd(t *testing.T) {

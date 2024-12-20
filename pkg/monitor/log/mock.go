@@ -16,6 +16,11 @@ func NewLogMock(err error) *LogMock {
 }
 
 func (m *LogMock) Stream(ctx context.Context, lh LogHandler) error {
+	go func() {
+		<-ctx.Done()
+		lh("", ErrStopped)
+	}()
+
 	if m.onRead != nil {
 		m.onRead()
 	}

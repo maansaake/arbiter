@@ -4,6 +4,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
@@ -46,7 +47,7 @@ func Parse(subcommandIndex int, modules module.Modules) (subcommand.Metadata, er
 			modArgs = append(modArgs, rateArg(op))
 		}
 
-		if err := arg.Register(mod.Name(), modArgs); err != nil {
+		if err := arg.Register(strings.ToLower(mod.Name()), modArgs); err != nil {
 			return nil, err
 		}
 
@@ -129,7 +130,7 @@ func metricTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 
 func disableArg(op *op.Op) *arg.Arg[bool] {
 	return &arg.Arg[bool]{
-		Name:  fmt.Sprintf("op.%s.disable", op.Name),
+		Name:  fmt.Sprintf("op.%s.disable", strings.ToLower(op.Name)),
 		Desc:  fmt.Sprintf("Disable %s.", op.Name),
 		Value: &op.Disabled,
 	}
@@ -137,7 +138,7 @@ func disableArg(op *op.Op) *arg.Arg[bool] {
 
 func rateArg(op *op.Op) *arg.Arg[uint] {
 	return &arg.Arg[uint]{
-		Name:  fmt.Sprintf("op.%s.rate", op.Name),
+		Name:  fmt.Sprintf("op.%s.rate", strings.ToLower(op.Name)),
 		Desc:  fmt.Sprintf("Rate of %s per minute.", op.Name),
 		Value: &op.Rate,
 	}

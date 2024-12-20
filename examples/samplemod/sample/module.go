@@ -1,6 +1,8 @@
 package samplemodule
 
 import (
+	"errors"
+	"math/rand"
 	"time"
 
 	"tres-bon.se/arbiter/pkg/arg"
@@ -11,24 +13,59 @@ import (
 type SampleModule struct {
 	args arg.Args
 	ops  op.Ops
+
+	testDelayMs time.Duration
 }
 
 func NewSampleModule() module.Module {
-	return &SampleModule{
-		args: arg.Args{},
-		ops: op.Ops{
-			&op.Op{
-				Name:     "test",
-				Desc:     "Does nothing and returns after a short delay.",
-				Disabled: false,
-				Rate:     60,
-				Do: func() (op.Result, error) {
-					time.Sleep(2 * time.Millisecond)
-					return op.Result{}, nil
-				},
+	s := &SampleModule{
+		testDelayMs: 10 * time.Millisecond,
+	}
+
+	s.args = arg.Args{
+		&arg.Arg[int]{
+			Name: "testdelay",
+			Desc: "The delay for the 'test' action.",
+			Handler: func(v int) {
+				s.testDelayMs = time.Duration(v)
 			},
 		},
 	}
+
+	s.ops = op.Ops{
+		&op.Op{
+			Name: "test",
+			Desc: "Does nothing and returns after a configurable delay.",
+			Rate: 60,
+			Do: func() (op.Result, error) {
+				time.Sleep(s.testDelayMs)
+				return op.Result{}, nil
+			},
+		},
+		&op.Op{
+			Name: "unstable",
+			Desc: "Does nothing, sometimes returns an error.",
+			Rate: 60,
+			Do: func() (op.Result, error) {
+				//nolint:gosec // just for show
+				if rand.Intn(100)%2 == 0 {
+					return op.Result{}, errors.New("random error")
+				}
+				return op.Result{}, nil
+			},
+		},
+		&op.Op{
+			Name: "broken",
+			Desc: "Only returns errors, after 10s.",
+			Rate: 60,
+			Do: func() (op.Result, error) {
+				time.Sleep(10 * time.Second)
+				return op.Result{}, errors.New("permanent failure")
+			},
+		},
+	}
+
+	return s
 }
 
 func (sm *SampleModule) Name() string {
@@ -72,3 +109,5 @@ func (sm *SampleModule) Run() error {
 func (sm *SampleModule) Stop() error {
 	return nil
 }
+
+// INTERNAL

@@ -101,7 +101,7 @@ func Run(modules module.Modules) error {
 	subcommandIndex = slices.IndexFunc(os.Args, func(e string) bool {
 		return slices.Contains(subcommands, e)
 	})
-	parseErrs := []error{}
+	parseErrs := make([]error, 0)
 	if subcommandIndex == -1 {
 		fmt.Fprint(flag.CommandLine.Output(), ErrNoSubcommand.Error()+"\n")
 		parseErrs = append(parseErrs, ErrNoSubcommand)
@@ -112,7 +112,7 @@ func Run(modules module.Modules) error {
 		parseErrs = append(parseErrs, ErrDurationTooShort)
 	}
 
-	if len(parseErrs) > 1 {
+	if len(parseErrs) > 0 {
 		flag.CommandLine.SetOutput(os.Stderr)
 		flag.Usage()
 		return errors.Join(parseErrs...)

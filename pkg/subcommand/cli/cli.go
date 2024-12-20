@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
+	"tres-bon.se/arbiter/pkg/module/arg"
 	"tres-bon.se/arbiter/pkg/module/op"
 	"tres-bon.se/arbiter/pkg/monitor"
 	"tres-bon.se/arbiter/pkg/monitor/cpu"
@@ -47,14 +47,14 @@ func Parse(subcommandIndex int, modules module.Modules) (subcommand.Metadata, er
 			modArgs = append(modArgs, rateArg(op))
 		}
 
-		if err := arg.Register(strings.ToLower(mod.Name()), modArgs); err != nil {
+		if err := Register(strings.ToLower(mod.Name()), modArgs); err != nil {
 			return nil, err
 		}
 
 		metadata[i] = meta
 	}
 
-	return metadata, arg.Parse(os.Args[subcommandIndex+1:])
+	return metadata, ParseArgs(os.Args[subcommandIndex+1:])
 }
 
 func monitorPidArg(v int) *arg.Arg[int] {

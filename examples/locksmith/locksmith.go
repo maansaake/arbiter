@@ -4,8 +4,8 @@ import (
 	"os"
 
 	"tres-bon.se/arbiter"
-	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
+	"tres-bon.se/arbiter/pkg/module/arg"
 	"tres-bon.se/arbiter/pkg/module/op"
 )
 

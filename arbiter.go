@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/monitor"
 	"tres-bon.se/arbiter/pkg/report"
@@ -39,7 +38,7 @@ var (
 	externalPrometheus bool          = EXTERNAL_PROMETHEUS_DEFAULT
 
 	// subcommand parsing vars.
-	subcommands     = []string{arg.FLAGSET, gen.FLAGSET, file.FLAGSET}
+	subcommands     = []string{cli.FLAGSET, gen.FLAGSET, file.FLAGSET}
 	subcommandIndex = -1
 
 	// log.
@@ -80,7 +79,7 @@ func Run(modules module.Modules) error {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "%s [subcommand]\n\n", os.Args[0])
 		fmt.Fprint(flag.CommandLine.Output(), "subcommands:\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  %s Run using CLI flags.\n", formatFlagset(arg.FLAGSET))
+		fmt.Fprintf(flag.CommandLine.Output(), "  %s Run using CLI flags.\n", formatFlagset(cli.FLAGSET))
 		fmt.Fprintf(flag.CommandLine.Output(), "  %s Generate a test model file.\n", formatFlagset(gen.FLAGSET))
 		fmt.Fprintf(flag.CommandLine.Output(), "  %s Run from a test model file.\n", formatFlagset(file.FLAGSET))
 		fmt.Fprint(flag.CommandLine.Output(), "\n")
@@ -120,7 +119,7 @@ func Run(modules module.Modules) error {
 
 	// Check invoked subcommand
 	switch os.Args[subcommandIndex] {
-	case arg.FLAGSET:
+	case cli.FLAGSET:
 		// Parse module arguments and continue to run block.
 		if meta, err := cli.Parse(subcommandIndex, modules); err != nil {
 			return err

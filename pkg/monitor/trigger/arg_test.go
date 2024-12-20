@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"tres-bon.se/arbiter/pkg/arg"
+	"tres-bon.se/arbiter/pkg/module/arg"
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
 

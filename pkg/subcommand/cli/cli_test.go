@@ -4,14 +4,14 @@ import (
 	"os"
 	"testing"
 
-	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
+	"tres-bon.se/arbiter/pkg/module/arg"
 	"tres-bon.se/arbiter/pkg/module/op"
 	testmodule "tres-bon.se/arbiter/pkg/module/test"
 	"tres-bon.se/arbiter/pkg/monitor"
 )
 
-func TestHandleModule(t *testing.T) {
+func TestParse(t *testing.T) {
 	count := &arg.Arg[int]{Name: "count", Required: true, Value: new(int)}
 	master := &arg.Arg[bool]{Name: "master", Value: new(bool)}
 

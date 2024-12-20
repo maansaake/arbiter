@@ -1,4 +1,4 @@
-package arg
+package cli
 
 import (
 	"errors"
@@ -7,35 +7,8 @@ import (
 	"os"
 	"slices"
 	"strconv"
-)
 
-type (
-	TypeConstraint interface {
-		~int | ~uint | ~float64 | ~string | ~bool
-	}
-	Arg[T TypeConstraint] struct {
-		// The name of the argument. This is used to name CLI and file options when
-		// starting the arbiter.
-		Name string
-		// A description tied to the argument, this will show as a hint in the CLI,
-		// and as a comment in the generated file.
-		Desc string
-		// If set, the arbiter will throw an error on start if the argument was not
-		// provided.
-		Required bool
-		// A pointer to the value of the argument. This is used both to provide a
-		// default and it will be populated with a given argument's value. You have
-		// to set a value unless a Handler is given.
-		Value *T
-		// The handler function is called with the parsed argument value if given.
-		// You can use a handler and set a default value in combination. A handler
-		// can be useful to perform additional parsing or conversion.
-		Handler func(v T)
-		// A validator function for the argument value.
-		Valid Validator[T]
-	}
-	Args                        []any
-	Validator[T TypeConstraint] func(v T) bool
+	"tres-bon.se/arbiter/pkg/module/arg"
 )
 
 const FLAGSET = "cli"
@@ -47,11 +20,10 @@ var (
 	ErrNilPtr       = errors.New("Arg.Value must not be a nil pointer")
 	ErrRequiredBool = errors.New("a boolean arg cannot be marked required")
 	ErrInvalid      = errors.New("validator failed")
-	ErrParse        = errors.New("error parsing CLI flags")
 	ErrType         = errors.New("unsupported type")
 )
 
-func Register(prefix string, args Args) error {
+func Register(prefix string, args arg.Args) error {
 	errs := make([]error, 0)
 	for _, arg := range args {
 		errs = append(errs, register(prefix, arg))
@@ -61,7 +33,7 @@ func Register(prefix string, args Args) error {
 }
 
 // Parses command line input.
-func Parse(args []string) error {
+func ParseArgs(args []string) error {
 	err := flagset.Parse(args)
 	if err != nil {
 		// Usage() is called directly from the flagset.Parse call in this case.
@@ -74,7 +46,7 @@ func Parse(args []string) error {
 		}
 		flagset.SetOutput(os.Stderr)
 		flagset.Usage()
-		return fmt.Errorf("%w: %d required flags have been missed", ErrParse, len(required))
+		return fmt.Errorf("%w: %d required flags have been missed", arg.ErrParse, len(required))
 	}
 
 	return nil
@@ -84,22 +56,22 @@ func Parse(args []string) error {
 // flag: prefix.<argument.Name>
 func register(prefix string, argument any) error {
 	switch typedArgument := argument.(type) {
-	case *Arg[int]:
+	case *arg.Arg[int]:
 		return registerInt(prefix, typedArgument)
-	case *Arg[uint]:
+	case *arg.Arg[uint]:
 		return registerUint(prefix, typedArgument)
-	case *Arg[float64]:
+	case *arg.Arg[float64]:
 		return registerFloat(prefix, typedArgument)
-	case *Arg[string]:
+	case *arg.Arg[string]:
 		return registerString(prefix, typedArgument)
-	case *Arg[bool]:
+	case *arg.Arg[bool]:
 		return registerBool(prefix, typedArgument)
 	}
 	// This is basically a type constraint mismatch.
 	return ErrType
 }
 
-func registerInt(prefix string, arg *Arg[int]) error {
+func registerInt(prefix string, arg *arg.Arg[int]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -112,7 +84,7 @@ func registerInt(prefix string, arg *Arg[int]) error {
 	return nil
 }
 
-func intHandler(prefix string, arg *Arg[int]) func(string) error {
+func intHandler(prefix string, arg *arg.Arg[int]) func(string) error {
 	return func(val string) error {
 		iv, err := strconv.ParseInt(val, 10, 0)
 		if err != nil {
@@ -124,7 +96,7 @@ func intHandler(prefix string, arg *Arg[int]) func(string) error {
 	}
 }
 
-func registerUint(prefix string, arg *Arg[uint]) error {
+func registerUint(prefix string, arg *arg.Arg[uint]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -137,7 +109,7 @@ func registerUint(prefix string, arg *Arg[uint]) error {
 	return nil
 }
 
-func uintHandler(prefix string, arg *Arg[uint]) func(string) error {
+func uintHandler(prefix string, arg *arg.Arg[uint]) func(string) error {
 	return func(val string) error {
 		iv, err := strconv.ParseUint(val, 10, 0)
 		if err != nil {
@@ -149,7 +121,7 @@ func uintHandler(prefix string, arg *Arg[uint]) func(string) error {
 	}
 }
 
-func registerFloat(prefix string, arg *Arg[float64]) error {
+func registerFloat(prefix string, arg *arg.Arg[float64]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -162,7 +134,7 @@ func registerFloat(prefix string, arg *Arg[float64]) error {
 	return nil
 }
 
-func floatHandler(prefix string, arg *Arg[float64]) func(string) error {
+func floatHandler(prefix string, arg *arg.Arg[float64]) func(string) error {
 	return func(val string) error {
 		fv, err := strconv.ParseFloat(val, 64)
 		if err != nil {
@@ -174,7 +146,7 @@ func floatHandler(prefix string, arg *Arg[float64]) func(string) error {
 	}
 }
 
-func registerString(prefix string, arg *Arg[string]) error {
+func registerString(prefix string, arg *arg.Arg[string]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -188,14 +160,14 @@ func registerString(prefix string, arg *Arg[string]) error {
 	return nil
 }
 
-func stringHandler(prefix string, arg *Arg[string]) func(string) error {
+func stringHandler(prefix string, arg *arg.Arg[string]) func(string) error {
 	return func(val string) error {
 		*arg.Value = val
 		return generalHandler(prefix, arg)
 	}
 }
 
-func registerBool(prefix string, arg *Arg[bool]) error {
+func registerBool(prefix string, arg *arg.Arg[bool]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -208,7 +180,7 @@ func registerBool(prefix string, arg *Arg[bool]) error {
 	return nil
 }
 
-func verifyArgValue[T TypeConstraint](arg *Arg[T]) error {
+func verifyArgValue[T arg.TypeConstraint](arg *arg.Arg[T]) error {
 	if arg.Handler == nil && arg.Value == nil {
 		return fmt.Errorf("%w: '%s'", ErrNilPtr, arg.Name)
 	} else if arg.Value == nil {
@@ -220,7 +192,7 @@ func verifyArgValue[T TypeConstraint](arg *Arg[T]) error {
 }
 
 // Handle required, validation and all other actions.
-func generalHandler[T TypeConstraint](prefix string, arg *Arg[T]) error {
+func generalHandler[T arg.TypeConstraint](prefix string, arg *arg.Arg[T]) error {
 	if arg.Required {
 		// Find and pop arg from required slice
 		for i, an := range required {
@@ -241,6 +213,6 @@ func generalHandler[T TypeConstraint](prefix string, arg *Arg[T]) error {
 	return nil
 }
 
-func argPath[T TypeConstraint](prefix string, arg *Arg[T]) string {
+func argPath[T arg.TypeConstraint](prefix string, arg *arg.Arg[T]) string {
 	return fmt.Sprintf("%s.%s", prefix, arg.Name)
 }

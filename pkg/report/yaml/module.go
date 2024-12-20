@@ -9,10 +9,10 @@ import (
 
 type (
 	module struct {
-		CPU        *cpu                  `yaml:"cpu"`
-		Mem        *mem                  `yaml:"mem"`
-		Log        *log                  `yaml:"log"`
-		Metric     *metric               `yaml:"metric"`
+		CPU        *cpu                  `yaml:"cpu,omitempty"`
+		Mem        *mem                  `yaml:"mem,omitempty"`
+		Log        *log                  `yaml:"log,omitempty"`
+		Metric     *metric               `yaml:"metric,omitempty"`
 		Operations map[string]*operation `yaml:"operation"`
 	}
 	cpu struct {
@@ -56,8 +56,10 @@ type (
 	}
 	operation struct {
 		Executions uint             `yaml:"executions"`
+		OK         uint             `yaml:"ok"`
+		NOK        uint             `yaml:"nok"`
 		Timing     *operationTiming `yaml:"timing"`
-		Errors     []string         `yaml:"errors"`
+		Errors     []string         `yaml:"errors,omitempty"`
 	}
 	operationTiming struct {
 		Longest  time.Duration `yaml:"longest"`
@@ -98,8 +100,10 @@ func (m *module) addOp(name string, res *moduleop.Result, err error) {
 	op.Executions++
 
 	if err != nil {
+		op.NOK++
 		op.Errors = append(op.Errors, err.Error())
 	} else {
+		op.OK++
 		if op.Timing.count == 0 {
 			op.Timing.Longest = res.Duration
 			op.Timing.Shortest = res.Duration

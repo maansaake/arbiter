@@ -20,6 +20,9 @@ func TestAddOpToModule(t *testing.T) {
 	if v.Executions != 1 {
 		t.Fatal("expected 1 execution")
 	}
+	if v.OK != 1 {
+		t.Fatal("expected 1 OK")
+	}
 	if v.Timing.count != 1 {
 		t.Fatal("expected 1 count")
 	}
@@ -50,10 +53,19 @@ func TestAddOpToModule(t *testing.T) {
 	if v.Executions != 2 {
 		t.Fatal("expected 2 execs")
 	}
+	if v.OK != 2 {
+		t.Fatal("expected 2 OK")
+	}
+	if v.NOK != 0 {
+		t.Fatal("expected 0 NOK")
+	}
 
 	m.addOp("op", &op.Result{Duration: time.Second}, errors.New("error"))
 	if v.Executions != 3 {
 		t.Fatal("expected 3 execs")
+	}
+	if v.NOK != 1 {
+		t.Fatal("expected 1 NOK")
 	}
 	if v.Timing.count != 2 {
 		t.Fatal("expected 2 count")

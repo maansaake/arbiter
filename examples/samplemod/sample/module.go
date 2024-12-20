@@ -8,6 +8,7 @@ import (
 	"tres-bon.se/arbiter/pkg/arg"
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
 type SampleModule struct {
@@ -27,7 +28,8 @@ func NewSampleModule() module.Module {
 			Name: "testdelay",
 			Desc: "The delay for the 'test' action.",
 			Handler: func(v int) {
-				s.testDelayMs = time.Duration(v)
+				s.testDelayMs = time.Duration(v * int(time.Millisecond))
+				zerologr.Info("set value for testdelay", "value", s.testDelayMs)
 			},
 		},
 	}

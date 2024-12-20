@@ -17,7 +17,7 @@ import (
 func TestStartMonitorCPU(t *testing.T) {
 	monitor := New()
 	monitor.ExternalPrometheus = true
-	monitorInterval = 1 * time.Microsecond
+	monitorInterval = 1 * time.Millisecond
 
 	mock := cpu.NewCPUMonitorMock(0, nil)
 	ctx, cancel := context.WithCancel(context.Background())

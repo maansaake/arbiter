@@ -1,10 +1,10 @@
 package cpu
 
 import (
-	"tres-bon.se/arbiter/pkg/module/arg"
+	"tres-bon.se/arbiter/pkg/module"
 )
 
-var ValidPID arg.Validator[int] = validPID
+var ValidPID module.Validator[int] = validPID
 
 func validPID(pid int) bool {
 	//nolint:gosec

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
-	"tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/report"
 )
 
@@ -36,10 +36,10 @@ type (
 	// Struct for the YAML report. The entire thing is marshaled into the final
 	// file.
 	yamlReport struct {
-		Start    time.Time          `yaml:"start"`
-		End      time.Time          `yaml:"end"`
-		Duration time.Duration      `yaml:"duration"`
-		Modules  map[string]*module `yaml:"modules"`
+		Start    time.Time                `yaml:"start"`
+		End      time.Time                `yaml:"end"`
+		Duration time.Duration            `yaml:"duration"`
+		Modules  map[string]*reportModule `yaml:"modules"`
 	}
 )
 
@@ -64,7 +64,7 @@ func New(opts *Opts) *YAMLReporter {
 	reporter := &YAMLReporter{
 		report: &yamlReport{
 			Start:   start,
-			Modules: make(map[string]*module),
+			Modules: make(map[string]*reportModule),
 		},
 		path:         opts.Path,
 		synchronizer: make(chan func(), buffer),
@@ -96,7 +96,7 @@ func (r *YAMLReporter) Start(ctx context.Context) {
 	}()
 }
 
-func (r *YAMLReporter) Op(mod, op string, res *op.Result, err error) {
+func (r *YAMLReporter) Op(mod, op string, res *module.Result, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addOp(op, res, err)
 	}
@@ -223,7 +223,7 @@ func (r *YAMLReporter) Finalise() error {
 
 /*INTERNAL*/
 
-func (r *yamlReport) module(mod string) (m *module) {
+func (r *yamlReport) module(mod string) (m *reportModule) {
 	m, ok := r.Modules[mod]
 	if !ok {
 		m = newModule()

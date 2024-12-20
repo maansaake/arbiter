@@ -3,11 +3,11 @@ package report
 import (
 	"context"
 
-	"tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/module"
 )
 
 type ReporterMock struct {
-	OpResults []*op.Result
+	OpResults []*module.Result
 	OpErrors  []error
 }
 
@@ -15,7 +15,7 @@ var _ Reporter = &ReporterMock{}
 
 func NewMock() *ReporterMock {
 	return &ReporterMock{
-		OpResults: make([]*op.Result, 0, 1),
+		OpResults: make([]*module.Result, 0, 1),
 		OpErrors:  make([]error, 0, 1),
 	}
 }
@@ -61,7 +61,7 @@ func (r *ReporterMock) MetricTrigger(module string, metric string, tr *TriggerRe
 }
 
 // Op implements report.Reporter.
-func (r *ReporterMock) Op(module, op string, result *op.Result, err error) {
+func (r *ReporterMock) Op(module, op string, result *module.Result, err error) {
 	if err != nil {
 		r.OpErrors = append(r.OpErrors, err)
 	} else {

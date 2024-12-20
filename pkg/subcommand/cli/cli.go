@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/module/arg"
-	"tres-bon.se/arbiter/pkg/module/op"
 	"tres-bon.se/arbiter/pkg/monitor"
 	"tres-bon.se/arbiter/pkg/monitor/cpu"
 	"tres-bon.se/arbiter/pkg/monitor/trigger"
@@ -22,7 +20,7 @@ func Parse(subcommandIndex int, modules module.Modules) (subcommand.Metadata, er
 		meta := &subcommand.Meta{Module: mod, MonitorOpt: monitor.DefaultOpt()}
 
 		numMonitorArgs := 8
-		monitorArgs := make(arg.Args, numMonitorArgs)
+		monitorArgs := make(module.Args, numMonitorArgs)
 		// Performance
 		monitorArgs[0] = monitorPidArg(meta.MonitorOpt.PID)
 		monitorArgs[1] = cpuTrigger(meta.MonitorOpt)
@@ -37,7 +35,7 @@ func Parse(subcommandIndex int, modules module.Modules) (subcommand.Metadata, er
 		monitorArgs[6] = monitorMetricEndpointArg(meta.MonitorOpt.MetricEndpoint)
 		monitorArgs[7] = metricTrigger(meta.MonitorOpt)
 
-		modArgs := make(arg.Args, 0, len(mod.Args())+(len(mod.Ops())*2)+len(monitorArgs))
+		modArgs := make(module.Args, 0, len(mod.Args())+(len(mod.Ops())*2)+len(monitorArgs))
 		modArgs = append(modArgs, mod.Args()...)
 		modArgs = append(modArgs, monitorArgs...)
 
@@ -57,8 +55,8 @@ func Parse(subcommandIndex int, modules module.Modules) (subcommand.Metadata, er
 	return metadata, ParseArgs(os.Args[subcommandIndex+1:])
 }
 
-func monitorPidArg(v int) *arg.Arg[int] {
-	return &arg.Arg[int]{
+func monitorPidArg(v int) *module.Arg[int] {
+	return &module.Arg[int]{
 		Name:  "monitor.performance.pid",
 		Desc:  "A PID to track performance metrics.",
 		Value: &v,
@@ -66,9 +64,9 @@ func monitorPidArg(v int) *arg.Arg[int] {
 	}
 }
 
-func cpuTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
+func cpuTrigger(monitorOpt *monitor.Opt) *module.Arg[string] {
 	// Define an argument that can be set one or more times, each adding to the input monitorOpt.
-	return &arg.Arg[string]{
+	return &module.Arg[string]{
 		Name:    "monitor.cpu.trigger",
 		Desc:    "Trigger(s) for CPU levels.",
 		Valid:   trigger.ValidCPUTrigger,
@@ -76,8 +74,8 @@ func cpuTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 	}
 }
 
-func vmsTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
-	return &arg.Arg[string]{
+func vmsTrigger(monitorOpt *monitor.Opt) *module.Arg[string] {
+	return &module.Arg[string]{
 		Name:    "monitor.vms.trigger",
 		Desc:    "Trigger(s) for VMS levels.",
 		Valid:   trigger.ValidVMSTrigger,
@@ -85,8 +83,8 @@ func vmsTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 	}
 }
 
-func rssTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
-	return &arg.Arg[string]{
+func rssTrigger(monitorOpt *monitor.Opt) *module.Arg[string] {
+	return &module.Arg[string]{
 		Name:    "monitor.rss.trigger",
 		Desc:    "Trigger(s) for RSS levels.",
 		Valid:   trigger.ValidRSSTrigger,
@@ -94,16 +92,16 @@ func rssTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 	}
 }
 
-func monitorLogFileArg(v string) *arg.Arg[string] {
-	return &arg.Arg[string]{
+func monitorLogFileArg(v string) *module.Arg[string] {
+	return &module.Arg[string]{
 		Name:  "monitor.log.file",
 		Desc:  "Full path to a log file.",
 		Value: &v,
 	}
 }
 
-func logFileTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
-	return &arg.Arg[string]{
+func logFileTrigger(monitorOpt *monitor.Opt) *module.Arg[string] {
+	return &module.Arg[string]{
 		Name:    "monitor.log.trigger",
 		Desc:    "Trigger(s) for log files.",
 		Valid:   trigger.ValidLogFileTrigger,
@@ -111,16 +109,16 @@ func logFileTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 	}
 }
 
-func monitorMetricEndpointArg(v string) *arg.Arg[string] {
-	return &arg.Arg[string]{
+func monitorMetricEndpointArg(v string) *module.Arg[string] {
+	return &module.Arg[string]{
 		Name:  "monitor.metric.endpoint",
 		Desc:  "Metric endpoint (if any).",
 		Value: &v,
 	}
 }
 
-func metricTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
-	return &arg.Arg[string]{
+func metricTrigger(monitorOpt *monitor.Opt) *module.Arg[string] {
+	return &module.Arg[string]{
 		Name:    "monitor.metric.trigger",
 		Desc:    "Trigger(s) for metrics.",
 		Valid:   trigger.ValidMetricTrigger,
@@ -128,16 +126,16 @@ func metricTrigger(monitorOpt *monitor.Opt) *arg.Arg[string] {
 	}
 }
 
-func disableArg(op *op.Op) *arg.Arg[bool] {
-	return &arg.Arg[bool]{
+func disableArg(op *module.Op) *module.Arg[bool] {
+	return &module.Arg[bool]{
 		Name:  fmt.Sprintf("op.%s.disable", strings.ToLower(op.Name)),
 		Desc:  fmt.Sprintf("Disable %s.", op.Name),
 		Value: &op.Disabled,
 	}
 }
 
-func rateArg(op *op.Op) *arg.Arg[uint] {
-	return &arg.Arg[uint]{
+func rateArg(op *module.Op) *module.Arg[uint] {
+	return &module.Arg[uint]{
 		Name:  fmt.Sprintf("op.%s.rate", strings.ToLower(op.Name)),
 		Desc:  fmt.Sprintf("Rate of %s per minute.", op.Name),
 		Value: &op.Rate,

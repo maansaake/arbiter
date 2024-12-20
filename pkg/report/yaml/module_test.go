@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/report"
 )
 
 func TestAddOpToModule(t *testing.T) {
 	m := newModule()
-	m.addOp("op", &op.Result{Duration: time.Second}, nil)
+	m.addOp("op", &module.Result{Duration: time.Second}, nil)
 
 	v, ok := m.Operations["op"]
 	if !ok {
@@ -39,7 +39,7 @@ func TestAddOpToModule(t *testing.T) {
 		t.Fatal("expected 1 second")
 	}
 
-	m.addOp("op", &op.Result{Duration: time.Second}, nil)
+	m.addOp("op", &module.Result{Duration: time.Second}, nil)
 
 	if v.Timing.total != 2*time.Second {
 		t.Fatal("expected 2 seconds in total")
@@ -60,7 +60,7 @@ func TestAddOpToModule(t *testing.T) {
 		t.Fatal("expected 0 NOK")
 	}
 
-	m.addOp("op", &op.Result{Duration: time.Second}, errors.New("error"))
+	m.addOp("op", &module.Result{Duration: time.Second}, errors.New("error"))
 	if v.Executions != 3 {
 		t.Fatal("expected 3 execs")
 	}
@@ -71,7 +71,7 @@ func TestAddOpToModule(t *testing.T) {
 		t.Fatal("expected 2 count")
 	}
 
-	m.addOp("op", &op.Result{Duration: 4 * time.Second}, nil)
+	m.addOp("op", &module.Result{Duration: 4 * time.Second}, nil)
 	if v.Executions != 4 {
 		t.Fatal("expected 4 execs")
 	}

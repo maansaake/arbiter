@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strconv"
 
-	"tres-bon.se/arbiter/pkg/module/arg"
+	"tres-bon.se/arbiter/pkg/module"
 )
 
 const FLAGSET = "cli"
@@ -23,7 +23,7 @@ var (
 	ErrType         = errors.New("unsupported type")
 )
 
-func Register(prefix string, args arg.Args) error {
+func Register(prefix string, args module.Args) error {
 	errs := make([]error, 0)
 	for _, arg := range args {
 		errs = append(errs, register(prefix, arg))
@@ -46,7 +46,7 @@ func ParseArgs(args []string) error {
 		}
 		flagset.SetOutput(os.Stderr)
 		flagset.Usage()
-		return fmt.Errorf("%w: %d required flags have been missed", arg.ErrParse, len(required))
+		return fmt.Errorf("%w: %d required flags have been missed", module.ErrArgRequired, len(required))
 	}
 
 	return nil
@@ -56,22 +56,22 @@ func ParseArgs(args []string) error {
 // flag: prefix.<argument.Name>
 func register(prefix string, argument any) error {
 	switch typedArgument := argument.(type) {
-	case *arg.Arg[int]:
+	case *module.Arg[int]:
 		return registerInt(prefix, typedArgument)
-	case *arg.Arg[uint]:
+	case *module.Arg[uint]:
 		return registerUint(prefix, typedArgument)
-	case *arg.Arg[float64]:
+	case *module.Arg[float64]:
 		return registerFloat(prefix, typedArgument)
-	case *arg.Arg[string]:
+	case *module.Arg[string]:
 		return registerString(prefix, typedArgument)
-	case *arg.Arg[bool]:
+	case *module.Arg[bool]:
 		return registerBool(prefix, typedArgument)
 	}
 	// This is basically a type constraint mismatch.
 	return ErrType
 }
 
-func registerInt(prefix string, arg *arg.Arg[int]) error {
+func registerInt(prefix string, arg *module.Arg[int]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func registerInt(prefix string, arg *arg.Arg[int]) error {
 	return nil
 }
 
-func intHandler(prefix string, arg *arg.Arg[int]) func(string) error {
+func intHandler(prefix string, arg *module.Arg[int]) func(string) error {
 	return func(val string) error {
 		iv, err := strconv.ParseInt(val, 10, 0)
 		if err != nil {
@@ -96,7 +96,7 @@ func intHandler(prefix string, arg *arg.Arg[int]) func(string) error {
 	}
 }
 
-func registerUint(prefix string, arg *arg.Arg[uint]) error {
+func registerUint(prefix string, arg *module.Arg[uint]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func registerUint(prefix string, arg *arg.Arg[uint]) error {
 	return nil
 }
 
-func uintHandler(prefix string, arg *arg.Arg[uint]) func(string) error {
+func uintHandler(prefix string, arg *module.Arg[uint]) func(string) error {
 	return func(val string) error {
 		iv, err := strconv.ParseUint(val, 10, 0)
 		if err != nil {
@@ -121,7 +121,7 @@ func uintHandler(prefix string, arg *arg.Arg[uint]) func(string) error {
 	}
 }
 
-func registerFloat(prefix string, arg *arg.Arg[float64]) error {
+func registerFloat(prefix string, arg *module.Arg[float64]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func registerFloat(prefix string, arg *arg.Arg[float64]) error {
 	return nil
 }
 
-func floatHandler(prefix string, arg *arg.Arg[float64]) func(string) error {
+func floatHandler(prefix string, arg *module.Arg[float64]) func(string) error {
 	return func(val string) error {
 		fv, err := strconv.ParseFloat(val, 64)
 		if err != nil {
@@ -146,7 +146,7 @@ func floatHandler(prefix string, arg *arg.Arg[float64]) func(string) error {
 	}
 }
 
-func registerString(prefix string, arg *arg.Arg[string]) error {
+func registerString(prefix string, arg *module.Arg[string]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -160,14 +160,14 @@ func registerString(prefix string, arg *arg.Arg[string]) error {
 	return nil
 }
 
-func stringHandler(prefix string, arg *arg.Arg[string]) func(string) error {
+func stringHandler(prefix string, arg *module.Arg[string]) func(string) error {
 	return func(val string) error {
 		*arg.Value = val
 		return generalHandler(prefix, arg)
 	}
 }
 
-func registerBool(prefix string, arg *arg.Arg[bool]) error {
+func registerBool(prefix string, arg *module.Arg[bool]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func registerBool(prefix string, arg *arg.Arg[bool]) error {
 	return nil
 }
 
-func verifyArgValue[T arg.TypeConstraint](arg *arg.Arg[T]) error {
+func verifyArgValue[T module.TypeConstraint](arg *module.Arg[T]) error {
 	if arg.Handler == nil && arg.Value == nil {
 		return fmt.Errorf("%w: '%s'", ErrNilPtr, arg.Name)
 	} else if arg.Value == nil {
@@ -192,7 +192,7 @@ func verifyArgValue[T arg.TypeConstraint](arg *arg.Arg[T]) error {
 }
 
 // Handle required, validation and all other actions.
-func generalHandler[T arg.TypeConstraint](prefix string, arg *arg.Arg[T]) error {
+func generalHandler[T module.TypeConstraint](prefix string, arg *module.Arg[T]) error {
 	if arg.Required {
 		// Find and pop arg from required slice
 		for i, an := range required {
@@ -213,6 +213,6 @@ func generalHandler[T arg.TypeConstraint](prefix string, arg *arg.Arg[T]) error 
 	return nil
 }
 
-func argPath[T arg.TypeConstraint](prefix string, arg *arg.Arg[T]) string {
+func argPath[T module.TypeConstraint](prefix string, arg *module.Arg[T]) string {
 	return fmt.Sprintf("%s.%s", prefix, arg.Name)
 }

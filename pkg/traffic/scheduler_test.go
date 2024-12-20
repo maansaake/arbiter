@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/module/op"
 	"tres-bon.se/arbiter/pkg/report"
 	"tres-bon.se/arbiter/pkg/subcommand"
 	log "tres-bon.se/arbiter/pkg/zerologr"
@@ -19,14 +18,14 @@ func TestRunAndAwaitStop(t *testing.T) {
 	opWg.Add(2)
 
 	mock := module.NewMock()
-	mock.SetOps = op.Ops{
+	mock.SetOps = module.Ops{
 		{
 			Name: "test",
 			Rate: 6000,
-			Do: func() (op.Result, error) {
+			Do: func() (module.Result, error) {
 				opWg.Done()
 				log.Info("doing OP")
-				return op.Result{}, nil
+				return module.Result{}, nil
 			},
 		},
 	}
@@ -55,7 +54,7 @@ func TestRunNoOps(t *testing.T) {
 
 func TestRunZeroRate(t *testing.T) {
 	mod := module.NewMock()
-	mod.SetOps = op.Ops{
+	mod.SetOps = module.Ops{
 		{
 			Name: "test",
 			Rate: 0,
@@ -75,13 +74,13 @@ func TestReportOpToReporter(t *testing.T) {
 	wg.Add(1)
 
 	mod := module.NewMock()
-	mod.SetOps = op.Ops{
+	mod.SetOps = module.Ops{
 		{
 			Name: "test",
 			Rate: 6000,
-			Do: func() (op.Result, error) {
+			Do: func() (module.Result, error) {
 				defer wg.Done()
-				return op.Result{}, nil
+				return module.Result{}, nil
 			},
 		},
 	}
@@ -108,13 +107,13 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 	wg.Add(1)
 
 	mod := module.NewMock()
-	mod.SetOps = op.Ops{
+	mod.SetOps = module.Ops{
 		{
 			Name: "test",
 			Rate: 6000,
-			Do: func() (op.Result, error) {
+			Do: func() (module.Result, error) {
 				defer wg.Done()
-				return op.Result{Duration: 12 * time.Millisecond}, nil
+				return module.Result{Duration: 12 * time.Millisecond}, nil
 			},
 		},
 	}
@@ -141,13 +140,13 @@ func TestReportOpErr(t *testing.T) {
 	wg.Add(1)
 
 	mod := module.NewMock()
-	mod.SetOps = op.Ops{
+	mod.SetOps = module.Ops{
 		{
 			Name: "test",
 			Rate: 6000,
-			Do: func() (op.Result, error) {
+			Do: func() (module.Result, error) {
 				defer wg.Done()
-				return op.Result{Duration: 12 * time.Millisecond}, errors.New("some error")
+				return module.Result{Duration: 12 * time.Millisecond}, errors.New("some error")
 			},
 		},
 	}

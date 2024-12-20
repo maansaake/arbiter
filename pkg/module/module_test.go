@@ -3,8 +3,6 @@ package module
 import (
 	"errors"
 	"testing"
-
-	"tres-bon.se/arbiter/pkg/module/op"
 )
 
 func TestMock(t *testing.T) {
@@ -59,8 +57,8 @@ func TestValidateModules(t *testing.T) {
 			module: func() Module {
 				mock := NewMock()
 				mock.SetName = "valid"
-				mock.SetOps = op.Ops{
-					&op.Op{
+				mock.SetOps = Ops{
+					&Op{
 						Name: "*invalid",
 					},
 				}
@@ -73,8 +71,8 @@ func TestValidateModules(t *testing.T) {
 			module: func() Module {
 				mock := NewMock()
 				mock.SetName = "valid"
-				mock.SetOps = op.Ops{
-					&op.Op{
+				mock.SetOps = Ops{
+					&Op{
 						Name: "",
 					},
 				}
@@ -87,8 +85,8 @@ func TestValidateModules(t *testing.T) {
 			module: func() Module {
 				mock := NewMock()
 				mock.SetName = "valid"
-				mock.SetOps = op.Ops{
-					&op.Op{
+				mock.SetOps = Ops{
+					&Op{
 						Name: "validname",
 					},
 				}

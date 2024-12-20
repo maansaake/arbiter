@@ -3,12 +3,12 @@ package yaml
 import (
 	"time"
 
-	moduleop "tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/report"
 )
 
 type (
-	module struct {
+	reportModule struct {
 		CPU        *cpu                  `yaml:"cpu,omitempty"`
 		Mem        *mem                  `yaml:"mem,omitempty"`
 		Log        *log                  `yaml:"log,omitempty"`
@@ -72,8 +72,8 @@ type (
 	}
 )
 
-func newModule() *module {
-	return &module{
+func newModule() *reportModule {
+	return &reportModule{
 		CPU: &cpu{},
 		Mem: &mem{
 			RSS: &rss{},
@@ -88,7 +88,7 @@ func newModule() *module {
 	}
 }
 
-func (m *module) addOp(name string, res *moduleop.Result, err error) {
+func (m *reportModule) addOp(name string, res *module.Result, err error) {
 	op, ok := m.Operations[name]
 	if !ok {
 		op = &operation{
@@ -123,15 +123,15 @@ func (m *module) addOp(name string, res *moduleop.Result, err error) {
 	}
 }
 
-func (m *module) addLogErr(err error) {
+func (m *reportModule) addLogErr(err error) {
 	m.Log.Errs = append(m.Log.Errs, err.Error())
 }
 
-func (m *module) addLogTrigger(tr *report.TriggerReport[string]) {
+func (m *reportModule) addLogTrigger(tr *report.TriggerReport[string]) {
 	m.Log.Triggers = append(m.Log.Triggers, tr)
 }
 
-func (m *module) addCPU(val float64) {
+func (m *reportModule) addCPU(val float64) {
 	if m.CPU.readings == 0 {
 		m.CPU.High = val
 		m.CPU.Low = val
@@ -150,15 +150,15 @@ func (m *module) addCPU(val float64) {
 	m.CPU.Average = m.CPU.total / float64(m.CPU.readings)
 }
 
-func (m *module) addCPUErr(err error) {
+func (m *reportModule) addCPUErr(err error) {
 	m.CPU.Errs = append(m.CPU.Errs, err.Error())
 }
 
-func (m *module) addCPUTrigger(tr *report.TriggerReport[float64]) {
+func (m *reportModule) addCPUTrigger(tr *report.TriggerReport[float64]) {
 	m.CPU.Triggers = append(m.CPU.Triggers, tr)
 }
 
-func (m *module) addRSS(value uint) {
+func (m *reportModule) addRSS(value uint) {
 	if m.Mem.RSS.readings == 0 {
 		m.Mem.RSS.High = value
 		m.Mem.RSS.Low = value
@@ -178,15 +178,15 @@ func (m *module) addRSS(value uint) {
 	m.Mem.RSS.Average = m.Mem.RSS.total / m.Mem.RSS.readings
 }
 
-func (m *module) addRSSErr(err error) {
+func (m *reportModule) addRSSErr(err error) {
 	m.Mem.RSS.Errs = append(m.Mem.RSS.Errs, err.Error())
 }
 
-func (m *module) addRSSTrigger(tr *report.TriggerReport[uint]) {
+func (m *reportModule) addRSSTrigger(tr *report.TriggerReport[uint]) {
 	m.Mem.RSS.Triggers = append(m.Mem.RSS.Triggers, tr)
 }
 
-func (m *module) addVMS(value uint) {
+func (m *reportModule) addVMS(value uint) {
 	if m.Mem.VMS.readings == 0 {
 		m.Mem.VMS.High = value
 		m.Mem.VMS.Low = value
@@ -206,18 +206,18 @@ func (m *module) addVMS(value uint) {
 	m.Mem.VMS.Average = m.Mem.VMS.total / m.Mem.VMS.readings
 }
 
-func (m *module) addVMSErr(err error) {
+func (m *reportModule) addVMSErr(err error) {
 	m.Mem.VMS.Errs = append(m.Mem.VMS.Errs, err.Error())
 }
 
-func (m *module) addVMSTrigger(tr *report.TriggerReport[uint]) {
+func (m *reportModule) addVMSTrigger(tr *report.TriggerReport[uint]) {
 	m.Mem.VMS.Triggers = append(m.Mem.VMS.Triggers, tr)
 }
 
-func (m *module) addMetricErr(metric string, err error) {
+func (m *reportModule) addMetricErr(metric string, err error) {
 	m.Metric.Errs[metric] = append(m.Metric.Errs[metric], err.Error())
 }
 
-func (m *module) addMetricTrigger(metric string, tr *report.TriggerReport[float64]) {
+func (m *reportModule) addMetricTrigger(metric string, tr *report.TriggerReport[float64]) {
 	m.Metric.Triggers[metric] = append(m.Metric.Triggers[metric], tr)
 }

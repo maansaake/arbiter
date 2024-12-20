@@ -6,14 +6,12 @@ import (
 	"time"
 
 	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/module/arg"
-	"tres-bon.se/arbiter/pkg/module/op"
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
 type SampleModule struct {
-	args arg.Args
-	ops  op.Ops
+	args module.Args
+	ops  module.Ops
 
 	testDelayMs time.Duration
 }
@@ -23,8 +21,8 @@ func NewSampleModule() module.Module {
 		testDelayMs: 10 * time.Millisecond,
 	}
 
-	s.args = arg.Args{
-		&arg.Arg[int]{
+	s.args = module.Args{
+		&module.Arg[int]{
 			Name: "testdelay",
 			Desc: "The delay for the 'test' action.",
 			Handler: func(v int) {
@@ -34,35 +32,35 @@ func NewSampleModule() module.Module {
 		},
 	}
 
-	s.ops = op.Ops{
-		&op.Op{
+	s.ops = module.Ops{
+		&module.Op{
 			Name: "test",
 			Desc: "Does nothing and returns after a configurable delay.",
 			Rate: 60,
-			Do: func() (op.Result, error) {
+			Do: func() (module.Result, error) {
 				time.Sleep(s.testDelayMs)
-				return op.Result{}, nil
+				return module.Result{}, nil
 			},
 		},
-		&op.Op{
+		&module.Op{
 			Name: "unstable",
 			Desc: "Does nothing, sometimes returns an error.",
 			Rate: 60,
-			Do: func() (op.Result, error) {
+			Do: func() (module.Result, error) {
 				//nolint:gosec // just for show
 				if rand.Intn(100)%2 == 0 {
-					return op.Result{}, errors.New("random error")
+					return module.Result{}, errors.New("random error")
 				}
-				return op.Result{}, nil
+				return module.Result{}, nil
 			},
 		},
-		&op.Op{
+		&module.Op{
 			Name: "broken",
 			Desc: "Only returns errors, after 10s.",
 			Rate: 60,
-			Do: func() (op.Result, error) {
+			Do: func() (module.Result, error) {
 				time.Sleep(10 * time.Second)
-				return op.Result{}, errors.New("permanent failure")
+				return module.Result{}, errors.New("permanent failure")
 			},
 		},
 	}
@@ -78,29 +76,29 @@ func (sm *SampleModule) Desc() string {
 	return "This is a sample module with a few sample operations."
 }
 
-func (lm *SampleModule) MonitorFile() *arg.Arg[string] {
-	return &arg.Arg[string]{
+func (lm *SampleModule) MonitorFile() *module.Arg[string] {
+	return &module.Arg[string]{
 		Value: new(string),
 	}
 }
 
-func (lm *SampleModule) MonitorMetricsEndpoint() *arg.Arg[string] {
-	return &arg.Arg[string]{
+func (lm *SampleModule) MonitorMetricsEndpoint() *module.Arg[string] {
+	return &module.Arg[string]{
 		Value: new(string),
 	}
 }
 
-func (lm *SampleModule) MonitorPerformancePID() *arg.Arg[int] {
-	return &arg.Arg[int]{
+func (lm *SampleModule) MonitorPerformancePID() *module.Arg[int] {
+	return &module.Arg[int]{
 		Value: new(int),
 	}
 }
 
-func (sm *SampleModule) Args() arg.Args {
+func (sm *SampleModule) Args() module.Args {
 	return sm.args
 }
 
-func (sm *SampleModule) Ops() op.Ops {
+func (sm *SampleModule) Ops() module.Ops {
 	return sm.ops
 }
 

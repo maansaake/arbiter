@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"tres-bon.se/arbiter/pkg/module/arg"
+	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
@@ -14,11 +14,11 @@ This file contains argument validation trigger parsing into trigger instances.
 */
 
 var (
-	ValidCPUTrigger     arg.Validator[string] = validCPUTrigger
-	ValidVMSTrigger     arg.Validator[string] = validVMSTrigger
-	ValidRSSTrigger     arg.Validator[string] = validRSSTrigger
-	ValidLogFileTrigger arg.Validator[string] = validLogFileTrigger
-	ValidMetricTrigger  arg.Validator[string] = validMetricTrigger
+	ValidCPUTrigger     module.Validator[string] = validCPUTrigger
+	ValidVMSTrigger     module.Validator[string] = validVMSTrigger
+	ValidRSSTrigger     module.Validator[string] = validRSSTrigger
+	ValidLogFileTrigger module.Validator[string] = validLogFileTrigger
+	ValidMetricTrigger  module.Validator[string] = validMetricTrigger
 
 	ErrValueCount = errors.New("unexpected number of raise/clear values")
 	ErrTriggerOn  = errors.New("value for TriggerOn was not recognized")
@@ -126,7 +126,7 @@ func validate[T TypeConstraint](cmdline string) error {
 	}
 	raise, err := parseValue[T](values[0])
 	if err != nil {
-		return fmt.Errorf("%w: %w", arg.ErrParse, err)
+		return fmt.Errorf("%w: %w", module.ErrArgParse, err)
 	}
 	opts.Raise = raise
 
@@ -134,7 +134,7 @@ func validate[T TypeConstraint](cmdline string) error {
 		opts.SendClear = true
 		clear, err := parseValue[T](values[1])
 		if err != nil {
-			return fmt.Errorf("%w: %w", arg.ErrParse, err)
+			return fmt.Errorf("%w: %w", module.ErrArgParse, err)
 		}
 		opts.Clear = clear
 	}

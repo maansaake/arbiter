@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/module"
 )
 
 type (
 	Reporter interface {
 		Start(context.Context)
-		Op(module, op string, result *op.Result, err error)
+		Op(module, op string, result *module.Result, err error)
 		LogErr(module string, err error)
 		LogTrigger(module string, tr *TriggerReport[string])
 		CPU(module string, value float64)

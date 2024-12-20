@@ -5,22 +5,20 @@ import (
 	"testing"
 
 	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/module/arg"
-	"tres-bon.se/arbiter/pkg/module/op"
 	"tres-bon.se/arbiter/pkg/monitor"
 )
 
 func TestParse(t *testing.T) {
-	count := &arg.Arg[int]{Name: "count", Required: true, Value: new(int)}
-	master := &arg.Arg[bool]{Name: "master", Value: new(bool)}
+	count := &module.Arg[int]{Name: "count", Required: true, Value: new(int)}
+	master := &module.Arg[bool]{Name: "master", Value: new(bool)}
 
-	do := &op.Op{Name: "do"}
-	more := &op.Op{Name: "more"}
+	do := &module.Op{Name: "do"}
+	more := &module.Op{Name: "more"}
 
 	mod := &module.MockModule{
 		SetName: "mod",
-		SetArgs: arg.Args{count, master},
-		SetOps:  op.Ops{do, more},
+		SetArgs: module.Args{count, master},
+		SetOps:  module.Ops{do, more},
 	}
 	os.Args = []string{
 		"subcommand",

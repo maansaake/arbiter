@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
-	"tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/report"
 )
 
@@ -26,10 +26,10 @@ func TestYAMLReporter(t *testing.T) {
 		t.Fatal("should have been zero")
 	}
 
-	yamlReporter.Op("mod", "op", &op.Result{Duration: 1 * time.Second}, nil)
-	yamlReporter.Op("mod", "op", &op.Result{Duration: 1 * time.Second}, errors.New("operation error"))
-	yamlReporter.Op("mod", "op2", &op.Result{Duration: 11 * time.Millisecond}, nil)
-	yamlReporter.Op("mod", "op2", &op.Result{Duration: 2 * time.Second}, nil)
+	yamlReporter.Op("mod", "op", &module.Result{Duration: 1 * time.Second}, nil)
+	yamlReporter.Op("mod", "op", &module.Result{Duration: 1 * time.Second}, errors.New("operation error"))
+	yamlReporter.Op("mod", "op2", &module.Result{Duration: 11 * time.Millisecond}, nil)
+	yamlReporter.Op("mod", "op2", &module.Result{Duration: 2 * time.Second}, nil)
 	yamlReporter.LogErr("mod", errors.New("some log error"))
 	yamlReporter.LogTrigger("mod", &report.TriggerReport[string]{
 		Timestamp: time.Now(),

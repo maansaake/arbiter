@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module/op"
+	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/report"
 	"tres-bon.se/arbiter/pkg/subcommand"
 	log "tres-bon.se/arbiter/pkg/zerologr"
@@ -14,7 +14,7 @@ import (
 
 type workload struct {
 	mod    string
-	op     *op.Op
+	op     *module.Op
 	ticker *time.Ticker
 }
 

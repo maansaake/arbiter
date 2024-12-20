@@ -5,37 +5,35 @@ import (
 
 	"tres-bon.se/arbiter"
 	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/module/arg"
-	"tres-bon.se/arbiter/pkg/module/op"
 )
 
 type locksmithModule struct {
-	args arg.Args
-	ops  op.Ops
+	args module.Args
+	ops  module.Ops
 }
 
 func newLocksmithModule() module.Module {
 	return &locksmithModule{
-		args: arg.Args{
-			&arg.Arg[bool]{
+		args: module.Args{
+			&module.Arg[bool]{
 				Name:  "disable",
 				Desc:  "Set if this module should be disabled.",
 				Value: new(bool),
 			},
-			&arg.Arg[int]{
+			&module.Arg[int]{
 				Name:  "routines",
 				Desc:  "Sets the number of go-routines.",
 				Value: new(int),
 			},
 		},
-		ops: op.Ops{
-			&op.Op{
+		ops: module.Ops{
+			&module.Op{
 				Name:     "lockunlock",
 				Desc:     "Locks and unlocks after a small delay.",
 				Disabled: false,
 				Rate:     60,
-				Do: func() (op.Result, error) {
-					return op.Result{}, nil
+				Do: func() (module.Result, error) {
+					return module.Result{}, nil
 				},
 			},
 		},
@@ -50,29 +48,29 @@ func (lm *locksmithModule) Desc() string {
 	return "This is a sample module with a few sample operations."
 }
 
-func (lm *locksmithModule) MonitorFile() *arg.Arg[string] {
-	return &arg.Arg[string]{
+func (lm *locksmithModule) MonitorFile() *module.Arg[string] {
+	return &module.Arg[string]{
 		Value: new(string),
 	}
 }
 
-func (lm *locksmithModule) MonitorMetricsEndpoint() *arg.Arg[string] {
-	return &arg.Arg[string]{
+func (lm *locksmithModule) MonitorMetricsEndpoint() *module.Arg[string] {
+	return &module.Arg[string]{
 		Value: new(string),
 	}
 }
 
-func (lm *locksmithModule) MonitorPerformancePID() *arg.Arg[int] {
-	return &arg.Arg[int]{
+func (lm *locksmithModule) MonitorPerformancePID() *module.Arg[int] {
+	return &module.Arg[int]{
 		Value: new(int),
 	}
 }
 
-func (lm *locksmithModule) Args() arg.Args {
+func (lm *locksmithModule) Args() module.Args {
 	return lm.args
 }
 
-func (lm *locksmithModule) Ops() op.Ops {
+func (lm *locksmithModule) Ops() module.Ops {
 	return lm.ops
 }
 

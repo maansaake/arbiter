@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"tres-bon.se/arbiter/pkg/module/arg"
+	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
@@ -17,7 +17,7 @@ func TestValidateTriggerArg(t *testing.T) {
 	tests := []struct {
 		Name           string
 		Cmdline        string
-		ValidationFunc arg.Validator[string]
+		ValidationFunc module.Validator[string]
 		Valid          bool
 	}{
 		{

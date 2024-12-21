@@ -26,29 +26,28 @@ import (
 )
 
 const (
-	DURATION_DEFAULT            = time.Minute * 5
-	EXTERNAL_PROMETHEUS_DEFAULT = false
-	METRIC_ADDR_DEFAULT         = ":8888"
-	REPORT_PATH_DEFAULT         = "report.yaml"
+	durationDefault           = time.Minute * 5
+	externalPrometheusDefault = false
+	metricAddrDefault         = ":8888"
+	reportPathDefault         = "report.yaml"
 )
 
 var (
 	// global flag vars.
-	duration           time.Duration = DURATION_DEFAULT
-	externalPrometheus bool          = EXTERNAL_PROMETHEUS_DEFAULT
+	duration           time.Duration = durationDefault
+	externalPrometheus bool          = externalPrometheusDefault
 
 	// subcommand parsing vars.
-	subcommands     = []string{cli.FLAGSET, gen.FLAGSET, file.FLAGSET}
-	subcommandIndex = -1
+	subcommands = []string{cli.FLAGSET, gen.FLAGSET, file.FLAGSET}
 
-	// log.
+	// logger
 	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).WithName("start")
 
-	// metrics.
-	metricAddr = METRIC_ADDR_DEFAULT
+	// metrics
+	metricAddr = metricAddrDefault
 
 	// report
-	reportPath = REPORT_PATH_DEFAULT
+	reportPath = reportPathDefault
 
 	ErrParseError         = errors.New("flag parse error")
 	ErrNoSubcommand       = errors.New("no subcommand given")
@@ -97,20 +96,7 @@ func Run(modules module.Modules) error {
 	flag.Parse()
 
 	// Verify a subcommand has been invoked.
-	subcommandIndex = slices.IndexFunc(os.Args, func(e string) bool {
-		return slices.Contains(subcommands, e)
-	})
-	parseErrs := make([]error, 0)
-	if subcommandIndex == -1 {
-		fmt.Fprint(flag.CommandLine.Output(), ErrNoSubcommand.Error()+"\n")
-		parseErrs = append(parseErrs, ErrNoSubcommand)
-	}
-
-	if duration < 30*time.Second {
-		fmt.Fprint(flag.CommandLine.Output(), ErrDurationTooShort.Error()+"\n")
-		parseErrs = append(parseErrs, ErrDurationTooShort)
-	}
-
+	subcommandIndex, parseErrs := parseArguments(os.Args)
 	if len(parseErrs) > 0 {
 		flag.CommandLine.SetOutput(os.Stderr)
 		flag.Usage()
@@ -195,8 +181,12 @@ func run(metadata subcommand.Metadata) error {
 	startLogger = startLogger.WithName("stopping")
 
 	startLogger.Info("stopping traffic")
-	traffic.Stop()
-	err := monitor.Stop()
+	err := traffic.Stop()
+	if err != nil {
+		startLogger.Error(err, "error when stopping traffic")
+	}
+
+	err = monitor.Stop()
 	if err != nil {
 		startLogger.Error(err, "error when stopping monitor")
 	}
@@ -215,6 +205,27 @@ func run(metadata subcommand.Metadata) error {
 	return reporter.Finalise()
 }
 
+// Parses the input arguments and returns the index of the subcommand and any
+// parsing errors.
+func parseArguments(args []string) (int, []error) {
+	var parseErrs []error
+	subcommandIndex := slices.IndexFunc(args, func(arg string) bool {
+		return slices.Contains(subcommands, arg)
+	})
+	if subcommandIndex == -1 {
+		fmt.Fprint(flag.CommandLine.Output(), ErrNoSubcommand.Error()+"\n")
+		parseErrs = append(parseErrs, ErrNoSubcommand)
+	}
+
+	if duration < 30*time.Second {
+		fmt.Fprint(flag.CommandLine.Output(), ErrDurationTooShort.Error()+"\n")
+		parseErrs = append(parseErrs, ErrDurationTooShort)
+	}
+
+	return subcommandIndex, parseErrs
+}
+
+// Starts the input modules and logs any errors.
 func startModules(meta []*subcommand.Meta) error {
 	for _, m := range meta {
 		startLogger.Info("starting", "module", m.Name())
@@ -225,6 +236,7 @@ func startModules(meta []*subcommand.Meta) error {
 	return nil
 }
 
+// Creates a new YAML reporter.
 func setupReporter() report.Reporter {
 	reporter := yamlreport.New(&yamlreport.Opts{
 		Path: reportPath,
@@ -233,6 +245,7 @@ func setupReporter() report.Reporter {
 	return reporter
 }
 
+// Creates a new monitor.
 func setupMonitor(reporter report.Reporter, metadata subcommand.Metadata) *monitor.Monitor {
 	m := monitor.New(metadata.MonitorOpts()...)
 	m.Reporter = reporter

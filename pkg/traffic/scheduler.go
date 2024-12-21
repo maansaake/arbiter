@@ -22,13 +22,14 @@ var (
 	reporter report.Reporter
 
 	workloads      []*workload
-	stop           chan string
+	stop           chan *workload
 	cleanupTimeout = 5 * time.Second
 )
 
 var (
 	ErrNoOpsToSchedule = errors.New("there were no operations to schedule")
 	ErrZeroRate        = errors.New("operation has a zero rate")
+	ErrCleanupTimeout  = errors.New("cleanup timed out")
 )
 
 // Runs traffic for the input modules using their exposed operations. Traffic
@@ -67,26 +68,26 @@ func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) e
 
 	// Start traffic generation in separate go-routine, run until context is done
 	// Create stop channel that workloads will report to when stopping.
-	stop = make(chan string, len(workloads))
+	stop = make(chan *workload, len(workloads))
 	run(ctx)
 
 	return nil
 }
 
-func Stop() {
+func Stop() error {
 	log.Info("cleaning up the traffic generator")
 	stopCount := 0
 	for {
 		select {
 		case <-time.After(cleanupTimeout):
-			log.Error(errors.New("failed to clean up in time"), "timeout", cleanupTimeout)
-			return
-		case name := <-stop:
-			log.Info("workload stopped", "name", name)
+			log.Error(ErrCleanupTimeout, "cleanup took too long, forcefully stopping", "timeout", cleanupTimeout)
+			return ErrCleanupTimeout
+		case workload := <-stop:
+			log.Info("workload stopped", "mod", workload.mod, "op", workload.op.Name)
 			stopCount++
 			if stopCount == len(workloads) {
 				log.Info("all workloads have stopped")
-				return
+				return nil
 			}
 		}
 	}
@@ -100,6 +101,7 @@ func run(ctx context.Context) {
 }
 
 func handleWorkload(ctx context.Context, workload *workload) {
+	log.Info("starting workload", "mod", workload.mod, "op", workload.op.Name, "rate", workload.op.Rate)
 	for {
 		select {
 		case t := <-workload.ticker.C:
@@ -118,7 +120,7 @@ func handleWorkload(ctx context.Context, workload *workload) {
 		case <-ctx.Done():
 			log.Info("stopping workload", "mod", workload.mod, "op", workload.op.Name)
 			workload.ticker.Stop()
-			stop <- fmt.Sprintf("%s: %s", workload.mod, workload.op.Name)
+			stop <- workload
 			return
 		}
 	}

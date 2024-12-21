@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"slices"
@@ -52,10 +53,10 @@ var (
 	// report
 	reportPath = reportPathDefault
 
-	ErrParseError         = errors.New("flag parse error")
 	ErrNoSubcommand       = errors.New("no subcommand given")
 	ErrSubcommandNotFound = errors.New("subcommand not found")
 	ErrDurationTooShort   = errors.New("duration has to be minimum 30 seconds")
+	ErrInvalidMetricAddr  = errors.New("invalid metric address")
 )
 
 func init() {
@@ -219,13 +220,18 @@ func parseArguments(args []string) (int, []error) {
 	})
 
 	if subcommandIndex == -1 {
-		fmt.Fprint(flag.CommandLine.Output(), ErrNoSubcommand.Error()+"\n")
+		fmt.Fprint(flagset.Output(), ErrNoSubcommand.Error()+"\n")
 		parseErrs = append(parseErrs, ErrNoSubcommand)
 	}
 
 	if duration < 30*time.Second {
-		fmt.Fprint(flag.CommandLine.Output(), ErrDurationTooShort.Error()+"\n")
+		fmt.Fprint(flagset.Output(), ErrDurationTooShort.Error()+"\n")
 		parseErrs = append(parseErrs, ErrDurationTooShort)
+	}
+
+	if _, err := net.ResolveTCPAddr("tcp", metricAddr); err != nil {
+		fmt.Fprint(flagset.Output(), ErrInvalidMetricAddr.Error()+"\n")
+		parseErrs = append(parseErrs, ErrInvalidMetricAddr)
 	}
 
 	return subcommandIndex, parseErrs

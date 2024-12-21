@@ -30,6 +30,12 @@ func NewSampleModule() module.Module {
 				zerologr.Info("set value for testdelay", "value", s.testDelayMs)
 			},
 		},
+		&module.Arg[int]{
+			Name:     "important",
+			Desc:     "A very important argument.",
+			Required: true,
+			Value:    new(int),
+		},
 	}
 
 	s.ops = module.Ops{

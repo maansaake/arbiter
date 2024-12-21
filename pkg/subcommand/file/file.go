@@ -6,7 +6,7 @@ import (
 	"tres-bon.se/arbiter/pkg/subcommand"
 )
 
-const FLAGSET = "file"
+const FlagsetName = "file"
 
 func Parse(subcommandIndex int, _ module.Modules) ([]*subcommand.Meta, error) {
 	return nil, nil

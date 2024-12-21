@@ -33,12 +33,15 @@ const (
 )
 
 var (
-	// global flag vars.
+	// flagset
+	flagset *flag.FlagSet
+
+	// global flag vars
 	duration           time.Duration = durationDefault
 	externalPrometheus bool          = externalPrometheusDefault
 
 	// subcommand parsing vars.
-	subcommands = []string{cli.FLAGSET, gen.FLAGSET, file.FLAGSET}
+	subcommands = []string{cli.FlagsetName, gen.FlagsetName, file.FlagsetName}
 
 	// logger
 	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).WithName("start")
@@ -62,10 +65,6 @@ func init() {
 // Runs the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
 // runs out (5 minute default).
 func Run(modules module.Modules) error {
-	formatFlagset := func(fset string) string {
-		return fmt.Sprintf("%-10s", fset)
-	}
-
 	// TODO: change to support > 1 module
 	if len(modules) != 1 {
 		panic("number of modules must be exactly one")
@@ -74,48 +73,27 @@ func Run(modules module.Modules) error {
 		return err
 	}
 
-	flag.CommandLine.SetOutput(os.Stdout)
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "%s [subcommand]\n\n", os.Args[0])
-		fmt.Fprint(flag.CommandLine.Output(), "subcommands:\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  %s Run using CLI flags.\n", formatFlagset(cli.FLAGSET))
-		fmt.Fprintf(flag.CommandLine.Output(), "  %s Generate a test model file.\n", formatFlagset(gen.FLAGSET))
-		fmt.Fprintf(flag.CommandLine.Output(), "  %s Run from a test model file.\n", formatFlagset(file.FLAGSET))
-		fmt.Fprint(flag.CommandLine.Output(), "\n")
-		fmt.Fprint(flag.CommandLine.Output(), "global flags:\n")
-		flag.PrintDefaults()
-	}
-
-	// Global flags
-	flag.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
-	flag.BoolVar(&externalPrometheus, "monitor.metric.external", externalPrometheus, "External Prometheus instance, disables internal metric ticker and creates a HTTP server for scraping.")
-	flag.StringVar(&metricAddr, "monitor.metric.external.addr", metricAddr, "Prometheus metric endpoint address.")
-	flag.StringVar(&reportPath, "report.path", reportPath, "Path to the final report.")
-
-	// To trigger on --help and parse global flags
-	flag.Parse()
-
-	// Verify a subcommand has been invoked.
+	// Verify input arguments and parse subcommand.
 	subcommandIndex, parseErrs := parseArguments(os.Args)
 	if len(parseErrs) > 0 {
-		flag.CommandLine.SetOutput(os.Stderr)
-		flag.Usage()
+		flagset.SetOutput(os.Stderr)
+		flagset.Usage()
 		return errors.Join(parseErrs...)
 	}
 
 	// Check invoked subcommand
 	switch os.Args[subcommandIndex] {
-	case cli.FLAGSET:
+	case cli.FlagsetName:
 		// Parse module arguments and continue to run block.
 		if meta, err := cli.Parse(subcommandIndex, modules); err != nil {
 			return err
 		} else {
 			return run(meta)
 		}
-	case gen.FLAGSET:
+	case gen.FlagsetName:
 		// Generate run file based on input modules.
 		return gen.Generate(subcommandIndex, modules)
-	case file.FLAGSET:
+	case file.FlagsetName:
 		// Parse run file information and continue to run block.
 		if meta, err := file.Parse(subcommandIndex, modules); err != nil {
 			return err
@@ -123,10 +101,10 @@ func Run(modules module.Modules) error {
 			return run(meta)
 		}
 	default:
-		flag.CommandLine.SetOutput(os.Stderr)
+		flagset.SetOutput(os.Stderr)
 		err := fmt.Errorf("%w: %v", ErrSubcommandNotFound, os.Args)
-		fmt.Fprint(flag.CommandLine.Output(), err.Error()+"\n")
-		flag.Usage()
+		fmt.Fprint(flagset.Output(), err.Error()+"\n")
+		flagset.Usage()
 		return err
 	}
 }
@@ -208,10 +186,38 @@ func run(metadata subcommand.Metadata) error {
 // Parses the input arguments and returns the index of the subcommand and any
 // parsing errors.
 func parseArguments(args []string) (int, []error) {
+	flagset = flag.NewFlagSet("arbiter", flag.ExitOnError)
+
+	formatFlagset := func(fset string) string {
+		return fmt.Sprintf("%-10s", fset)
+	}
+
+	flagset.SetOutput(os.Stdout)
+	flagset.Usage = func() {
+		fmt.Fprintf(flagset.Output(), "%s [subcommand]\n\n", os.Args[0])
+		fmt.Fprint(flagset.Output(), "subcommands:\n")
+		fmt.Fprintf(flagset.Output(), "  %s Run using CLI flags.\n", formatFlagset(cli.FlagsetName))
+		fmt.Fprintf(flagset.Output(), "  %s Generate a test model file.\n", formatFlagset(gen.FlagsetName))
+		fmt.Fprintf(flagset.Output(), "  %s Run from a test model file.\n", formatFlagset(file.FlagsetName))
+		fmt.Fprint(flagset.Output(), "\n")
+		fmt.Fprint(flagset.Output(), "global flags:\n")
+		flagset.PrintDefaults()
+	}
+
+	// Global flags
+	flagset.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
+	flagset.BoolVar(&externalPrometheus, "monitor.metric.external", externalPrometheus, "External Prometheus instance, disables internal metric ticker and creates a HTTP server for scraping.")
+	flagset.StringVar(&metricAddr, "monitor.metric.external.addr", metricAddr, "Prometheus metric endpoint address.")
+	flagset.StringVar(&reportPath, "report.path", reportPath, "Path to the final report.")
+
+	// Ingore error since we're using ExitOnError.
+	_ = flagset.Parse(os.Args[1:])
+
 	var parseErrs []error
 	subcommandIndex := slices.IndexFunc(args, func(arg string) bool {
 		return slices.Contains(subcommands, arg)
 	})
+
 	if subcommandIndex == -1 {
 		fmt.Fprint(flag.CommandLine.Output(), ErrNoSubcommand.Error()+"\n")
 		parseErrs = append(parseErrs, ErrNoSubcommand)

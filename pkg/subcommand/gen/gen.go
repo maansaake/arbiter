@@ -3,7 +3,7 @@ package gen
 
 import "tres-bon.se/arbiter/pkg/module"
 
-const FLAGSET = "gen"
+const FlagsetName = "gen"
 
 func Generate(subcommandIndex int, _ module.Modules) error {
 	return nil

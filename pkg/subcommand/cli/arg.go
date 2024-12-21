@@ -11,10 +11,10 @@ import (
 	"tres-bon.se/arbiter/pkg/module"
 )
 
-const FLAGSET = "cli"
+const FlagsetName = "cli"
 
 var (
-	flagset  = flag.NewFlagSet(FLAGSET, flag.ContinueOnError)
+	flagset  = flag.NewFlagSet(FlagsetName, flag.ExitOnError)
 	required []string
 
 	ErrNilPtr       = errors.New("Arg.Value must not be a nil pointer")
@@ -34,11 +34,8 @@ func Register(prefix string, args module.Args) error {
 
 // Parses command line input.
 func ParseArgs(args []string) error {
-	err := flagset.Parse(args)
-	if err != nil {
-		// Usage() is called directly from the flagset.Parse call in this case.
-		return err
-	}
+	// Ignore error since we're using ExitOnError.
+	_ = flagset.Parse(args)
 
 	if len(required) > 0 {
 		for _, an := range required {

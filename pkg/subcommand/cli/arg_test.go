@@ -71,7 +71,7 @@ func TestRegisterRequired(t *testing.T) {
 }
 
 func TestRequiredPresent(t *testing.T) {
-	flagset = flag.NewFlagSet(FLAGSET, flag.ExitOnError)
+	flagset = flag.NewFlagSet(FlagsetName, flag.ExitOnError)
 	required = []string{}
 
 	err := register("prefix", &module.Arg[uint]{
@@ -97,7 +97,7 @@ func TestRequiredPresent(t *testing.T) {
 }
 
 func TestRequiredMissing(t *testing.T) {
-	flagset = flag.NewFlagSet(FLAGSET, flag.ExitOnError)
+	flagset = flag.NewFlagSet(FlagsetName, flag.ExitOnError)
 	required = []string{}
 
 	err := register("prefix", &module.Arg[uint]{
@@ -134,7 +134,7 @@ func TestRequiredBoolean(t *testing.T) {
 }
 
 func TestFlagParseFailure(t *testing.T) {
-	flagset = flag.NewFlagSet(FLAGSET, flag.ContinueOnError)
+	flagset = flag.NewFlagSet(FlagsetName, flag.ContinueOnError)
 	required = []string{}
 
 	err := register("prefix", &module.Arg[uint]{

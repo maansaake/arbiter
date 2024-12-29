@@ -9,9 +9,10 @@ import (
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/report"
 	"tres-bon.se/arbiter/pkg/subcommand"
-	log "tres-bon.se/arbiter/pkg/zerologr"
+	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
+// Information about an operation to be run.
 type workload struct {
 	mod    string
 	op     *module.Op
@@ -38,7 +39,7 @@ var (
 // go-routine has been started. Run() will monitor the context's done channel
 // and stop gracefully once it's closed.
 func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) error {
-	log.Info("running traffic generator")
+	zerologr.Info("running traffic generator")
 	// Run initialisation of traffic synchronously
 	reporter = r
 
@@ -75,18 +76,18 @@ func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) e
 }
 
 func Stop() error {
-	log.Info("cleaning up the traffic generator")
+	zerologr.Info("cleaning up the traffic generator")
 	stopCount := 0
 	for {
 		select {
 		case <-time.After(cleanupTimeout):
-			log.Error(ErrCleanupTimeout, "cleanup took too long, forcefully stopping", "timeout", cleanupTimeout)
+			zerologr.Error(ErrCleanupTimeout, "cleanup took too long, forcefully stopping", "timeout", cleanupTimeout)
 			return ErrCleanupTimeout
 		case workload := <-stop:
-			log.Info("workload stopped", "mod", workload.mod, "op", workload.op.Name)
+			zerologr.Info("workload stopped", "mod", workload.mod, "op", workload.op.Name)
 			stopCount++
 			if stopCount == len(workloads) {
-				log.Info("all workloads have stopped")
+				zerologr.Info("all workloads have stopped")
 				return nil
 			}
 		}
@@ -101,11 +102,11 @@ func run(ctx context.Context) {
 }
 
 func handleWorkload(ctx context.Context, workload *workload) {
-	log.Info("starting workload", "mod", workload.mod, "op", workload.op.Name, "rate", workload.op.Rate)
+	zerologr.Info("starting workload", "mod", workload.mod, "op", workload.op.Name, "rate", workload.op.Rate)
 	for {
 		select {
 		case t := <-workload.ticker.C:
-			log.V(100).Info("tick", "mod", workload.mod, "op", workload.op.Name, "time", t)
+			zerologr.V(100).Info("tick", "mod", workload.mod, "op", workload.op.Name, "time", t)
 
 			// Run Op and calculate duration.
 			start := time.Now()
@@ -118,7 +119,7 @@ func handleWorkload(ctx context.Context, workload *workload) {
 			// Report to reporter
 			reporter.Op(workload.mod, workload.op.Name, &res, err)
 		case <-ctx.Done():
-			log.Info("stopping workload", "mod", workload.mod, "op", workload.op.Name)
+			zerologr.Info("stopping workload", "mod", workload.mod, "op", workload.op.Name)
 			workload.ticker.Stop()
 			stop <- workload
 			return

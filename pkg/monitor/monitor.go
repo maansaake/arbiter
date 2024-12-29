@@ -90,6 +90,7 @@ var (
 	ErrStopTimeout            = errors.New("stop exceeded timeout")
 )
 
+// DefaultOpt returns a new Opt with default values.
 func DefaultOpt() *Opt {
 	return &Opt{
 		PID:            NO_PERFORMANCE_PID,
@@ -103,22 +104,27 @@ func DefaultOpt() *Opt {
 	}
 }
 
+// CPUTriggerFromCmdline creates a CPU trigger from a command line string.
 func (o *Opt) CPUTriggerFromCmdline(cmdline string) {
 	o.CPUTriggers = append(o.CPUTriggers, trigger.From[float64](cmdline))
 }
 
+// VMSTriggerFromCmdline creates a VMS trigger from a command line string.
 func (o *Opt) VMSTriggerFromCmdline(cmdline string) {
 	o.VMSTriggers = append(o.VMSTriggers, trigger.From[uint](cmdline))
 }
 
+// RSSTriggerFromCmdline creates a RSS trigger from a command line string.
 func (o *Opt) RSSTriggerFromCmdline(cmdline string) {
 	o.RSSTriggers = append(o.RSSTriggers, trigger.From[uint](cmdline))
 }
 
+// LogFileTriggerFromCmdline creates a log file trigger from a command line string.
 func (o *Opt) LogFileTriggerFromCmdline(cmdline string) {
 	o.LogTriggers = append(o.LogTriggers, trigger.From[string](cmdline))
 }
 
+// MetricTriggerFromCmdline creates a metric trigger from a command line string.
 func (o *Opt) MetricTriggerFromCmdline(cmdline string) {
 	name, t := trigger.NamedFrom[float64](cmdline)
 	if _, ok := o.MetricTriggers[name]; !ok {
@@ -127,6 +133,7 @@ func (o *Opt) MetricTriggerFromCmdline(cmdline string) {
 	o.MetricTriggers[name] = append(o.MetricTriggers[name], t)
 }
 
+// New creates a new Monitor with the provided options.
 func New(opts ...*Opt) *Monitor {
 	m := &Monitor{
 		cpuMonitors:    make(map[string]cpu.CPU),
@@ -146,6 +153,7 @@ func New(opts ...*Opt) *Monitor {
 	return m
 }
 
+// Add adds a new module to the monitor.
 func (m *Monitor) Add(opt *Opt) {
 	if opt.PID != NO_PERFORMANCE_PID {
 		//nolint:gosec
@@ -194,15 +202,15 @@ func (m *Monitor) Add(opt *Opt) {
 	}
 }
 
+// Start starts the monitor and all its monitoring processes.
 func (m *Monitor) Start(ctx context.Context) error {
 	if m.ExternalPrometheus {
+		//nolint:gosec
+		m.metricServer = &http.Server{
+			Addr:    m.MetricAddr,
+			Handler: http.DefaultServeMux, // Use the default handler
+		}
 		go func() {
-			//nolint:gosec
-			m.metricServer = &http.Server{
-				Addr:    m.MetricAddr,
-				Handler: http.DefaultServeMux, // Use the default handler
-			}
-
 			// Arbiter metrics
 			http.Handle("/metrics", promhttp.Handler())
 
@@ -246,17 +254,14 @@ func (m *Monitor) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop stops the monitor and awaits all its processes.
 func (m *Monitor) Stop() error {
 	logger.Info("stopping the monitor")
 	if m.ExternalPrometheus {
 		logger.Info("stopping metric server")
-		if m.metricServer != nil {
-			err := m.metricServer.Close()
-			if err != nil {
-				return err
-			}
-		} else {
-			logger.Info("something went wrong, there is no metric server to stop")
+		err := m.metricServer.Close()
+		if err != nil {
+			logger.Error(err, "metric server shutdown reported an error")
 		}
 	}
 
@@ -277,6 +282,7 @@ func (m *Monitor) Stop() error {
 	return nil
 }
 
+// PullMetrics pulls metrics from the external prometheus endpoint(s).
 func (m *Monitor) PullMetrics(name string) ([]byte, error) {
 	rawMetrics, err := m.metricMonitors[name].Pull()
 	if err != nil {
@@ -287,6 +293,7 @@ func (m *Monitor) PullMetrics(name string) ([]byte, error) {
 	return rawMetrics, err
 }
 
+// INTERNAL
 func (m *Monitor) startCPUTicker(ctx context.Context) {
 	logger.Info("starting CPU ticker")
 	tick := time.NewTicker(monitorInterval)
@@ -313,6 +320,7 @@ func (m *Monitor) startCPUTicker(ctx context.Context) {
 	}
 }
 
+// INTERNAL
 func (m *Monitor) startMemoryTicker(ctx context.Context) {
 	logger.Info("starting memory ticker")
 	tick := time.NewTicker(monitorInterval)
@@ -346,6 +354,7 @@ func (m *Monitor) startMemoryTicker(ctx context.Context) {
 	}
 }
 
+// INTERNAL
 func (m *Monitor) startMetricTicker(ctx context.Context) {
 	logger.Info("starting metric ticker")
 	tick := time.NewTicker(monitorInterval)
@@ -372,6 +381,7 @@ func (m *Monitor) startMetricTicker(ctx context.Context) {
 	}
 }
 
+// INTERNAL
 func (m *Monitor) handleCPUUpdate(name string, cpu float64) {
 	for _, trig := range m.cpuTriggers[name] {
 		res := trig.Update(cpu)
@@ -386,6 +396,7 @@ func (m *Monitor) handleCPUUpdate(name string, cpu float64) {
 	}
 }
 
+// INTERNAL
 func (m *Monitor) handleRSSUpdate(name string, rss uint) {
 	for _, trig := range m.rssTriggers[name] {
 		res := trig.Update(rss)
@@ -400,6 +411,7 @@ func (m *Monitor) handleRSSUpdate(name string, rss uint) {
 	}
 }
 
+// INTERNAL
 func (m *Monitor) handleVMSUpdate(name string, vms uint) {
 	for _, trig := range m.vmsTriggers[name] {
 		res := trig.Update(vms)
@@ -414,6 +426,7 @@ func (m *Monitor) handleVMSUpdate(name string, vms uint) {
 	}
 }
 
+// INTERNAL
 func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 	parser := expfmt.TextParser{}
 	families, err := parser.TextToMetricFamilies(bytes.NewReader(rawMetrics))
@@ -456,6 +469,7 @@ func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 	}
 }
 
+// INTERNAL
 func (m *Monitor) logHandler(name string) log.LogHandler {
 	return func(logEvent string, err error) {
 		if err != nil {

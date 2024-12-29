@@ -21,7 +21,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 	mock.SetOps = module.Ops{
 		{
 			Name: "test",
-			Rate: 6000,
+			Rate: 60000,
 			Do: func() (module.Result, error) {
 				opWg.Done()
 				log.Info("doing OP")
@@ -39,7 +39,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 	opWg.Wait()
 
 	cancel()
-	Stop()
+	AwaitStop()
 }
 
 func TestRunNoOps(t *testing.T) {
@@ -95,7 +95,7 @@ func TestReportOpToReporter(t *testing.T) {
 	cancel()
 
 	// This should ensure the reporter mock has received the Op report.
-	Stop()
+	AwaitStop()
 
 	if reporter.OpResults[0].Duration == 0 {
 		t.Fatal("duration was not reported to reporter")
@@ -128,7 +128,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 	cancel()
 
 	// This should ensure the reporter mock has received the Op report.
-	Stop()
+	AwaitStop()
 
 	if reporter.OpResults[0].Duration != 12*time.Millisecond {
 		t.Fatal("duration override was not used")
@@ -161,7 +161,7 @@ func TestReportOpErr(t *testing.T) {
 	cancel()
 
 	// This should ensure the reporter mock has received the Op report.
-	Stop()
+	AwaitStop()
 
 	if len(reporter.OpResults) != 0 {
 		t.Fatal("unexpected op results found")

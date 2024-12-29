@@ -160,7 +160,7 @@ func run(metadata subcommand.Metadata) error {
 	startLogger = startLogger.WithName("stopping")
 
 	startLogger.Info("stopping traffic")
-	err := traffic.Stop()
+	err := traffic.AwaitStop()
 	if err != nil {
 		startLogger.Error(err, "error when stopping traffic")
 	}

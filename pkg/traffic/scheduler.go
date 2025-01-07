@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"tres-bon.se/arbiter/pkg/module"
@@ -19,9 +20,11 @@ type (
 		op  *module.Op
 
 		workers []*worker
+
 		// Combined rate of all workers, should match op.Rate.
-		compoundRate uint
-		rateCheck    *time.Ticker
+		rateCount float64
+		totalDur  time.Duration
+		rateCheck *time.Ticker
 	}
 	worker struct {
 		done       chan bool
@@ -43,10 +46,12 @@ var (
 	ErrNoOpsToSchedule = errors.New("there were no operations to schedule")
 	ErrZeroRate        = errors.New("operation has a zero rate")
 	ErrCleanupTimeout  = errors.New("cleanup timed out")
+	ErrRateIssue       = errors.New("rate issue")
 
-	Samples             = 100
 	SampleTolerancePerc = 0.05
 )
+
+const maxWorkers = 50
 
 // Runs traffic for the input modules using their exposed operations. Traffic
 // generation will make operation calls at the specified rates and report
@@ -91,7 +96,7 @@ func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) e
 }
 
 func AwaitStop() error {
-	zerologr.Info("awaiting cleaning up of the traffic generator", "workload_count", len(workloads))
+	zerologr.Info("awaiting cleanup of traffic generator", "workload_count", len(workloads))
 	stopCount := 0
 	for {
 		select {
@@ -112,16 +117,13 @@ func AwaitStop() error {
 func (w *workload) run(ctx context.Context) {
 	zerologr.Info("starting workload", "mod", w.mod, "op", w.op.Name, "rate", w.op.Rate)
 
-	w.compoundRate = 0
-	// Set check duration depending on the operation rate, ensure
-	// (theoretically) that <Samples> operations can run before checking.
-	// This rate is optimistic, and does not account for the time it takes
-	// to execute the operation. Nor do the workers initially. The first sample
-	// that takes place will determine if the rate of the worker needs to be
-	// increased or if a new worker needs to be added.
-	w.rateCheck = time.NewTicker(getSampleInterval(w.op.Rate))
-
 	go func() {
+		w.rateCount = 0
+		samplingInterval := getSampleInterval(w.op)
+		expectedCalls := float64(samplingInterval) / float64(time.Minute) * float64(w.op.Rate)
+		zerologr.Info("setting sampling interval", "mod", w.mod, "op", w.op.Name, "sampling_interval_ms", samplingInterval.Milliseconds(), "expected_calls", expectedCalls)
+		w.rateCheck = time.NewTicker(samplingInterval)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -138,30 +140,88 @@ func (w *workload) run(ctx context.Context) {
 				stop <- w
 				return
 			case <-w.rateCheck.C:
-				zerologr.Info("running rate check", "mod", w.mod, "op", w.op.Name)
+				zerologr.Info("running rate check", "mod", w.mod, "op", w.op.Name, "compound_rate", w.rateCount, "expected_calls", expectedCalls)
+
+				if w.rateOutOfBounds(expectedCalls) {
+					zerologr.Info("rate out of bounds", "mod", w.mod, "op", w.op.Name, "average_duration_ms", w.getAverageDuration().Milliseconds())
+					w.scale(ctx)
+				}
 
 				// Reset compound rate to check # of executions next time the checker
 				// is run.
-				w.compoundRate = 0
+				w.totalDur = 0
+				w.rateCount = 0
 			}
 		}
 	}()
 
-	// All workload start with exactly one worker. After the initial immediate
-	// tick, the worker will determine if the parent should be told to increase
-	// the worker count. This depends on both the time it takes to execute the
-	// operation, and the operation rate. For example, a rate of 60.000 op/min,
-	// and a 1ms operation execution time will lead to an additional worker to
-	// ensure that the operation is executed at the correct rate.
+	// All workload start with exactly one worker. After the first sampling
+	// period, this may be increased.
 	w.workers = make([]*worker, 0, 1)
 	w.addWorker(ctx)
+}
+
+func (w *workload) scale(ctx context.Context) {
+	requiredWorkers := w.getWorkerCount()
+	zerologr.Info("calculated required worker count", "required_workers", requiredWorkers, "mod", w.mod, "op", w.op.Name)
+	if int(requiredWorkers) > len(w.workers) {
+		zerologr.Info("adding workers", "count", int(requiredWorkers)-len(w.workers), "mod", w.mod, "op", w.op.Name)
+		for i := int(requiredWorkers) - len(w.workers); i > 0; i-- {
+			w.addWorker(ctx)
+		}
+	}
+
+	// Reset the worker tickers to match the new rate. This applies to both
+	// scaling up and down.
+	for _, worker := range w.workers {
+		worker.reset(w.workerTickerInterval(requiredWorkers))
+	}
+}
+
+func (w *workload) rateOutOfBounds(expectedCalls float64) bool {
+	return (w.rateCount < (expectedCalls*(1-SampleTolerancePerc)) || w.rateCount > (expectedCalls*(1+SampleTolerancePerc)))
+}
+
+// Work out the ticker interval for each worker, based on the rate and the
+// average duration it takes to execute each operation.
+// Ex: 60000ms / 60 - 1ms = 999ms ticker interval
+func (w *workload) workerTickerInterval(workerCount float64) time.Duration {
+	return time.Duration(
+		float64(1*time.Minute) / w.ratePerWorker(workerCount),
+	)
+}
+
+// Returns the rate per worker, based on the desired rate and worker count.
+func (w *workload) ratePerWorker(workerCount float64) float64 {
+	return float64(w.op.Rate) / workerCount
+}
+
+// This yields a number either below or above 1, if below, 1 worker is enough.
+// If above, at least 2 workers are needed to satisfy the rate. Basically, if
+// the maximum rate of 1 worker is much higher than the target rate, a number
+// below zero is produced, indicating no more than 1 worker is needed. Returns
+// a maximum of 50 workers.
+func (w *workload) getWorkerCount() float64 {
+	return math.Min(math.Ceil(float64(w.op.Rate)/w.getMaxRate()), maxWorkers)
+}
+
+// Returns the maximum rate of a single worker, derived from the actual average
+// execution time of the operation.
+func (w *workload) getMaxRate() float64 {
+	return float64(1*time.Minute) / float64(w.getAverageDuration())
+}
+
+func (w *workload) getAverageDuration() time.Duration {
+	return w.totalDur / time.Duration(w.rateCount)
 }
 
 func (w *workload) addWorker(ctx context.Context) {
 	zerologr.Info("adding worker", "mod", w.mod, "op", w.op.Name)
 
 	worker := &worker{
-		parent:     w,
+		parent: w,
+		//nolint:gosec
+		ticker:     time.NewTicker(time.Minute / time.Duration(w.op.Rate)),
 		targetRate: w.op.Rate,
 	}
 
@@ -171,7 +231,6 @@ func (w *workload) addWorker(ctx context.Context) {
 
 func (w *workload) doOp() {
 	zerologr.V(100).Info("triggering workload op", "mod", w.mod, "op", w.op.Name)
-	w.compoundRate++
 
 	start := time.Now()
 	res, err := w.op.Do()
@@ -179,13 +238,17 @@ func (w *workload) doOp() {
 	if res.Duration == 0 {
 		res.Duration = time.Since(start)
 	}
+
+	// Increase invocation counter and total duration to calculate average
+	// execution time.
+	w.rateCount++
+	w.totalDur += res.Duration
+
 	reporter.Op(w.mod, w.op.Name, &res, err)
 }
 
 func (worker *worker) run(ctx context.Context) {
 	zerologr.Info("starting worker", "mod", worker.parent.mod, "op", worker.parent.op.Name)
-	//nolint:gosec
-	worker.ticker = time.NewTicker(getTargetInterval(worker.targetRate))
 	worker.done = make(chan bool, 1)
 
 	for {
@@ -203,17 +266,17 @@ func (worker *worker) run(ctx context.Context) {
 	}
 }
 
-func (worker *worker) reset(newTargetRate uint) {
-	zerologr.V(100).Info("resetting worker ticker", "mod", worker.parent.mod, "op", worker.parent.op.Name, "new_target_rate", newTargetRate)
-	worker.ticker.Reset(getTargetInterval(newTargetRate))
+func (worker *worker) reset(tickerInterval time.Duration) {
+	zerologr.Info("resetting worker ticker", "mod", worker.parent.mod, "op", worker.parent.op.Name, "interval", tickerInterval)
+	worker.ticker.Reset(tickerInterval)
 }
 
-func getTargetInterval(ratePerMinute uint) time.Duration {
-	//nolint:gosec
-	return time.Minute / time.Duration(ratePerMinute)
-}
+func getSampleInterval(op *module.Op) time.Duration {
+	if op.Rate < 30 {
+		// Minimum 5 samples, this should be a super corner case.
+		//nolint:gosec
+		return time.Minute / time.Duration(op.Rate) * 5
+	}
 
-func getSampleInterval(ratePerMinute uint) time.Duration {
-	//nolint:gosec
-	return getTargetInterval(ratePerMinute) * time.Duration(Samples)
+	return 10 * time.Second
 }

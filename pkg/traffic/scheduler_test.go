@@ -170,3 +170,34 @@ func TestReportOpErr(t *testing.T) {
 		t.Fatal("unexpected number of op errors")
 	}
 }
+
+func TestWorkerTickerInterval(t *testing.T) {
+	workload := &workload{
+		op:        &module.Op{Rate: 1000},
+		rateCount: 999,
+		totalDur:  999 * time.Millisecond,
+	}
+	// 1ms / op
+	maxRate := workload.getMaxRate()
+
+	if maxRate != float64(1*time.Minute)/float64(workload.getAverageDuration()) {
+		t.Fatal("unexpected max rate")
+	}
+	t.Log("max rate:", maxRate)
+
+	workerCount := workload.getWorkerCount()
+	if workerCount != 1 {
+		t.Fatal("unexpected worker count")
+	}
+
+	ratePerWorker := workload.ratePerWorker(workerCount)
+	if ratePerWorker != 1000 {
+		t.Fatal("unexpected worker rate")
+	}
+
+	workerTickerInterval := workload.workerTickerInterval(workerCount)
+	t.Log(workerTickerInterval)
+	if workerTickerInterval != 1*time.Minute/time.Duration(workload.op.Rate)-workload.getAverageDuration() {
+		t.Fatal("unexpected worker ticker interval")
+	}
+}

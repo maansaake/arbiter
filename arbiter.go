@@ -60,6 +60,7 @@ var (
 )
 
 func init() {
+	zerologr.VFieldName = "v"
 	zerologr.SetLogger(zerologr.New(&zerologr.Opts{Console: true}).WithName("global"))
 }
 

@@ -1,4 +1,4 @@
-package samplemodule
+package main
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ type SampleModule struct {
 	testDelayMs time.Duration
 }
 
-func NewSampleModule() module.Module {
+func newSampleModule() module.Module {
 	s := &SampleModule{
 		testDelayMs: 10 * time.Millisecond,
 	}

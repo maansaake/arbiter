@@ -39,7 +39,10 @@ func TestRunAndAwaitStop(t *testing.T) {
 	opWg.Wait()
 
 	cancel()
-	AwaitStop()
+	err = AwaitStop()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestRunNoOps(t *testing.T) {
@@ -197,7 +200,7 @@ func TestWorkerTickerInterval(t *testing.T) {
 
 	workerTickerInterval := workload.workerTickerInterval(workerCount)
 	t.Log(workerTickerInterval)
-	if workerTickerInterval != 1*time.Minute/time.Duration(workload.op.Rate)-workload.getAverageDuration() {
+	if workerTickerInterval != 1*time.Minute/time.Duration(workload.op.Rate) {
 		t.Fatal("unexpected worker ticker interval")
 	}
 }

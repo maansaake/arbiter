@@ -76,7 +76,7 @@ func (lm *locksmithModule) Ops() module.Ops {
 func (lm *locksmithModule) Run() error {
 	logger.Info("running locksmith module")
 
-	lm.c = client.NewClient(&client.ClientOptions{
+	lm.c = client.New(&client.Opts{
 		Host: *address.Value,
 		//nolint:gosec // just for show
 		Port:       uint16(*port.Value),
@@ -99,7 +99,7 @@ func (lm *locksmithModule) lock() (module.Result, error) {
 	}
 
 	lockTag := base64.URLEncoding.EncodeToString(bs)
-	logger.Info("acquiring lock", "lock", lockTag)
+	logger.V(100).Info("acquiring lock", "lock", lockTag)
 
 	return module.Result{}, lm.c.Acquire(lockTag)
 }
@@ -111,13 +111,13 @@ func (lm *locksmithModule) unlock() (module.Result, error) {
 	}
 
 	lockTag := <-lm.lockTags
-	logger.Info("unlocking", "lock", lockTag)
+	logger.V(100).Info("unlocking", "lock", lockTag)
 
 	return module.Result{}, lm.c.Release(lockTag)
 }
 
 func (lm *locksmithModule) onAcquired(lockTag string) {
-	logger.Info("lock acquired", "lock", lockTag, "acquired", len(lm.lockTags))
+	logger.V(100).Info("lock acquired", "lock", lockTag, "acquired", len(lm.lockTags))
 
 	lm.lockTags <- lockTag
 }

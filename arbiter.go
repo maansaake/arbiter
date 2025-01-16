@@ -61,7 +61,7 @@ var (
 
 func init() {
 	zerologr.VFieldName = "v"
-	zerologr.SetLogger(zerologr.New(&zerologr.Opts{Console: true}).WithName("global"))
+	zerologr.SetLogger(zerologr.New(&zerologr.Opts{V: 0, Console: true}).WithName("global"))
 }
 
 // Runs the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration

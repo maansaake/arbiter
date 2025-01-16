@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/report"
+	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
 type (
@@ -76,12 +77,16 @@ func New(opts *Opts) *YAMLReporter {
 
 // Start the YAML reporter and run until the context is cancelled.
 func (r *YAMLReporter) Start(ctx context.Context) {
+	zerologr.Info("starting reporter")
+
 	go func() {
 		for {
 			select {
 			case f := <-r.synchronizer:
 				f()
 			case <-ctx.Done():
+				zerologr.Info("reporter context closed, cleaning synchronizer", "len", len(r.synchronizer))
+
 				// This isn't safe and depends completely on that the coordinator
 				// (arbiter) ensures no more calls will come to the reporter when
 				// terminating this context. Should find a better solution

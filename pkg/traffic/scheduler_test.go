@@ -176,9 +176,9 @@ func TestReportOpErr(t *testing.T) {
 
 func TestWorkerTickerInterval(t *testing.T) {
 	workload := &workload{
-		op:        &module.Op{Rate: 1000},
-		rateCount: 999,
-		totalDur:  999 * time.Millisecond,
+		op:       &module.Op{Rate: 1000},
+		calls:    999,
+		totalDur: 999 * time.Millisecond,
 	}
 	// 1ms / op
 	maxRate := workload.getMaxRate()

@@ -141,7 +141,7 @@ func run(metadata subcommand.Metadata) error {
 		panic(err)
 	}
 
-	if err := traffic.Run(deadlineCtx, metadata, reporter); err != nil {
+	if err := traffic.Run(deadlineCtx, metadata, report.NewMock()); err != nil {
 		startLogger.Error(err, "failed to start traffic")
 		panic(err)
 	}
@@ -155,13 +155,12 @@ func run(metadata subcommand.Metadata) error {
 	case <-deadlineCtx.Done():
 		startLogger.Info("deadline exceeded")
 	}
-	signalStop()
 	deadlineStop()
+	signalStop()
 
 	startLogger = startLogger.WithName("stopping")
 
-	startLogger.Info("stopping traffic")
-	err := traffic.AwaitStop()
+	err := traffic.Stop()
 	if err != nil {
 		startLogger.Error(err, "error when stopping traffic")
 	}

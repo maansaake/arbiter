@@ -1,4 +1,4 @@
-package main
+package locksmithmodule
 
 import (
 	"crypto/rand"
@@ -31,10 +31,10 @@ var (
 		Value: new(uint),
 	}
 
-	logger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).WithName("locksmith")
+	logger = zerologr.New(&zerologr.Opts{Console: true, V: 100}).WithName("locksmith")
 )
 
-func newLocksmithModule() *locksmithModule {
+func NewLocksmithModule() *locksmithModule {
 	lm := &locksmithModule{
 		args:     module.Args{address, port},
 		lockTags: make(chan string, 1000),

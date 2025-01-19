@@ -41,7 +41,7 @@ func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) e
 	// Run initialisation of traffic synchronously
 	reporter = r
 
-	workloads = make([]*workload, 0, len(metadata)*2)
+	workloads = make([]*workload, 0, len(metadata))
 	for _, meta := range metadata {
 		for _, op := range meta.Ops() {
 			if op.Disabled {
@@ -73,14 +73,21 @@ func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) e
 	return nil
 }
 
-func AwaitStop() error {
-	zerologr.Info("awaiting cleanup of traffic generator", "workload_count", len(workloads))
+func Stop() error {
+	zerologr.Info("stopping traffic generator", "workload_count", len(workloads))
 	stopCount := 0
+	cleanupAttempts := 0
+	t := time.NewTicker(time.Second)
+	defer t.Stop()
 	for {
 		select {
-		case <-time.After(cleanupTimeout):
+		case <-t.C:
 			zerologr.Error(ErrCleanupTimeout, "cleanup timed out", "timeout", cleanupTimeout)
-			return ErrCleanupTimeout
+			cleanupAttempts++
+
+			if cleanupAttempts > 5 {
+				return ErrCleanupTimeout
+			}
 		case workload := <-stop:
 			zerologr.Info("workload stopped", "mod", workload.mod, "op", workload.op.Name)
 			stopCount++

@@ -3,6 +3,7 @@ package traffic
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"tres-bon.se/arbiter/pkg/module"
@@ -16,6 +17,7 @@ type workload struct {
 	workers []*worker
 
 	// Combined rate of all workers, should match op.Rate.
+	statLock  *sync.Mutex
 	calls     float64
 	totalDur  time.Duration
 	rateCheck *time.Ticker
@@ -47,14 +49,21 @@ func (w *workload) run(ctx context.Context) {
 				stop <- w
 				return
 			case <-w.rateCheck.C:
-				zerologr.Info("running rate check", "mod", w.mod, "op", w.op.Name, "calls", w.calls, "expected_calls", expectedCalls, "avg_µs", (w.totalDur / time.Duration(w.calls)).Microseconds())
+				zerologr.Info("running rate check", "mod", w.mod, "op", w.op.Name, "calls", w.calls, "expected_calls", expectedCalls)
 
-				w.scale(ctx)
+				avg_us := int64(0)
+				if w.calls > 0 {
+					avg_us = (w.totalDur / time.Duration(w.calls)).Microseconds()
+					zerologr.Info("average exec time", "mod", w.mod, "op", w.op.Name, "avg_µs", avg_us)
 
-				// Reset compound rate to check # of executions next time the checker
-				// is run.
-				w.totalDur = 0
-				w.calls = 0
+					w.scale(ctx)
+				}
+
+				// Reset check # of executions next time the checker is run.
+				w.withStatLock(func() {
+					w.calls = 0
+					w.totalDur = 0
+				})
 			}
 		}
 	}()
@@ -63,6 +72,12 @@ func (w *workload) run(ctx context.Context) {
 	// period, this may be increased.
 	w.workers = make([]*worker, 0, 1)
 	w.addWorker(ctx)
+}
+
+func (w *workload) withStatLock(f func()) {
+	w.statLock.Lock()
+	defer w.statLock.Unlock()
+	f()
 }
 
 func (w *workload) scale(ctx context.Context) {
@@ -140,8 +155,10 @@ func (w *workload) doOp() {
 
 	// Increase invocation counter and total duration to calculate average
 	// execution time.
-	w.calls++
-	w.totalDur += res.Duration
+	w.withStatLock(func() {
+		w.calls++
+		w.totalDur += res.Duration
+	})
 	zerologr.V(100).Info("reporting", "mod", w.mod, "op", w.op.Name)
 
 	reporter.Op(w.mod, w.op.Name, &res, err)

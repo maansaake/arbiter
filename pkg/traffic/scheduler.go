@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"tres-bon.se/arbiter/pkg/module"
@@ -53,8 +54,9 @@ func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) e
 			}
 
 			workloads = append(workloads, &workload{
-				mod: meta.Name(),
-				op:  op,
+				statLock: &sync.Mutex{},
+				mod:      meta.Name(),
+				op:       op,
 			})
 		}
 	}

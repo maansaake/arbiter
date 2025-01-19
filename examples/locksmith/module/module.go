@@ -31,7 +31,7 @@ var (
 		Value: new(uint),
 	}
 
-	logger = zerologr.New(&zerologr.Opts{Console: true, V: 100}).WithName("locksmith")
+	logger = zerologr.New(&zerologr.Opts{Console: true, V: 0}).WithName("locksmith")
 )
 
 func NewLocksmithModule() *locksmithModule {

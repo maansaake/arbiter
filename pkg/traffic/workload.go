@@ -30,7 +30,17 @@ func (w *workload) run(ctx context.Context) {
 		w.calls = 0
 		samplingInterval := getSampleInterval(w.op)
 		expectedCalls := float64(samplingInterval) / float64(time.Minute) * float64(w.op.Rate)
-		zerologr.Info("setting sampling interval", "mod", w.mod, "op", w.op.Name, "sampling_interval_ms", samplingInterval.Milliseconds(), "expected_calls", expectedCalls)
+		zerologr.Info(
+			"setting sampling interval",
+			"mod",
+			w.mod,
+			"op",
+			w.op.Name,
+			"sampling_interval_ms",
+			samplingInterval.Milliseconds(),
+			"expected_calls",
+			expectedCalls,
+		)
 		w.rateCheck = time.NewTicker(samplingInterval)
 
 		for {
@@ -49,7 +59,17 @@ func (w *workload) run(ctx context.Context) {
 				stop <- w
 				return
 			case <-w.rateCheck.C:
-				zerologr.Info("running rate check", "mod", w.mod, "op", w.op.Name, "calls", w.calls, "expected_calls", expectedCalls)
+				zerologr.Info(
+					"running rate check",
+					"mod",
+					w.mod,
+					"op",
+					w.op.Name,
+					"calls",
+					w.calls,
+					"expected_calls",
+					expectedCalls,
+				)
 
 				avg_us := int64(0)
 				if w.calls > 0 {
@@ -98,7 +118,7 @@ func (w *workload) scale(ctx context.Context) {
 }
 
 // Work out the ticker interval for each worker.
-// Ex: 60000ms / 60 = 1000ms ticker interval
+// Ex: 60000ms / 60 = 1000ms ticker interval.
 func (w *workload) workerTickerInterval(workerCount float64) time.Duration {
 	return time.Duration(
 		float64(1*time.Minute) / w.ratePerWorker(workerCount),

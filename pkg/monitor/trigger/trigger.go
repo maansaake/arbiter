@@ -167,7 +167,7 @@ func From[T TypeConstraint](cmdline string) Trigger[T] {
 // A named trigger has the form:
 // triggeron;raisevalue,clearvalue;name
 // Clear may be omitted.
-// triggeron;raisevalue;name
+// triggeron;raisevalue;name.
 func NamedFrom[T TypeConstraint](cmdline string) (string, Trigger[T]) {
 	t := &triggerImpl[T]{}
 
@@ -220,19 +220,19 @@ func Validate[T TypeConstraint](opts *Opts[T]) error {
 		default:
 			switch opts.TriggerOn {
 			case ABOVE:
-				if !(opts.Raise >= opts.Clear) {
+				if opts.Raise < opts.Clear {
 					return ErrAboveRaiseLowerThanClear
 				}
 			case ABOVE_OR_EQUAL:
-				if !(opts.Raise > opts.Clear) {
+				if opts.Raise <= opts.Clear {
 					return ErrAboveOrEqClearTooHigh
 				}
 			case BELOW:
-				if !(opts.Raise <= opts.Clear) {
+				if opts.Raise > opts.Clear {
 					return ErrBelowRaiseAboveClear
 				}
 			case BELOW_OR_EQUAL:
-				if !(opts.Raise < opts.Clear) {
+				if opts.Raise >= opts.Clear {
 					return ErrBelowOrEqClearTooLow
 				}
 			}
@@ -296,9 +296,10 @@ func (t *triggerImpl[T]) Update(val T) Result {
 		// if T is a string
 		switch any(val).(type) {
 		case string:
-			if val == t.raise {
+			switch val {
+			case t.raise:
 				result = RAISE
-			} else if val == t.clear {
+			case t.clear:
 				result = CLEAR
 			}
 		default:

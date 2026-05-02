@@ -41,3 +41,6 @@ coverprofile
 
 # arbiter
 report.yaml
+
+# build
+build/

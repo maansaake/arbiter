@@ -105,7 +105,7 @@ func getSampleInterval(op *module.Op) time.Duration {
 	if op.Rate < 30 {
 		// Minimum 5 samples, this should be a super corner case. Add some time
 		// to allow the 5th invocation to fire.
-		//nolint:gosec
+
 		return time.Minute/time.Duration(op.Rate)*5 + 250*time.Millisecond
 	}
 

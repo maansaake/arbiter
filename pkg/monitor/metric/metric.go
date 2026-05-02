@@ -12,7 +12,7 @@ type metric struct {
 }
 
 func NewMetricMonitor(url string) Metric {
-	if !(strings.Contains(url, "http://") || strings.Contains(url, "https://")) {
+	if !strings.Contains(url, "http://") && !strings.Contains(url, "https://") {
 		url = fmt.Sprintf("http://%s", url)
 	}
 	return &metric{

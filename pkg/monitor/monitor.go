@@ -169,11 +169,11 @@ func (m *Monitor) Add(opt *Opt) {
 			http.HandleFunc(fmt.Sprintf("/metrics-%s", opt.Name), func(w http.ResponseWriter, r *http.Request) {
 				bs, err := m.PullMetrics(opt.Name)
 				if err != nil {
-					w.WriteHeader(500)
+					w.WriteHeader(http.StatusInternalServerError)
 				}
 				_, err = w.Write(bs)
 				if err != nil {
-					w.WriteHeader(500)
+					w.WriteHeader(http.StatusInternalServerError)
 				}
 			})
 		}
@@ -293,7 +293,7 @@ func (m *Monitor) PullMetrics(name string) ([]byte, error) {
 	return rawMetrics, err
 }
 
-// INTERNAL
+// INTERNAL.
 func (m *Monitor) startCPUTicker(ctx context.Context) {
 	logger.Info("starting CPU ticker")
 	tick := time.NewTicker(monitorInterval)
@@ -320,7 +320,7 @@ func (m *Monitor) startCPUTicker(ctx context.Context) {
 	}
 }
 
-// INTERNAL
+// INTERNAL.
 func (m *Monitor) startMemoryTicker(ctx context.Context) {
 	logger.Info("starting memory ticker")
 	tick := time.NewTicker(monitorInterval)
@@ -354,7 +354,7 @@ func (m *Monitor) startMemoryTicker(ctx context.Context) {
 	}
 }
 
-// INTERNAL
+// INTERNAL.
 func (m *Monitor) startMetricTicker(ctx context.Context) {
 	logger.Info("starting metric ticker")
 	tick := time.NewTicker(monitorInterval)
@@ -381,7 +381,7 @@ func (m *Monitor) startMetricTicker(ctx context.Context) {
 	}
 }
 
-// INTERNAL
+// INTERNAL.
 func (m *Monitor) handleCPUUpdate(name string, cpu float64) {
 	for _, trig := range m.cpuTriggers[name] {
 		res := trig.Update(cpu)
@@ -396,7 +396,7 @@ func (m *Monitor) handleCPUUpdate(name string, cpu float64) {
 	}
 }
 
-// INTERNAL
+// INTERNAL.
 func (m *Monitor) handleRSSUpdate(name string, rss uint) {
 	for _, trig := range m.rssTriggers[name] {
 		res := trig.Update(rss)
@@ -411,7 +411,7 @@ func (m *Monitor) handleRSSUpdate(name string, rss uint) {
 	}
 }
 
-// INTERNAL
+// INTERNAL.
 func (m *Monitor) handleVMSUpdate(name string, vms uint) {
 	for _, trig := range m.vmsTriggers[name] {
 		res := trig.Update(vms)
@@ -426,7 +426,7 @@ func (m *Monitor) handleVMSUpdate(name string, vms uint) {
 	}
 }
 
-// INTERNAL
+// INTERNAL.
 func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 	parser := expfmt.TextParser{}
 	families, err := parser.TextToMetricFamilies(bytes.NewReader(rawMetrics))
@@ -439,17 +439,21 @@ func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 		if family, ok := families[metricName]; !ok {
 			m.Reporter.MetricErr(name, metricName, ErrMetricNotFound)
 		} else {
-			for _, metric := range family.Metric {
+			for _, metric := range family.GetMetric() {
 				// TODO: add label support for triggers
 				// TODO: add support for more metric types?
 				var val float64
 				switch family.GetType() {
 				case io_prometheus_client.MetricType_COUNTER:
-					val = metric.Counter.GetValue()
+					val = metric.GetCounter().GetValue()
 				case io_prometheus_client.MetricType_GAUGE:
-					val = metric.Gauge.GetValue()
+					val = metric.GetGauge().GetValue()
 				default:
-					m.Reporter.MetricErr(name, metricName, fmt.Errorf("%w: %s", ErrMetricTypeNotSupported, family.GetType()))
+					m.Reporter.MetricErr(
+						name,
+						metricName,
+						fmt.Errorf("%w: %s", ErrMetricTypeNotSupported, family.GetType()),
+					)
 					return
 				}
 
@@ -469,7 +473,7 @@ func (m *Monitor) handleMetricUpdate(name string, rawMetrics []byte) {
 	}
 }
 
-// INTERNAL
+// INTERNAL.
 func (m *Monitor) logHandler(name string) log.LogHandler {
 	return func(logEvent string, err error) {
 		if err != nil {

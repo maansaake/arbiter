@@ -34,23 +34,23 @@ const (
 )
 
 var (
-	// flagset
+	// flagset.
 	flagset *flag.FlagSet
 
-	// global flag vars
+	// global flag vars.
 	duration           time.Duration = durationDefault
 	externalPrometheus bool          = externalPrometheusDefault
 
 	// subcommand parsing vars.
 	subcommands = []string{cli.FlagsetName, gen.FlagsetName, file.FlagsetName}
 
-	// logger
+	// logger.
 	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).WithName("start")
 
-	// metrics
+	// metrics.
 	metricAddr = metricAddrDefault
 
-	// report
+	// report.
 	reportPath = reportPathDefault
 
 	ErrNoSubcommand       = errors.New("no subcommand given")
@@ -207,7 +207,12 @@ func parseArguments(args []string) (int, []error) {
 
 	// Global flags
 	flagset.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
-	flagset.BoolVar(&externalPrometheus, "monitor.metric.external", externalPrometheus, "External Prometheus instance, disables internal metric ticker and creates a HTTP server for scraping.")
+	flagset.BoolVar(
+		&externalPrometheus,
+		"monitor.metric.external",
+		externalPrometheus,
+		"External Prometheus instance, disables internal metric ticker and creates a HTTP server for scraping.",
+	)
 	flagset.StringVar(&metricAddr, "monitor.metric.external.addr", metricAddr, "Prometheus metric endpoint address.")
 	flagset.StringVar(&reportPath, "report.path", reportPath, "Path to the final report.")
 

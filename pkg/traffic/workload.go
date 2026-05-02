@@ -73,10 +73,9 @@ func (w *workload) run(ctx context.Context) {
 					expectedCalls,
 				)
 
-				avg_us := int64(0)
 				if w.calls > 0 {
-					avg_us = (w.totalDur / time.Duration(w.calls)).Microseconds()
-					zerologr.Info("average exec time", "mod", w.mod, "op", w.op.Name, "avg_µs", avg_us)
+					avgUs := (w.totalDur / time.Duration(w.calls)).Microseconds()
+					zerologr.Info("average exec time", "mod", w.mod, "op", w.op.Name, "avg_µs", avgUs)
 
 					w.scale(ctx)
 				}

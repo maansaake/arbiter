@@ -1,4 +1,4 @@
-// The file package implements support for the 'file' subcommand.
+// Package file implements support for the 'file' subcommand.
 package file
 
 import (
@@ -8,6 +8,6 @@ import (
 
 const FlagsetName = "file"
 
-func Parse(subcommandIndex int, _ module.Modules) ([]*subcommand.Meta, error) {
+func Parse(_ int, _ module.Modules) ([]*subcommand.Meta, error) {
 	return nil, nil
 }

@@ -38,7 +38,7 @@ var (
 
 const maxWorkers = 50
 
-// Runs traffic for the input modules using their exposed operations. Traffic
+// Run traffic for the input modules using their exposed operations. Traffic
 // generation will make operation calls at the specified rates and report
 // problems to the reporter. Run() is asynchronous and returns once the main
 // go-routine has been started. Run() will monitor the context's done channel

@@ -23,8 +23,8 @@ type (
 		// to be handled. Values < 1 will be ignored.
 		Buffer int
 	}
-	// YAMLReporter implements the reporter interface. //nolint:revive // exported type name stutter is intentional for clarity.
-	YAMLReporter struct {
+	// Reporter implements the reporter interface. //nolint:revive // exported type name stutter is intentional for clarity.
+	Reporter struct {
 		// The final path of the YAML report.
 		path string
 		// The YAML report.
@@ -34,22 +34,14 @@ type (
 		synchronizer chan func()
 		stopped      chan bool
 	}
-	// Struct for the YAML report. The entire thing is marshaled into the final
-	// file.
-	yamlReport struct {
-		Start    time.Time                `yaml:"start"`
-		End      time.Time                `yaml:"end"`
-		Duration time.Duration            `yaml:"duration"`
-		Modules  map[string]*reportModule `yaml:"modules"`
-	}
 )
 
-var _ report.Reporter = &YAMLReporter{}
+var _ report.Reporter = &Reporter{}
 
 const yamlIndent = 2
 
 // New creates a new YAML reporter.
-func New(opts *Opts) *YAMLReporter {
+func New(opts *Opts) *Reporter {
 	var start time.Time
 	var buffer int
 	if opts.Buffer > 0 {
@@ -64,10 +56,10 @@ func New(opts *Opts) *YAMLReporter {
 		start = opts.Start
 	}
 
-	reporter := &YAMLReporter{
+	reporter := &Reporter{
 		report: &yamlReport{
 			Start:   start,
-			Modules: make(map[string]*reportModule),
+			Modules: make(map[string]*moduleReport),
 		},
 		path:         opts.Path,
 		synchronizer: make(chan func(), buffer),
@@ -78,7 +70,7 @@ func New(opts *Opts) *YAMLReporter {
 }
 
 // Start the YAML reporter and run until the context is cancelled.
-func (r *YAMLReporter) Start(ctx context.Context) {
+func (r *Reporter) Start(ctx context.Context) {
 	zerologr.Info("starting reporter")
 
 	go func() {
@@ -103,118 +95,18 @@ func (r *YAMLReporter) Start(ctx context.Context) {
 	}()
 }
 
-func (r *YAMLReporter) Op(mod, op string, res *module.Result, err error) {
+func (r *Reporter) Op(mod, op string, res *module.Result, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addOp(op, res, err)
 	}
 }
 
-func (r *YAMLReporter) LogErr(mod string, err error) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addLogErr(err)
-	}
-}
-
-func (r *YAMLReporter) LogTrigger(mod string, tr *report.TriggerReport[string]) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addLogTrigger(tr)
-	}
-}
-
-func (r *YAMLReporter) CPU(mod string, value float64) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addCPU(value)
-	}
-}
-
-func (r *YAMLReporter) CPUErr(mod string, err error) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addCPUErr(err)
-	}
-}
-
-func (r *YAMLReporter) CPUTrigger(mod string, tr *report.TriggerReport[float64]) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addCPUTrigger(tr)
-	}
-}
-
-func (r *YAMLReporter) RSS(mod string, value uint) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addRSS(value)
-	}
-}
-
-func (r *YAMLReporter) RSSErr(mod string, err error) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addRSSErr(err)
-	}
-}
-
-func (r *YAMLReporter) RSSTrigger(mod string, tr *report.TriggerReport[uint]) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addRSSTrigger(tr)
-	}
-}
-
-func (r *YAMLReporter) VMS(mod string, value uint) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addVMS(value)
-	}
-}
-
-func (r *YAMLReporter) VMSErr(mod string, err error) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addVMSErr(err)
-	}
-}
-
-func (r *YAMLReporter) VMSTrigger(mod string, tr *report.TriggerReport[uint]) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addVMSTrigger(tr)
-	}
-}
-
-func (r *YAMLReporter) MetricErr(mod, metric string, err error) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addMetricErr(metric, err)
-	}
-}
-
-func (r *YAMLReporter) MetricTrigger(mod, metric string, tr *report.TriggerReport[float64]) {
-	r.synchronizer <- func() {
-		r.report.module(mod).addMetricTrigger(metric, tr)
-	}
-}
-
-func (r *YAMLReporter) Finalise() error {
+func (r *Reporter) Finalise() error {
 	// Await synchronizer
 	<-r.stopped
 
 	r.report.End = time.Now()
 	r.report.Duration = r.report.End.Sub(r.report.Start)
-
-	for _, mod := range r.report.Modules {
-		if mod.CPU.readings == 0 {
-			mod.CPU = nil
-		}
-		if mod.Mem.RSS.readings == 0 && mod.Mem.VMS.readings == 0 {
-			mod.Mem = nil
-		} else {
-			if mod.Mem.RSS.readings == 0 {
-				mod.Mem.RSS = nil
-			}
-			if mod.Mem.VMS.readings == 0 {
-				mod.Mem.VMS = nil
-			}
-		}
-		if len(mod.Metric.Errs) == 0 && len(mod.Metric.Triggers) == 0 {
-			mod.Metric = nil
-		}
-		if len(mod.Log.Errs) == 0 && len(mod.Log.Triggers) == 0 {
-			mod.Log = nil
-		}
-	}
 
 	file, err := os.Create(r.path)
 	if err != nil {
@@ -230,7 +122,7 @@ func (r *YAMLReporter) Finalise() error {
 
 /*INTERNAL*/
 
-func (r *yamlReport) module(mod string) *reportModule {
+func (r *yamlReport) module(mod string) *moduleReport {
 	m, ok := r.Modules[mod]
 	if !ok {
 		m = newModule()

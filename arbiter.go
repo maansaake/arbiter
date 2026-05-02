@@ -41,12 +41,11 @@ var (
 		cli.FlagsetName,
 		gen.FlagsetName,
 		file.FlagsetName,
-	} //nolint:gochecknoglobals // list of valid subcommands
+	}
 
 	// logger.
 	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).
 			WithName("start")
-		//nolint:gochecknoglobals // package-level logger
 
 	// report.
 	reportPath = reportPathDefault //nolint:gochecknoglobals // modified by flag parsing

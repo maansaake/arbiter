@@ -14,10 +14,11 @@ import (
 const FlagsetName = "cli"
 
 var (
+	//nolint:gochecknoglobals // package-level state for CLI parsing
 	flagset = flag.NewFlagSet(
 		FlagsetName,
 		flag.ExitOnError,
-	) //nolint:gochecknoglobals // package-level flagset for CLI parsing
+	)
 	required []string //nolint:gochecknoglobals // tracks required args for validation
 
 	ErrNilPtr       = errors.New("Arg.Value must not be a nil pointer")
@@ -35,7 +36,7 @@ func Register(prefix string, args module.Args) error {
 	return errors.Join(errs...)
 }
 
-// Parses command line input.
+// ParseArgs parses command line input.
 func ParseArgs(args []string) error {
 	// Ignore error since we're using ExitOnError.
 	_ = flagset.Parse(args)

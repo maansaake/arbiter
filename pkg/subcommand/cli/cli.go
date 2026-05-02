@@ -1,4 +1,4 @@
-// The cli package implements support for the 'cli' subcommand.
+// Package cli implements support for the 'cli' subcommand.
 package cli
 
 import (

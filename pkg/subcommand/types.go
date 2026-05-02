@@ -2,7 +2,6 @@ package subcommand
 
 import (
 	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/monitor"
 )
 
 // A collection type to help coordination between packages without relying on
@@ -11,16 +10,6 @@ import (
 type Meta struct {
 	// A module.
 	module.Module
-	// Monitoring information for the module
-	MonitorOpt *monitor.Opt
 }
 
 type Metadata []*Meta
-
-func (md Metadata) MonitorOpts() []*monitor.Opt {
-	opts := make([]*monitor.Opt, len(md))
-	for i, meta := range md {
-		opts[i] = meta.MonitorOpt
-	}
-	return opts
-}

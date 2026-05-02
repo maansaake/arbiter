@@ -402,6 +402,9 @@ linters:
       os-temp-dir: true
 
   exclusions:
+    paths:
+      - examples
+
     # Log a warning if an exclusion rule is unused.
     # Default: false
     warn-unused: true

@@ -4,19 +4,19 @@
 [![Code scanning](https://github.com/maansaake/arbiter/actions/workflows/code-scanning.yaml/badge.svg)](https://github.com/maansaake/arbiter/actions/workflows/code-scanning.yaml)
 ![tag](https://img.shields.io/github/v/tag/maansaake/arbiter?label=latest%20version)
 
-Arbiter is a system testing framework aimed at improving software testability. It provides a rich and flexible framework that is used to implement system level tests for any system.
+Arbiter is a system testing framework aimed at improving software testability, arbiter provides a rich and flexible framework.
 
-Arbiter does not aim to know anything about the system under test (SUT) and as such does not make any assumptions not have any preferences around technologies or protocols. Arbiter does, however, have a strict view on how a system test should be monitored, see the [monitoring](#monitoring) section for more information.
+Arbiter does not aim to know anything about the system under test (SUT) and does not make any assumptions nor does it have any preferences around technologies or protocols.
 
-The user is tasked with implementing testing modules to support performing operations against the SUT, which are then compiled together with the arbiter framework to produce an executable that is used for testing. The arbiter framework provides utilities and traffic generation, the user provides concrete implementation for how to perform interactions with the SUT.
+All you have to do in order to get started is implement a module.
 
-## Writing testing modules
+## Writing modules
 
-Testing modules in arbiter are concrete implementations of how to perform operations towards a SUT. For example, an arbiter testing module for a REST API would probably include a bunch of different HTTP requests.
+Modules in arbiter are concrete Golang implementations of how to perform operations towards a SUT. For example, an arbiter testing module for a REST API would include a bunch of different HTTP requests.
 
-A testing module can be written either as a simple module, meaning arbiter does not know anything about how it interacts with the underlying SUT, or as a verbose module which exposes a set list of possible operations. Regardless of if a testing module is simple or verbose, a testing module can optionally implement the config interface to expose configuration items it requires.
+A testing module can be written either as a simple module, meaning arbiter does not know anything about how it interacts with the underlying SUT, or as a verbose module which exposes a set list of possible operations. A module can also (optionally) implement the config interface to expose input configuration as required.
 
-Modules are registerd with the arbiter manager, the root level component of the framework, which then makes them available in the executable. It is possible to enable/disable modules and tweak any configuration that the testing modules exposes through command line arguments. Command line arguments are automatically added for each module that is registered with the arbiter manager.
+Modules are registered with the arbiter manager, the root level component of the framework, which then makes them available in the executable. It is possible to enable/disable modules and tweak any configuration that the testing modules exposes through command line arguments. Command line arguments are automatically added for each module that is registered with the arbiter manager.
 
 ### Simple testing modules
 
@@ -24,89 +24,20 @@ A testing module that does not expose any operations is considered a simple modu
 
 ### Verbose testing modules
 
-Verbose testing modules expose what operations it supports. The exposed operations are made available as configuration options in the executable, where the user is able to determine frequencies (calls per minute per operation) and (optionally) any input arguments. Verbose modules provide the user the freedom of specifying settings per operation when running their tests, and avoids the need of implementing traffic generation.
+Verbose testing modules expose a set of operations. The exposed operations are made available as configuration options in the executable, where the user is able to determine frequencies (calls per minute per operation) and (optionally) any input arguments. Verbose modules provide the user the freedom of specifying settings per operation when running their tests, and arbiter takes care of traffic generation.
 
 ## Reproducability with traffic models
 
-In order to easily reproduce tests between software releases and provide support for a GitOps way of working, arbiter provides a traffic model feature which lets the user write test files that can be given to the executable. Traffic models are YAML files that specify how arbiter should behave when a test is started. The YAML file specifies which testing modules should be enabled and disabled, and settings for different operations.
+In order to easily reproduce tests between software releases, arbiter supports writing traffic models. Traffic models let the user write test files that can be given to the arbiter executable. Traffic models are YAML files that specify how arbiter should behave when a test is started. The YAML file specifies which testing modules should be enabled and disabled, and settings for different operations.
 
-Generate a blank traffic model using the executable using the `--generate-traffic-model` argument.
-
-## Monitoring
-
-Arbiter approaches system monitoring in a black box manner. The following monitoring methods are available with arbiter's built in monitoring tools:
-
- 1. CPU
- 2. Memory
- 3. (Prometheus) metrics
- 4. Structured (JSON) logs
-
-More monitoring tools may be added in the future, but it is not something that we do on a whim. We believe that a well designed system should be perfectly possible to monitor using the above methods. Adding any sort of white box monitoring is out of the question and because of this it is not possible to implement custom modules for monitoring. We believe such tests should be done on a lower level, not on and integration/system level.
-
-### Thresholds
-
-Thresholds can be set for either monitoring option to determine a level (for CPU, memory, one or more metric(s), or logs) where a limit is passed that warrants some kind of notice/warning/error. Notices and errors are summarised in the test report (if reporting is enabled), see [reporting](#reporting). Notices and errors have the following format:
-
-```yaml
-notice:
-  type: "<cpu|memory|metric-name>"
-  triggered: "datetime"
-  value: "value"
-error:
-  type: "<cpu|memory|metric-name>"
-  triggered: "datetime"
-  value: "value"
-```
-
-Threshold settings are either supplied as a comma separated list using the command line argument `--thresholds=<thresholds>` or via a file supplied to `--thresholds-file=<absolute path>`. The command line syntax is as follows:
-
-```bash
-./arbiter --thresholds="cpu:10.0,notice&75,error",\
-                      "memory:25mb,notice",\
-                      "metrics:metric-name,1500,notice&metric-name,0,error"
-```
-
-And the YAML file syntax:
-
-```yaml
-cpu:
-  - threshold: 10.0
-    trigger: "notice"
-  - threshold: 20
-    trigger: "notice"
-  - threshold: 50.5
-    trigger: "error"
-memory:
-  - threshold: 20mb
-    trigger: notice
-metrics:
-  - name: "metric-name"
-    threshold: 1500
-    trigger: "error"
-```
+Generate a blank traffic model by using the `--generate-traffic-model` argument.
 
 ## Reporting
 
-Arbiter has a reporting option which generates a YAML report on completion. The YAML file summarizes the test result by stating:
+Arbiter can generate a YAML report on completion. The YAML file summarizes the test result by stating:
 
 - (Optional) Test name
 - (Optional) SUT version
 - Start datetime
 - Duration
 - Traffic model
-- Monitoring
-  - Thresholds
-  - CPU
-    - Average
-    - High
-    - Low
-  - Memory
-    - Average
-    - High
-    - Low
-  - Notices
-  - Errors
-
-The report is intended to convey enough information to ease reproducability.
-
-Arbiter does not have an option to handle the report in any way, it is up to the user to do what they will with the result, acting on warnings or errors etc.

@@ -7,6 +7,8 @@ import (
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
+const workerVerboseLogLevel = 100
+
 type worker struct {
 	done   chan bool
 	parent *workload
@@ -26,7 +28,8 @@ func (worker *worker) run(ctx context.Context) {
 			close(worker.done)
 			return
 		case t := <-worker.ticker.C:
-			zerologr.V(100).Info("worker tick", "time", t, "mod", worker.parent.mod, "op", worker.parent.op.Name)
+			zerologr.V(workerVerboseLogLevel).
+				Info("worker tick", "time", t, "mod", worker.parent.mod, "op", worker.parent.op.Name)
 			worker.parent.doOp()
 		}
 	}

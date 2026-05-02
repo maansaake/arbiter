@@ -10,6 +10,8 @@ import (
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
+const workloadVerboseLogLevel = 100
+
 type workload struct {
 	mod string
 	op  *module.Op
@@ -154,7 +156,7 @@ func (w *workload) addWorker(ctx context.Context) {
 
 	worker := &worker{
 		parent: w,
-		//nolint:gosec
+		//nolint:gosec // rate is validated to be non-zero before scheduling
 		ticker: time.NewTicker(time.Minute / time.Duration(w.op.Rate)),
 	}
 
@@ -163,11 +165,11 @@ func (w *workload) addWorker(ctx context.Context) {
 }
 
 func (w *workload) doOp() {
-	zerologr.V(100).Info("triggering workload op", "mod", w.mod, "op", w.op.Name)
+	zerologr.V(workloadVerboseLogLevel).Info("triggering workload op", "mod", w.mod, "op", w.op.Name)
 
 	start := time.Now()
 	res, err := w.op.Do()
-	zerologr.V(100).Info("ran op", "mod", w.mod, "op", w.op.Name)
+	zerologr.V(workloadVerboseLogLevel).Info("ran op", "mod", w.mod, "op", w.op.Name)
 
 	if res.Duration == 0 {
 		res.Duration = time.Since(start)
@@ -179,9 +181,10 @@ func (w *workload) doOp() {
 		w.calls++
 		w.totalDur += res.Duration
 	})
-	zerologr.V(100).Info("reporting", "mod", w.mod, "op", w.op.Name)
+	zerologr.V(workloadVerboseLogLevel).Info("reporting", "mod", w.mod, "op", w.op.Name)
 
 	reporter.Op(w.mod, w.op.Name, &res, err)
 
-	zerologr.V(100).Info("trigger done", "mod", w.mod, "op", w.op.Name, "duration_µs", time.Since(start).Microseconds())
+	zerologr.V(workloadVerboseLogLevel).
+		Info("trigger done", "mod", w.mod, "op", w.op.Name, "duration_µs", time.Since(start).Microseconds())
 }

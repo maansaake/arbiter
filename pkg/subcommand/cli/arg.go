@@ -14,8 +14,11 @@ import (
 const FlagsetName = "cli"
 
 var (
-	flagset  = flag.NewFlagSet(FlagsetName, flag.ExitOnError)
-	required []string
+	flagset = flag.NewFlagSet(
+		FlagsetName,
+		flag.ExitOnError,
+	) //nolint:gochecknoglobals // package-level flagset for CLI parsing
+	required []string //nolint:gochecknoglobals // tracks required args for validation
 
 	ErrNilPtr       = errors.New("Arg.Value must not be a nil pointer")
 	ErrRequiredBool = errors.New("a boolean arg cannot be marked required")

@@ -13,21 +13,27 @@ import (
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
-var (
-	reporter report.Reporter
+const (
+	maxCleanupAttempts      = 5
+	minRateForDefaultSample = 30
+	defaultSampleIntervalS  = 10
+)
 
-	workloads []*workload
+var (
+	reporter report.Reporter //nolint:gochecknoglobals // package-level state for traffic scheduler
+
+	workloads []*workload //nolint:gochecknoglobals // package-level state for traffic scheduler
 
 	// Stop stuff.
-	stop           chan *workload
-	cleanupTimeout = 5 * time.Second
+	stop           chan *workload    //nolint:gochecknoglobals // package-level state for traffic scheduler
+	cleanupTimeout = 5 * time.Second //nolint:gochecknoglobals // package-level config constant
 
 	ErrNoOpsToSchedule = errors.New("there were no operations to schedule")
 	ErrZeroRate        = errors.New("operation has a zero rate")
 	ErrCleanupTimeout  = errors.New("cleanup timed out")
 	ErrRateIssue       = errors.New("rate issue")
 
-	SampleTolerancePerc = 0.05
+	SampleTolerancePerc = 0.05 //nolint:gochecknoglobals // exported config var for tests
 )
 
 const maxWorkers = 50
@@ -87,7 +93,7 @@ func Stop() error {
 			zerologr.Error(ErrCleanupTimeout, "cleanup timed out", "timeout", cleanupTimeout)
 			cleanupAttempts++
 
-			if cleanupAttempts > 5 {
+			if cleanupAttempts > maxCleanupAttempts {
 				return ErrCleanupTimeout
 			}
 		case workload := <-stop:
@@ -102,12 +108,12 @@ func Stop() error {
 }
 
 func getSampleInterval(op *module.Op) time.Duration {
-	if op.Rate < 30 {
+	if op.Rate < minRateForDefaultSample {
 		// Minimum 5 samples, this should be a super corner case. Add some time
 		// to allow the 5th invocation to fire.
 
 		return time.Minute/time.Duration(op.Rate)*5 + 250*time.Millisecond
 	}
 
-	return 10 * time.Second
+	return defaultSampleIntervalS * time.Second
 }

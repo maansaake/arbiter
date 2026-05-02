@@ -2,23 +2,30 @@ package samplemod
 
 import (
 	"errors"
-	"math/rand"
+	"math/rand/v2"
 	"time"
 
 	"tres-bon.se/arbiter/pkg/module"
 	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
+const (
+	defaultTestDelay time.Duration = 10 * time.Millisecond
+	defaultOpRate    uint          = 60
+	randRange                      = 100
+	brokenOpDelay    time.Duration = 10 * time.Second
+)
+
 type SampleModule struct {
 	args module.Args
 	ops  module.Ops
 
-	testDelayMs time.Duration
+	testDelay time.Duration
 }
 
 func New() module.Module {
 	s := &SampleModule{
-		testDelayMs: 10 * time.Millisecond,
+		testDelay: defaultTestDelay,
 	}
 
 	s.args = module.Args{
@@ -26,8 +33,8 @@ func New() module.Module {
 			Name: "testdelay",
 			Desc: "The delay for the 'test' action.",
 			Handler: func(v int) {
-				s.testDelayMs = time.Duration(v * int(time.Millisecond))
-				zerologr.Info("set value for testdelay", "value", s.testDelayMs)
+				s.testDelay = time.Duration(v * int(time.Millisecond))
+				zerologr.Info("set value for testdelay", "value", s.testDelay)
 			},
 		},
 		&module.Arg[int]{
@@ -42,19 +49,19 @@ func New() module.Module {
 		&module.Op{
 			Name: "test",
 			Desc: "Does nothing and returns after a configurable delay.",
-			Rate: 60,
+			Rate: defaultOpRate,
 			Do: func() (module.Result, error) {
-				time.Sleep(s.testDelayMs)
+				time.Sleep(s.testDelay)
 				return module.Result{}, nil
 			},
 		},
 		&module.Op{
 			Name: "unstable",
 			Desc: "Does nothing, sometimes returns an error.",
-			Rate: 60,
+			Rate: defaultOpRate,
 			Do: func() (module.Result, error) {
 				//nolint:gosec // just for show
-				if rand.Intn(100)%2 == 0 {
+				if rand.IntN(randRange)%2 == 0 {
 					return module.Result{}, errors.New("random error")
 				}
 				return module.Result{}, nil
@@ -63,9 +70,9 @@ func New() module.Module {
 		&module.Op{
 			Name: "broken",
 			Desc: "Only returns errors, after 10s.",
-			Rate: 60,
+			Rate: defaultOpRate,
 			Do: func() (module.Result, error) {
-				time.Sleep(10 * time.Second)
+				time.Sleep(brokenOpDelay)
 				return module.Result{}, errors.New("permanent failure")
 			},
 		},
@@ -80,24 +87,6 @@ func (sm *SampleModule) Name() string {
 
 func (sm *SampleModule) Desc() string {
 	return "This is a sample module with a few sample operations."
-}
-
-func (lm *SampleModule) MonitorFile() *module.Arg[string] {
-	return &module.Arg[string]{
-		Value: new(string),
-	}
-}
-
-func (lm *SampleModule) MonitorMetricsEndpoint() *module.Arg[string] {
-	return &module.Arg[string]{
-		Value: new(string),
-	}
-}
-
-func (lm *SampleModule) MonitorPerformancePID() *module.Arg[int] {
-	return &module.Arg[int]{
-		Value: new(int),
-	}
 }
 
 func (sm *SampleModule) Args() module.Args {

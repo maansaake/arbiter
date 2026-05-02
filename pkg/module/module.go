@@ -60,10 +60,10 @@ type (
 )
 
 var (
-	reservedPrefixes = []string{"arbiter", "monitor", "reporter"}
+	reservedPrefixes = []string{"arbiter", "reporter"} //nolint:gochecknoglobals // constant-like list of reserved names
 
-	moduleNameRe *regexp.Regexp
-	opNameRe     *regexp.Regexp
+	moduleNameRe = regexp.MustCompile(moduleNamePattern)
+	opNameRe     = regexp.MustCompile(opNamePattern)
 
 	ErrReservedPrefix = errors.New("module name is reserved")
 	ErrInvalidName    = errors.New("name is invalid")
@@ -76,12 +76,7 @@ const (
 	opNamePattern     = moduleNamePattern
 )
 
-func init() {
-	moduleNameRe = regexp.MustCompile(moduleNamePattern)
-	opNameRe = regexp.MustCompile(opNamePattern)
-}
-
-// Verifies input modules follow the rules, which are:
+// Validate verifies input modules follow the rules, which are:
 // - The module is not named using any of the reserved prefixes.
 func Validate(modules Modules) error {
 	for _, mod := range modules {

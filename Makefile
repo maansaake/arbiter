@@ -7,4 +7,3 @@ lint:
 
 unit-test:
 	go test ./... -failfast
-

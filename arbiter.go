@@ -1,5 +1,5 @@
-// The arbiter package implements the orchestration between monitoring,
-// reporting, traffic scheduling and startup/shutdown procedures.
+// The arbiter package implements the orchestration between reporting,
+// traffic scheduling and startup/shutdown procedures.
 package arbiter
 
 import (
@@ -7,7 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"slices"
@@ -15,7 +14,6 @@ import (
 	"time"
 
 	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/monitor"
 	"tres-bon.se/arbiter/pkg/report"
 	yamlreport "tres-bon.se/arbiter/pkg/report/yaml"
 	"tres-bon.se/arbiter/pkg/subcommand"
@@ -27,40 +25,39 @@ import (
 )
 
 const (
-	durationDefault           = time.Minute * 5
-	externalPrometheusDefault = false
-	metricAddrDefault         = ":8888"
-	reportPathDefault         = "report.yaml"
+	durationDefault   = time.Minute * 5
+	reportPathDefault = "report.yaml"
 )
 
 var (
 	// flagset.
-	flagset *flag.FlagSet
+	flagset *flag.FlagSet //nolint:gochecknoglobals // package-level flagset for CLI parsing
 
 	// global flag vars.
-	duration           time.Duration = durationDefault
-	externalPrometheus bool          = externalPrometheusDefault
+	duration time.Duration = durationDefault //nolint:gochecknoglobals // modified by flag parsing
 
 	// subcommand parsing vars.
-	subcommands = []string{cli.FlagsetName, gen.FlagsetName, file.FlagsetName}
+	subcommands = []string{
+		cli.FlagsetName,
+		gen.FlagsetName,
+		file.FlagsetName,
+	} //nolint:gochecknoglobals // list of valid subcommands
 
 	// logger.
-	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).WithName("start")
-
-	// metrics.
-	metricAddr = metricAddrDefault
+	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).
+			WithName("start")
+		//nolint:gochecknoglobals // package-level logger
 
 	// report.
-	reportPath = reportPathDefault
+	reportPath = reportPathDefault //nolint:gochecknoglobals // modified by flag parsing
 
 	ErrNoSubcommand       = errors.New("no subcommand given")
 	ErrSubcommandNotFound = errors.New("subcommand not found")
 	ErrDurationTooShort   = errors.New("duration has to be minimum 30 seconds")
-	ErrInvalidMetricAddr  = errors.New("invalid metric address")
 )
 
-func init() {
-	zerologr.VFieldName = "v"
+func init() { //nolint:gochecknoinits // sets up global logger at package load
+	zerologr.SetVFieldName("v")
 	zerologr.SetLogger(zerologr.New(&zerologr.Opts{V: 0, Console: true}).WithName("global"))
 }
 
@@ -125,7 +122,6 @@ func run(metadata subcommand.Metadata) error {
 	startLogger.Info("all modules started")
 
 	reporter := setupReporter()
-	monitor := setupMonitor(reporter, metadata)
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
 	background := context.Background()
@@ -135,11 +131,6 @@ func run(metadata subcommand.Metadata) error {
 
 	reporterCtx, reporterCancel := context.WithCancel(background)
 	reporter.Start(reporterCtx)
-
-	if err := monitor.Start(deadlineCtx); err != nil {
-		startLogger.Error(err, "failed to start the monitor")
-		panic(err)
-	}
 
 	if err := traffic.Run(deadlineCtx, metadata, report.NewMock()); err != nil {
 		startLogger.Error(err, "failed to start traffic")
@@ -165,18 +156,13 @@ func run(metadata subcommand.Metadata) error {
 		startLogger.Error(err, "error when stopping traffic")
 	}
 
-	err = monitor.Stop()
-	if err != nil {
-		startLogger.Error(err, "error when stopping monitor")
-	}
-
 	// Stop it here to allow the scheduler to report all before shutting down.
 	reporterCancel()
 
 	startLogger.Info("stopping modules")
 	for _, m := range metadata {
-		if err := m.Stop(); err != nil {
-			startLogger.Error(err, "module stop reported an error", "module", m.Name())
+		if stopErr := m.Stop(); stopErr != nil {
+			startLogger.Error(stopErr, "module stop reported an error", "module", m.Name())
 		}
 	}
 
@@ -207,13 +193,6 @@ func parseArguments(args []string) (int, []error) {
 
 	// Global flags
 	flagset.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
-	flagset.BoolVar(
-		&externalPrometheus,
-		"monitor.metric.external",
-		externalPrometheus,
-		"External Prometheus instance, disables internal metric ticker and creates a HTTP server for scraping.",
-	)
-	flagset.StringVar(&metricAddr, "monitor.metric.external.addr", metricAddr, "Prometheus metric endpoint address.")
 	flagset.StringVar(&reportPath, "report.path", reportPath, "Path to the final report.")
 
 	// Ingore error since we're using ExitOnError.
@@ -232,11 +211,6 @@ func parseArguments(args []string) (int, []error) {
 	if duration < 30*time.Second {
 		fmt.Fprint(flagset.Output(), ErrDurationTooShort.Error()+"\n")
 		parseErrs = append(parseErrs, ErrDurationTooShort)
-	}
-
-	if _, err := net.ResolveTCPAddr("tcp", metricAddr); err != nil {
-		fmt.Fprint(flagset.Output(), ErrInvalidMetricAddr.Error()+"\n")
-		parseErrs = append(parseErrs, ErrInvalidMetricAddr)
 	}
 
 	return subcommandIndex, parseErrs
@@ -260,14 +234,4 @@ func setupReporter() report.Reporter {
 	})
 
 	return reporter
-}
-
-// Creates a new monitor.
-func setupMonitor(reporter report.Reporter, metadata subcommand.Metadata) *monitor.Monitor {
-	m := monitor.New(metadata.MonitorOpts()...)
-	m.Reporter = reporter
-	m.ExternalPrometheus = externalPrometheus
-	m.MetricAddr = metricAddr
-
-	return m
 }

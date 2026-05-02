@@ -12,7 +12,7 @@ import (
 )
 
 type (
-	// Options for the YAML reporter.
+	// Opts contains options for the YAML reporter.
 	Opts struct {
 		// Start time to set in the report. If left empty a start time is set
 		// when calling `New()`.
@@ -23,7 +23,7 @@ type (
 		// to be handled. Values < 1 will be ignored.
 		Buffer int
 	}
-	// Implements the reporter interface.
+	// YAMLReporter implements the reporter interface. //nolint:revive // exported type name stutter is intentional for clarity.
 	YAMLReporter struct {
 		// The final path of the YAML report.
 		path string
@@ -46,7 +46,9 @@ type (
 
 var _ report.Reporter = &YAMLReporter{}
 
-// Create a new YAML reporter.
+const yamlIndent = 2
+
+// New creates a new YAML reporter.
 func New(opts *Opts) *YAMLReporter {
 	var start time.Time
 	var buffer int
@@ -222,13 +224,13 @@ func (r *YAMLReporter) Finalise() error {
 
 	encoder := yaml.NewEncoder(file)
 	defer encoder.Close()
-	encoder.SetIndent(2)
+	encoder.SetIndent(yamlIndent)
 	return encoder.Encode(r.report)
 }
 
 /*INTERNAL*/
 
-func (r *yamlReport) module(mod string) (m *reportModule) {
+func (r *yamlReport) module(mod string) *reportModule {
 	m, ok := r.Modules[mod]
 	if !ok {
 		m = newModule()

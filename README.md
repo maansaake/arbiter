@@ -1,17 +1,18 @@
 # Arbiter
 
-![build](https://github.com/maansthoernvik/arbiter/actions/workflows/build.yaml/badge.svg)
-[![codecov](https://codecov.io/gh/maansaake/arbiter/graph/badge.svg?token=pi9cjem8ol)](https://codecov.io/gh/maansaake/arbiter)
+[![Main branch protection](https://github.com/maansaake/arbiter/actions/workflows/main.yaml/badge.svg)](https://github.com/maansaake/arbiter/actions/workflows/main.yaml)
+[![Code scanning](https://github.com/maansaake/arbiter/actions/workflows/code-scanning.yaml/badge.svg)](https://github.com/maansaake/arbiter/actions/workflows/code-scanning.yaml)
+![tag](https://img.shields.io/github/v/tag/maansaake/arbiter?label=latest%20version)
 
 Arbiter is a system testing framework aimed at improving software testability. It provides a rich and flexible framework that is used to implement system level tests for any system.
 
-Arbiter does not aim to know anything about the system under test (SUT) and as such does not make any assumptions not have any preferences around technologies or protocols. Arbiter does, however, have a strict view on how a system test should be monitored, see the [monitoring](#Monitoring) section for more information. 
+Arbiter does not aim to know anything about the system under test (SUT) and as such does not make any assumptions not have any preferences around technologies or protocols. Arbiter does, however, have a strict view on how a system test should be monitored, see the [monitoring](#monitoring) section for more information.
 
 The user is tasked with implementing testing modules to support performing operations against the SUT, which are then compiled together with the arbiter framework to produce an executable that is used for testing. The arbiter framework provides utilities and traffic generation, the user provides concrete implementation for how to perform interactions with the SUT.
 
 ## Writing testing modules
 
-Testing modules in arbiter are concrete implementations of how to perform operations towards a SUT. For example, an arbiter testing module for a REST API would probably include a bunch of different HTTP requests. 
+Testing modules in arbiter are concrete implementations of how to perform operations towards a SUT. For example, an arbiter testing module for a REST API would probably include a bunch of different HTTP requests.
 
 A testing module can be written either as a simple module, meaning arbiter does not know anything about how it interacts with the underlying SUT, or as a verbose module which exposes a set list of possible operations. Regardless of if a testing module is simple or verbose, a testing module can optionally implement the config interface to expose configuration items it requires.
 
@@ -44,7 +45,7 @@ More monitoring tools may be added in the future, but it is not something that w
 
 ### Thresholds
 
-Thresholds can be set for either monitoring option to determine a level (for CPU, memory, one or more metric(s), or logs) where a limit is passed that warrants some kind of notice/warning/error. Notices and errors are summarised in the test report (if reporting is enabled), see [reporting](#Reporting). Notices and errors have the following format:
+Thresholds can be set for either monitoring option to determine a level (for CPU, memory, one or more metric(s), or logs) where a limit is passed that warrants some kind of notice/warning/error. Notices and errors are summarised in the test report (if reporting is enabled), see [reporting](#reporting). Notices and errors have the following format:
 
 ```yaml
 notice:
@@ -88,24 +89,24 @@ metrics:
 
 Arbiter has a reporting option which generates a YAML report on completion. The YAML file summarizes the test result by stating:
 
- - (Optional) Test name
- - (Optional) SUT version
- - Start datetime
- - Duration
- - Traffic model
- - Monitoring
-   - Thresholds
-   - CPU
-     - Average
-     - High
-     - Low
-   - Memory
-     - Average
-     - High
-     - Low
-   - Notices
-   - Errors
+- (Optional) Test name
+- (Optional) SUT version
+- Start datetime
+- Duration
+- Traffic model
+- Monitoring
+  - Thresholds
+  - CPU
+    - Average
+    - High
+    - Low
+  - Memory
+    - Average
+    - High
+    - Low
+  - Notices
+  - Errors
 
 The report is intended to convey enough information to ease reproducability.
 
-Arbiter does not have an option to handle the report in any way, it is up to the user to do what they will with the result, acting on warnings or errors etc. 
+Arbiter does not have an option to handle the report in any way, it is up to the user to do what they will with the result, acting on warnings or errors etc.

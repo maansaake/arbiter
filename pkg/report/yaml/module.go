@@ -118,7 +118,7 @@ func (m *reportModule) addOp(name string, res *module.Result, err error) {
 		}
 
 		op.Timing.total += res.Duration
-		//nolint:gosec
+
 		op.Timing.Average = op.Timing.total / time.Duration(op.Timing.count)
 	}
 }

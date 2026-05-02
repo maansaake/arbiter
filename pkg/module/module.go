@@ -82,7 +82,7 @@ func init() {
 }
 
 // Verifies input modules follow the rules, which are:
-// - The module is not named using any of the reserved prefixes
+// - The module is not named using any of the reserved prefixes.
 func Validate(modules Modules) error {
 	for _, mod := range modules {
 		if slices.Contains(reservedPrefixes, strings.ToLower(mod.Name())) {
@@ -90,12 +90,22 @@ func Validate(modules Modules) error {
 		}
 
 		if !moduleNameRe.MatchString(mod.Name()) {
-			return fmt.Errorf("%w: module name '%s' does not follow pattern '%s'", ErrInvalidName, mod.Name(), moduleNamePattern)
+			return fmt.Errorf(
+				"%w: module name '%s' does not follow pattern '%s'",
+				ErrInvalidName,
+				mod.Name(),
+				moduleNamePattern,
+			)
 		}
 
 		for _, op := range mod.Ops() {
 			if !opNameRe.MatchString(op.Name) {
-				return fmt.Errorf("%w: operation name '%s' does not follow pattern '%s'", ErrInvalidName, op.Name, opNameRe)
+				return fmt.Errorf(
+					"%w: operation name '%s' does not follow pattern '%s'",
+					ErrInvalidName,
+					op.Name,
+					opNameRe,
+				)
 			}
 		}
 	}

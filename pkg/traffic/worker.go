@@ -33,6 +33,14 @@ func (worker *worker) run(ctx context.Context) {
 }
 
 func (worker *worker) reset(tickerInterval time.Duration) {
-	zerologr.Info("resetting worker ticker", "mod", worker.parent.mod, "op", worker.parent.op.Name, "interval_µs", tickerInterval.Microseconds())
+	zerologr.Info(
+		"resetting worker ticker",
+		"mod",
+		worker.parent.mod,
+		"op",
+		worker.parent.op.Name,
+		"interval_µs",
+		tickerInterval.Microseconds(),
+	)
 	worker.ticker.Reset(tickerInterval)
 }

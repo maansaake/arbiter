@@ -1,0 +1,18 @@
+name: Pull request validation
+
+run-name: "Pull request validation: ${{ github.event.pull_request.number }}"
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/callable-build.yaml
+
+  unit-test:
+    uses: ./.github/workflows/callable-test-unit.yaml

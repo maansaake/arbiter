@@ -1,4 +1,4 @@
-// The arbiter package implements the orchestration between reporting,
+// Package arbiter implements the orchestration between reporting,
 // traffic scheduling and startup/shutdown procedures.
 package arbiter
 
@@ -13,15 +13,15 @@ import (
 	"syscall"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/report"
-	yamlreport "tres-bon.se/arbiter/pkg/report/yaml"
-	"tres-bon.se/arbiter/pkg/subcommand"
-	"tres-bon.se/arbiter/pkg/subcommand/cli"
-	"tres-bon.se/arbiter/pkg/subcommand/file"
-	"tres-bon.se/arbiter/pkg/subcommand/gen"
-	"tres-bon.se/arbiter/pkg/traffic"
-	"tres-bon.se/arbiter/pkg/zerologr"
+	"github.com/maansaake/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/report"
+	yamlreport "github.com/maansaake/arbiter/pkg/report/yaml"
+	"github.com/maansaake/arbiter/pkg/subcommand"
+	"github.com/maansaake/arbiter/pkg/subcommand/cli"
+	"github.com/maansaake/arbiter/pkg/subcommand/file"
+	"github.com/maansaake/arbiter/pkg/subcommand/gen"
+	"github.com/maansaake/arbiter/pkg/traffic"
+	"github.com/maansaake/arbiter/pkg/zerologr"
 )
 
 const (
@@ -31,12 +31,15 @@ const (
 
 var (
 	// flagset.
-	flagset *flag.FlagSet //nolint:gochecknoglobals // package-level flagset for CLI parsing
+	//nolint:gochecknoglobals // package-level flagset for CLI parsing
+	flagset *flag.FlagSet
 
 	// global flag vars.
-	duration time.Duration = durationDefault //nolint:gochecknoglobals // modified by flag parsing
+	//nolint:gochecknoglobals // modified by flag parsing
+	duration = durationDefault
 
 	// subcommand parsing vars.
+	//nolint:gochecknoglobals // modified by flag parsing
 	subcommands = []string{
 		cli.FlagsetName,
 		gen.FlagsetName,
@@ -44,7 +47,8 @@ var (
 	}
 
 	// logger.
-	startLogger = zerologr.New(&zerologr.Opts{Console: true, V: 10}).
+	//nolint:gochecknoglobals // glob log
+	startLogger = zerologr.New(&zerologr.Opts{Console: true}).
 			WithName("start")
 
 	// report.
@@ -60,7 +64,7 @@ func init() { //nolint:gochecknoinits // sets up global logger at package load
 	zerologr.SetLogger(zerologr.New(&zerologr.Opts{V: 0, Console: true}).WithName("global"))
 }
 
-// Runs the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
+// Run the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
 // runs out (5 minute default).
 func Run(modules module.Modules) error {
 	// TODO: change to support > 1 module
@@ -83,26 +87,29 @@ func Run(modules module.Modules) error {
 	switch os.Args[subcommandIndex] {
 	case cli.FlagsetName:
 		// Parse module arguments and continue to run block.
-		if meta, err := cli.Parse(subcommandIndex, modules); err != nil {
+		meta, err := cli.Parse(subcommandIndex, modules)
+		if err != nil {
 			return err
-		} else {
-			return run(meta)
 		}
+
+		return run(meta)
 	case gen.FlagsetName:
 		// Generate run file based on input modules.
 		return gen.Generate(subcommandIndex, modules)
 	case file.FlagsetName:
 		// Parse run file information and continue to run block.
-		if meta, err := file.Parse(subcommandIndex, modules); err != nil {
+		meta, err := file.Parse(subcommandIndex, modules)
+		if err != nil {
 			return err
-		} else {
-			return run(meta)
 		}
+
+		return run(meta)
 	default:
 		flagset.SetOutput(os.Stderr)
 		err := fmt.Errorf("%w: %v", ErrSubcommandNotFound, os.Args)
 		fmt.Fprint(flagset.Output(), err.Error()+"\n")
 		flagset.Usage()
+
 		return err
 	}
 }
@@ -131,7 +138,7 @@ func run(metadata subcommand.Metadata) error {
 	reporterCtx, reporterCancel := context.WithCancel(background)
 	reporter.Start(reporterCtx)
 
-	if err := traffic.Run(deadlineCtx, metadata, report.NewMock()); err != nil {
+	if err := traffic.Run(deadlineCtx, metadata, reporter); err != nil {
 		startLogger.Error(err, "failed to start traffic")
 		panic(err)
 	}

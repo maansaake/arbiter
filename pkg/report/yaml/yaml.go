@@ -5,10 +5,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/maansaake/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/report"
+	"github.com/maansaake/arbiter/pkg/zerologr"
 	"gopkg.in/yaml.v3"
-	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/report"
-	"tres-bon.se/arbiter/pkg/zerologr"
 )
 
 type (

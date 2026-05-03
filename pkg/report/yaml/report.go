@@ -3,7 +3,7 @@ package yaml
 import (
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/module"
 )
 
 type (

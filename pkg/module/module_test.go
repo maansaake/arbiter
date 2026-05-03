@@ -1,12 +1,15 @@
-package module
+package module_test
 
 import (
 	"errors"
 	"testing"
+
+	"github.com/maansaake/arbiter/pkg/module"
+	modulemock "github.com/maansaake/arbiter/pkg/module/mock"
 )
 
 func TestMock(t *testing.T) {
-	mod := NewMock()
+	mod := modulemock.NewMock()
 	_ = mod.Name()
 	_ = mod.Desc()
 	_ = mod.Ops()
@@ -22,75 +25,75 @@ func TestMock(t *testing.T) {
 func TestValidateModules(t *testing.T) {
 	tests := []struct {
 		name          string
-		module        func() Module
+		module        func() module.Module
 		expectedError error
 	}{
 		{
 			name: "reserved module name",
-			module: func() Module {
-				mock := NewMock()
-				mock.SetName = "arbiter"
-				return mock
+			module: func() module.Module {
+				mod := modulemock.NewMock()
+				mod.SetName = "arbiter"
+				return mod
 			},
-			expectedError: ErrReservedPrefix,
+			expectedError: module.ErrReservedPrefix,
 		},
 		{
 			name: "invalid module name",
-			module: func() Module {
-				mock := NewMock()
-				mock.SetName = "invalid*"
-				return mock
+			module: func() module.Module {
+				mod := modulemock.NewMock()
+				mod.SetName = "invalid*"
+				return mod
 			},
-			expectedError: ErrInvalidName,
+			expectedError: module.ErrInvalidName,
 		},
 		{
 			name: "valid module",
-			module: func() Module {
-				mock := NewMock()
-				mock.SetName = "valid-name"
-				return mock
+			module: func() module.Module {
+				mod := modulemock.NewMock()
+				mod.SetName = "valid-name"
+				return mod
 			},
 			expectedError: nil,
 		},
 		{
 			name: "invalid op name",
-			module: func() Module {
-				mock := NewMock()
-				mock.SetName = "valid"
-				mock.SetOps = Ops{
-					&Op{
+			module: func() module.Module {
+				mod := modulemock.NewMock()
+				mod.SetName = "valid"
+				mod.SetOps = module.Ops{
+					&module.Op{
 						Name: "*invalid",
 					},
 				}
-				return mock
+				return mod
 			},
-			expectedError: ErrInvalidName,
+			expectedError: module.ErrInvalidName,
 		},
 		{
 			name: "empty op name",
-			module: func() Module {
-				mock := NewMock()
-				mock.SetName = "valid"
-				mock.SetOps = Ops{
-					&Op{
+			module: func() module.Module {
+				mod := modulemock.NewMock()
+				mod.SetName = "valid"
+				mod.SetOps = module.Ops{
+					&module.Op{
 						Name: "",
 					},
 				}
-				return mock
+				return mod
 			},
-			expectedError: ErrInvalidName,
+			expectedError: module.ErrInvalidName,
 		},
 		{
 			name: "valid op",
-			module: func() Module {
-				mock := NewMock()
-				mock.SetName = "valid"
-				mock.SetOps = Ops{
-					&Op{
+			module: func() module.Module {
+				mod := modulemock.NewMock()
+				mod.SetName = "valid"
+				mod.SetOps = module.Ops{
+					&module.Op{
 						Name: "validname",
 					},
 				}
-				return mock
+				return mod
 			},
 			expectedError: nil,
 		},
@@ -98,7 +101,7 @@ func TestValidateModules(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := Validate(Modules{test.module()})
+			err := module.Validate(module.Modules{test.module()})
 
 			if test.expectedError != nil && !errors.Is(err, test.expectedError) {
 				t.Fatalf("expected error %v, but got %v", test.expectedError, err)

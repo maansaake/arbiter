@@ -5,8 +5,8 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/zerologr"
+	"github.com/maansaake/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/zerologr"
 )
 
 const (

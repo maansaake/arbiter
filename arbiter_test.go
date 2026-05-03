@@ -5,8 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/subcommand/cli"
+	"github.com/maansaake/arbiter/pkg/module"
+	modulemock "github.com/maansaake/arbiter/pkg/module/mock"
+	"github.com/maansaake/arbiter/pkg/subcommand/cli"
 )
 
 func TestRun_NoSubcommand(t *testing.T) {
@@ -18,7 +19,7 @@ func TestRun_NoSubcommand(t *testing.T) {
 	os.Args = []string{"arbiter"}
 
 	// Create a dummy module
-	modules := module.Modules{&module.MockModule{SetName: "mock"}}
+	modules := module.Modules{&modulemock.Module{SetName: "mock"}}
 
 	// Run the function and check for the expected error
 	err := Run(modules)
@@ -36,7 +37,7 @@ func TestRun_DurationTooShort(t *testing.T) {
 	os.Args = []string{"arbiter", "-duration", "10s", cli.FlagsetName}
 
 	// Create a dummy module
-	modules := module.Modules{&module.MockModule{SetName: "mock"}}
+	modules := module.Modules{&modulemock.Module{SetName: "mock"}}
 
 	// Run the function and check for the expected error
 	err := Run(modules)

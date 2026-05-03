@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/report"
-	"tres-bon.se/arbiter/pkg/subcommand"
-	"tres-bon.se/arbiter/pkg/zerologr"
+	"github.com/maansaake/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/report"
+	"github.com/maansaake/arbiter/pkg/subcommand"
+	"github.com/maansaake/arbiter/pkg/zerologr"
 )
 
 const (

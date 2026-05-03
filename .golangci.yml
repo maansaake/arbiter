@@ -415,8 +415,6 @@ linters:
       - common-false-positives
     # Excluding configuration per-path, per-linter, per-text and per-source.
     rules:
-      - text: "ALL_CAPS in Go names"
-        linters: [ revive, staticcheck ]
       - text: "should have a package comment"
         linters: [ revive ]
       - text: "exported \\S+ \\S+ should have comment( \\(or a comment on this

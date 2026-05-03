@@ -4,7 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"tres-bon.se/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/module"
+	modulemock "github.com/maansaake/arbiter/pkg/module/mock"
 )
 
 func TestParse(t *testing.T) {
@@ -14,7 +15,7 @@ func TestParse(t *testing.T) {
 	do := &module.Op{Name: "do"}
 	more := &module.Op{Name: "more"}
 
-	mod := &module.MockModule{
+	mod := &modulemock.Module{
 		SetName: "mod",
 		SetArgs: module.Args{count, master},
 		SetOps:  module.Ops{do, more},

@@ -1,7 +1,7 @@
 // Package gen implements support for the 'gen' subcommand.
 package gen
 
-import "tres-bon.se/arbiter/pkg/module"
+import "github.com/maansaake/arbiter/pkg/module"
 
 const FlagsetName = "gen"
 

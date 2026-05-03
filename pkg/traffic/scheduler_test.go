@@ -7,18 +7,19 @@ import (
 	"testing"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/report"
-	"tres-bon.se/arbiter/pkg/subcommand"
-	log "tres-bon.se/arbiter/pkg/zerologr"
+	"github.com/maansaake/arbiter/pkg/module"
+	modulemock "github.com/maansaake/arbiter/pkg/module/mock"
+	reportmock "github.com/maansaake/arbiter/pkg/report/mock"
+	"github.com/maansaake/arbiter/pkg/subcommand"
+	log "github.com/maansaake/arbiter/pkg/zerologr"
 )
 
 func TestRunAndAwaitStop(t *testing.T) {
 	opWg := sync.WaitGroup{}
 	opWg.Add(2)
 
-	mock := module.NewMock()
-	mock.SetOps = module.Ops{
+	mod := modulemock.NewMock()
+	mod.SetOps = module.Ops{
 		{
 			Name: "test",
 			Rate: 60000,
@@ -30,7 +31,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	err := Run(ctx, []*subcommand.Meta{{Module: mock}}, report.NewMock())
+	err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reportmock.NewMock())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +47,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 }
 
 func TestRunNoOps(t *testing.T) {
-	err := Run(context.TODO(), []*subcommand.Meta{{Module: module.NewMock()}}, nil)
+	err := Run(context.TODO(), []*subcommand.Meta{{Module: modulemock.NewMock()}}, nil)
 	if err != nil && !errors.Is(err, ErrNoOpsToSchedule) {
 		t.Fatal("unexpected error type")
 	}
@@ -56,7 +57,7 @@ func TestRunNoOps(t *testing.T) {
 }
 
 func TestRunZeroRate(t *testing.T) {
-	mod := module.NewMock()
+	mod := modulemock.NewMock()
 	mod.SetOps = module.Ops{
 		{
 			Name: "test",
@@ -76,7 +77,7 @@ func TestReportOpToReporter(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	mod := module.NewMock()
+	mod := modulemock.NewMock()
 	mod.SetOps = module.Ops{
 		{
 			Name: "test",
@@ -88,7 +89,7 @@ func TestReportOpToReporter(t *testing.T) {
 		},
 	}
 
-	reporter := report.NewMock()
+	reporter := reportmock.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
@@ -109,7 +110,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	mod := module.NewMock()
+	mod := modulemock.NewMock()
 	mod.SetOps = module.Ops{
 		{
 			Name: "test",
@@ -121,7 +122,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 		},
 	}
 
-	reporter := report.NewMock()
+	reporter := reportmock.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
@@ -142,7 +143,7 @@ func TestReportOpErr(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	mod := module.NewMock()
+	mod := modulemock.NewMock()
 	mod.SetOps = module.Ops{
 		{
 			Name: "test",
@@ -154,7 +155,7 @@ func TestReportOpErr(t *testing.T) {
 		},
 	}
 
-	reporter := report.NewMock()
+	reporter := reportmock.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)

@@ -2,8 +2,8 @@
 package file
 
 import (
-	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/subcommand"
+	"github.com/maansaake/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/subcommand"
 )
 
 const FlagsetName = "file"

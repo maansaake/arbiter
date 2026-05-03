@@ -5,7 +5,7 @@ import (
 	"flag"
 	"testing"
 
-	"tres-bon.se/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/module"
 )
 
 func intValidator(v int) bool {

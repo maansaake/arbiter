@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"tres-bon.se/arbiter/pkg/module"
-	"tres-bon.se/arbiter/pkg/subcommand"
+	"github.com/maansaake/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/subcommand"
 )
 
 const argsPerOp = 2 // each op contributes a disable flag and a rate flag

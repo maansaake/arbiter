@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strconv"
 
-	"tres-bon.se/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/module"
 )
 
 const FlagsetName = "cli"

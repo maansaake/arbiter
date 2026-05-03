@@ -1,7 +1,7 @@
 package subcommand
 
 import (
-	"tres-bon.se/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/module"
 )
 
 // Meta is a collection type to help coordination between packages without relying on

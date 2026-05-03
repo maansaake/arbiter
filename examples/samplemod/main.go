@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"tres-bon.se/arbiter"
-	samplemod "tres-bon.se/arbiter/examples/samplemod/module"
-	"tres-bon.se/arbiter/pkg/module"
+	"github.com/maansaake/arbiter"
+	samplemod "github.com/maansaake/arbiter/examples/samplemod/module"
+	"github.com/maansaake/arbiter/pkg/module"
 )
 
 func main() {

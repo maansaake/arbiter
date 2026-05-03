@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/module"
 )
 
 func TestAddOpToModule(t *testing.T) {

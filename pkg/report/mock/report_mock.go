@@ -1,9 +1,10 @@
-package report
+package reportmock
 
 import (
 	"context"
 
-	"tres-bon.se/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/module"
+	"github.com/maansaake/arbiter/pkg/report"
 )
 
 type ReporterMock struct {
@@ -11,7 +12,7 @@ type ReporterMock struct {
 	OpErrors  []error
 }
 
-var _ Reporter = &ReporterMock{}
+var _ report.Reporter = &ReporterMock{}
 
 func NewMock() *ReporterMock {
 	return &ReporterMock{

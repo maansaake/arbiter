@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/maansaake/arbiter/pkg/module"
 	"gopkg.in/yaml.v3"
-	"tres-bon.se/arbiter/pkg/module"
 )
 
 func TestYAMLReporter(t *testing.T) {

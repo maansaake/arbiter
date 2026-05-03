@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"tres-bon.se/arbiter/pkg/zerologr"
+	"github.com/maansaake/arbiter/pkg/zerologr"
 )
 
 const workerVerboseLogLevel = 100

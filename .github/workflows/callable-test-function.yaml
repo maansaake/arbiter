@@ -45,8 +45,5 @@ jobs:
           key: unit-test-${{ matrix.go-version-alias }}-${{ steps.checksum.outputs.checksum }}
           restore-keys: unit-test-
 
-      - name: Generate samplemod executable
-        run: make build-examples-samplemod
-
       - name: Run samplemod executable
         run: make function-test

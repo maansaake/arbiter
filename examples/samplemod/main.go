@@ -18,7 +18,6 @@ func main() {
 
 	if errors.Is(err, arbiter.ErrParsingFailed) {
 		fmt.Fprintf(os.Stderr, "Error running Arbiter: %v\n\n", err)
-		arbiter.Usage()
 	}
 
 	os.Exit(1)

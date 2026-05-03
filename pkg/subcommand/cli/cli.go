@@ -17,7 +17,7 @@ func Parse(subcommandIndex int, modules module.Modules) (module.Metadata, error)
 	for i, mod := range modules {
 		meta := &module.Meta{Module: mod}
 
-		modArgs := make(module.Args, 0, len(mod.Args())+(len(mod.Ops())*argsPerOp))
+		modArgs := make(module.Args, 0, len(mod.Args())+len(mod.Ops())*argsPerOp)
 		modArgs = append(modArgs, mod.Args()...)
 
 		// Add operation args

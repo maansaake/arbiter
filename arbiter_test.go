@@ -33,8 +33,8 @@ func TestRun_DurationTooShort(t *testing.T) {
 	origArgs := os.Args
 	defer func() { os.Args = origArgs }()
 
-	// Set args to simulate duration flag less than 30 seconds
-	os.Args = []string{"arbiter", "-duration", "10s", cli.FlagsetName}
+	// Set args to simulate duration flag less than 1 second
+	os.Args = []string{"arbiter", "-duration", "0s", cli.FlagsetName}
 
 	// Create a dummy module
 	modules := module.Modules{&modulemock.Module{SetName: "mock"}}

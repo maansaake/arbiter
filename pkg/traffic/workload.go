@@ -61,8 +61,8 @@ func (w *workload) run(ctx context.Context) {
 				stop <- w
 				return
 			case <-w.rateCheck.C:
-					zerologr.Info(
-						"Running rate check",
+				zerologr.Info(
+					"Running rate check",
 					"mod",
 					w.mod,
 					"op",

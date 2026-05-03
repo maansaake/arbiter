@@ -1,7 +1,6 @@
 name: Code scanning
 
-run-name: "Scanning: ${{ github.event.pull_request.number ||
-  github.event.head_commit.message }}"
+run-name: "Scanning: ${{ github.event.pull_request.number || github.event.head_commit.message }}"
 
 on:
   push:
@@ -45,7 +44,7 @@ jobs:
           cache: false
 
       - name: Run govulncheck
-        run: go tool -modfile tools/go.mod govulncheck -format sarif -output results.sarif ./...
+        run: go tool -modfile tools/go.mod govulncheck -format sarif ./... results.sarif
 
       - name: Upload SARIF report
         if: always()

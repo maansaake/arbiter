@@ -1,4 +1,4 @@
-validate: lint unit-test build-examples-samplemod
+validate: lint vulncheck unit-test build-examples-samplemod function-test
 	@echo "Validation successful"
 
 build-examples-samplemod:
@@ -11,7 +11,7 @@ lint:
 unit-test:
 	go test ./... -failfast
 
-govulncheck:
+vulncheck:
 	go tool -modfile tools/go.mod govulncheck ./...
 
 function-test:

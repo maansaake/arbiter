@@ -55,6 +55,7 @@ var (
 	ErrNoSubcommand       = errors.New("no subcommand given")
 	ErrSubcommandNotFound = errors.New("subcommand not found")
 	ErrDurationTooShort   = errors.New("duration cannot be less than 1 second")
+	ErrParsingFailed      = errors.New("parsing failed")
 )
 
 //nolint:gochecknoinits // sets up global logger at package load
@@ -159,9 +160,10 @@ func run(metadata module.Metadata) error {
 
 	startLogger = startLogger.WithName("stopping")
 
-	err := traffic.Stop()
-	if err != nil {
-		startLogger.Error(err, "Error when stopping traffic")
+	var stopErr error
+	stopErr = traffic.Stop()
+	if stopErr != nil {
+		startLogger.Error(stopErr, "Error when stopping traffic")
 	}
 
 	// Stop it here to allow the scheduler to report all before shutting down.
@@ -169,13 +171,20 @@ func run(metadata module.Metadata) error {
 
 	startLogger.Info("Stopping modules")
 	for _, m := range metadata {
-		if stopErr := m.Stop(); stopErr != nil {
-			startLogger.Error(stopErr, "Module stop reported an error", "module", m.Name())
+		if moduleStopErr := m.Stop(); moduleStopErr != nil {
+			startLogger.Error(moduleStopErr, "Module stop reported an error", "module", m.Name())
+			stopErr = errors.Join(stopErr, fmt.Errorf("module %s: %w", m.Name(), moduleStopErr))
 		}
 	}
 
 	startLogger.Info("Finalising report")
-	return reporter.Finalise()
+	reporterStopErr := reporter.Finalise()
+	if reporterStopErr != nil {
+		startLogger.Error(reporterStopErr, "Error when finalising report")
+		stopErr = errors.Join(stopErr, reporterStopErr)
+	}
+
+	return stopErr
 }
 
 // Parses the input arguments and returns the index of the subcommand and any
@@ -203,10 +212,10 @@ func parseArguments(args []string) (int, error) {
 	flagset.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
 	flagset.StringVar(&reportPath, "report.path", reportPath, "Path to the final report.")
 
-	var totalErr error
+	totalErr := ErrParsingFailed
 	parseErr := flagset.Parse(os.Args[1:])
 	if parseErr != nil {
-		totalErr = errors.Join(totalErr, parseErr)
+		totalErr = fmt.Errorf("%w: %w", totalErr, parseErr)
 	}
 
 	subcommandIndex := slices.IndexFunc(args, func(arg string) bool {
@@ -214,11 +223,11 @@ func parseArguments(args []string) (int, error) {
 	})
 
 	if subcommandIndex == -1 {
-		totalErr = errors.Join(totalErr, ErrNoSubcommand)
+		totalErr = fmt.Errorf("%w: %w", totalErr, ErrNoSubcommand)
 	}
 
 	if duration < 1*time.Second {
-		totalErr = errors.Join(totalErr, ErrDurationTooShort)
+		totalErr = fmt.Errorf("%w: %w", totalErr, ErrDurationTooShort)
 	}
 
 	return subcommandIndex, totalErr

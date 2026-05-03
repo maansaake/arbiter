@@ -16,3 +16,6 @@ jobs:
 
   unit-test:
     uses: ./.github/workflows/callable-test-unit.yaml
+
+  function-test:
+    uses: ./.github/workflows/callable-test-function.yaml

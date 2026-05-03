@@ -10,3 +10,6 @@ lint:
 
 unit-test:
 	go test ./... -failfast
+
+function-test:
+	build/examples/samplemod -duration 20s cli -sample.important 12 -sample.op.test.rate 60

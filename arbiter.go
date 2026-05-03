@@ -212,10 +212,10 @@ func parseArguments(args []string) (int, error) {
 	flagset.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
 	flagset.StringVar(&reportPath, "report.path", reportPath, "Path to the final report.")
 
-	totalErr := ErrParsingFailed
+	var totalErr error
 	parseErr := flagset.Parse(os.Args[1:])
 	if parseErr != nil {
-		totalErr = fmt.Errorf("%w: %w", totalErr, parseErr)
+		totalErr = fmt.Errorf("%w: %w", ErrParsingFailed, parseErr)
 	}
 
 	subcommandIndex := slices.IndexFunc(args, func(arg string) bool {

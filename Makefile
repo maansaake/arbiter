@@ -11,5 +11,8 @@ lint:
 unit-test:
 	go test ./... -failfast
 
+govulncheck:
+	go tool -modfile tools/go.mod govulncheck ./...
+
 function-test:
 	build/examples/samplemod -duration 20s cli -sample.important 12 -sample.op.test.rate 60

@@ -43,7 +43,7 @@ const maxWorkers = 50
 // go-routine has been started. Run() will monitor the context's done channel
 // and stop gracefully once it's closed.
 func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error {
-	zerologr.Info("running traffic generator")
+	zerologr.Info("Running traffic generator")
 	// Run initialisation of traffic synchronously
 	reporter = r
 
@@ -81,7 +81,7 @@ func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error
 }
 
 func Stop() error {
-	zerologr.Info("stopping traffic generator", "workload_count", len(workloads))
+	zerologr.Info("Stopping traffic generator", "workload_count", len(workloads))
 	stopCount := 0
 	cleanupAttempts := 0
 	t := time.NewTicker(time.Second)
@@ -89,17 +89,17 @@ func Stop() error {
 	for {
 		select {
 		case <-t.C:
-			zerologr.Error(ErrCleanupTimeout, "cleanup timed out", "timeout", cleanupTimeout)
+			zerologr.Error(ErrCleanupTimeout, "Cleanup timed out", "timeout", cleanupTimeout)
 			cleanupAttempts++
 
 			if cleanupAttempts > maxCleanupAttempts {
 				return ErrCleanupTimeout
 			}
 		case workload := <-stop:
-			zerologr.Info("workload stopped", "mod", workload.mod, "op", workload.op.Name)
+			zerologr.Info("Workload stopped", "mod", workload.mod, "op", workload.op.Name)
 			stopCount++
 			if stopCount == len(workloads) {
-				zerologr.Info("all workloads have stopped")
+				zerologr.Info("All workloads have stopped")
 				return nil
 			}
 		}

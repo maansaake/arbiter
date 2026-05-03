@@ -26,14 +26,14 @@ type workload struct {
 }
 
 func (w *workload) run(ctx context.Context) {
-	zerologr.Info("starting workload", "mod", w.mod, "op", w.op.Name, "rate", w.op.Rate)
+	zerologr.Info("Starting workload", "mod", w.mod, "op", w.op.Name, "rate", w.op.Rate)
 
 	go func() {
 		w.calls = 0
 		samplingInterval := getSampleInterval(w.op)
 		expectedCalls := float64(samplingInterval) / float64(time.Minute) * float64(w.op.Rate)
 		zerologr.Info(
-			"setting sampling interval",
+			"Setting sampling interval",
 			"mod",
 			w.mod,
 			"op",
@@ -48,21 +48,21 @@ func (w *workload) run(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				zerologr.Info("context closed, stopping workload", "mod", w.mod, "op", w.op.Name)
+				zerologr.Info("Context closed, stopping workload", "mod", w.mod, "op", w.op.Name)
 				w.rateCheck.Stop()
 
 				for i, worker := range w.workers {
-					zerologr.Info("awaiting worker", "mod", w.mod, "op", w.op.Name, "worker", i)
+					zerologr.Info("Awaiting worker", "mod", w.mod, "op", w.op.Name, "worker", i)
 					// Await the stop of each worker
 					<-worker.done
-					zerologr.Info("worker stopped", "mod", w.mod, "op", w.op.Name, "worker", i)
+					zerologr.Info("Worker stopped", "mod", w.mod, "op", w.op.Name, "worker", i)
 				}
 
 				stop <- w
 				return
 			case <-w.rateCheck.C:
-				zerologr.Info(
-					"running rate check",
+					zerologr.Info(
+						"Running rate check",
 					"mod",
 					w.mod,
 					"op",
@@ -75,7 +75,7 @@ func (w *workload) run(ctx context.Context) {
 
 				if w.calls > 0 {
 					avgUs := (w.totalDur / time.Duration(w.calls)).Microseconds()
-					zerologr.Info("average exec time", "mod", w.mod, "op", w.op.Name, "avg_µs", avgUs)
+					zerologr.Info("Average exec time", "mod", w.mod, "op", w.op.Name, "avg_µs", avgUs)
 
 					w.scale(ctx)
 				}
@@ -103,9 +103,9 @@ func (w *workload) withStatLock(f func()) {
 
 func (w *workload) scale(ctx context.Context) {
 	requiredWorkers := w.getWorkerCount()
-	zerologr.Info("required worker count", "required_workers", requiredWorkers, "mod", w.mod, "op", w.op.Name)
+	zerologr.Info("Required worker count", "required_workers", requiredWorkers, "mod", w.mod, "op", w.op.Name)
 	if int(requiredWorkers) > len(w.workers) {
-		zerologr.Info("adding workers", "count", int(requiredWorkers)-len(w.workers), "mod", w.mod, "op", w.op.Name)
+		zerologr.Info("Adding workers", "count", int(requiredWorkers)-len(w.workers), "mod", w.mod, "op", w.op.Name)
 		for i := int(requiredWorkers) - len(w.workers); i > 0; i-- {
 			w.addWorker(ctx)
 		}
@@ -151,7 +151,7 @@ func (w *workload) getAverageDuration() time.Duration {
 }
 
 func (w *workload) addWorker(ctx context.Context) {
-	zerologr.Info("adding worker", "mod", w.mod, "op", w.op.Name)
+	zerologr.Info("Adding worker", "mod", w.mod, "op", w.op.Name)
 
 	worker := &worker{
 		parent: w,
@@ -164,11 +164,11 @@ func (w *workload) addWorker(ctx context.Context) {
 }
 
 func (w *workload) doOp() {
-	zerologr.V(workloadVerboseLogLevel).Info("triggering workload op", "mod", w.mod, "op", w.op.Name)
+	zerologr.V(workloadVerboseLogLevel).Info("Triggering workload op", "mod", w.mod, "op", w.op.Name)
 
 	start := time.Now()
 	res, err := w.op.Do()
-	zerologr.V(workloadVerboseLogLevel).Info("ran op", "mod", w.mod, "op", w.op.Name)
+	zerologr.V(workloadVerboseLogLevel).Info("Ran op", "mod", w.mod, "op", w.op.Name)
 
 	if res.Duration == 0 {
 		res.Duration = time.Since(start)
@@ -180,10 +180,10 @@ func (w *workload) doOp() {
 		w.calls++
 		w.totalDur += res.Duration
 	})
-	zerologr.V(workloadVerboseLogLevel).Info("reporting", "mod", w.mod, "op", w.op.Name)
+	zerologr.V(workloadVerboseLogLevel).Info("Reporting", "mod", w.mod, "op", w.op.Name)
 
 	reporter.Op(w.mod, w.op.Name, &res, err)
 
 	zerologr.V(workloadVerboseLogLevel).
-		Info("trigger done", "mod", w.mod, "op", w.op.Name, "duration_µs", time.Since(start).Microseconds())
+		Info("Trigger done", "mod", w.mod, "op", w.op.Name, "duration_µs", time.Since(start).Microseconds())
 }

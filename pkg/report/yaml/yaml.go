@@ -71,7 +71,7 @@ func New(opts *Opts) *Reporter {
 
 // Start the YAML reporter and run until the context is cancelled.
 func (r *Reporter) Start(ctx context.Context) {
-	zerologr.Info("starting reporter")
+	zerologr.Info("Starting reporter")
 
 	go func() {
 		for {
@@ -79,7 +79,7 @@ func (r *Reporter) Start(ctx context.Context) {
 			case f := <-r.synchronizer:
 				f()
 			case <-ctx.Done():
-				zerologr.Info("reporter context closed, cleaning synchronizer", "len", len(r.synchronizer))
+				zerologr.Info("Reporter context closed, cleaning synchronizer", "len", len(r.synchronizer))
 
 				// This isn't safe and depends completely on that the coordinator
 				// (arbiter) ensures no more calls will come to the reporter when

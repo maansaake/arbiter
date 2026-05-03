@@ -34,7 +34,7 @@ func New() module.Module {
 			Desc: "The delay for the 'test' action.",
 			Handler: func(v int) {
 				s.testDelay = time.Duration(v * int(time.Millisecond))
-				zerologr.Info("set value for testdelay", "value", s.testDelay)
+				zerologr.Info("Set value for testdelay", "value", s.testDelay)
 			},
 		},
 		&module.Arg[int]{

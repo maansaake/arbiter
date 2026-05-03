@@ -54,13 +54,18 @@ var (
 
 	ErrNoSubcommand       = errors.New("no subcommand given")
 	ErrSubcommandNotFound = errors.New("subcommand not found")
-	ErrDurationTooShort   = errors.New("duration has to be minimum 30 seconds")
+	ErrDurationTooShort   = errors.New("duration cannot be less than 1 second")
 )
 
 //nolint:gochecknoinits // sets up global logger at package load
 func init() {
 	zerologr.SetVFieldName("v")
 	zerologr.Set(zerologr.New(&zerologr.Opts{Console: true}).WithName("global"))
+}
+
+// Usage prints the usage information for the Arbiter command line arguments.
+func Usage() {
+	flagset.Usage()
 }
 
 // Run the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
@@ -76,11 +81,9 @@ func Run(modules module.Modules) error {
 	}
 
 	// Verify input arguments and parse subcommand.
-	subcommandIndex, parseErrs := parseArguments(os.Args)
-	if len(parseErrs) > 0 {
-		flagset.SetOutput(os.Stderr)
-		flagset.Usage()
-		return errors.Join(parseErrs...)
+	subcommandIndex, parseErr := parseArguments(os.Args)
+	if parseErr != nil {
+		return parseErr
 	}
 
 	// Check invoked subcommand
@@ -105,12 +108,7 @@ func Run(modules module.Modules) error {
 
 		return run(meta)
 	default:
-		flagset.SetOutput(os.Stderr)
-		err := fmt.Errorf("%w: %v", ErrSubcommandNotFound, os.Args)
-		fmt.Fprint(flagset.Output(), err.Error()+"\n")
-		flagset.Usage()
-
-		return err
+		return fmt.Errorf("%w: %v", ErrSubcommandNotFound, os.Args)
 	}
 }
 
@@ -119,67 +117,71 @@ func Run(modules module.Modules) error {
 // or when the test duration runs out. Will immediately exit if any module
 // returns an error from its call to Run().
 func run(metadata module.Metadata) error {
-	startLogger.Info("preparing to run the modules")
+	startLogger.Info("Starting modules")
 
 	if err := startModules(metadata); err != nil {
-		startLogger.Error(err, "start failure")
+		startLogger.Error(err, "Start failure")
 		return err
 	}
-	startLogger.Info("all modules started")
+	startLogger.Info("All modules started")
 
 	reporter := setupReporter()
 
 	// Start traffic and monitor, with a deadline set to time.Now() + test duration
 	background := context.Background()
 	deadline := time.Now().Add(duration)
-	deadlineCtx, deadlineStop := context.WithDeadline(background, deadline)
-	startLogger.Info("traffic will run until", "deadline", deadline)
+	deadlineCtx, deadlineCancel := context.WithDeadline(background, deadline)
+	defer deadlineCancel()
+	startLogger.Info("Traffic will run until: " + deadline.String())
 
+	// Separate the reporter context to allow for finishing reporting separately from stopping traffic.
 	reporterCtx, reporterCancel := context.WithCancel(background)
+	defer reporterCancel()
 	reporter.Start(reporterCtx)
 
 	if err := traffic.Run(deadlineCtx, metadata, reporter); err != nil {
-		startLogger.Error(err, "failed to start traffic")
-		panic(err)
+		startLogger.Error(err, "Failed to start traffic")
+		return err
 	}
 
 	// Start signal interceptor for SIGINT and SIGTERM
-	signalCtx, signalStop := signal.NotifyContext(background, syscall.SIGINT, syscall.SIGTERM)
-	startLogger.Info("awaiting stop signal")
+	signalCtx, signalCancel := signal.NotifyContext(background, syscall.SIGINT, syscall.SIGTERM)
+	defer signalCancel()
+	startLogger.Info("Awaiting stop signal")
 	select {
 	case <-signalCtx.Done():
-		startLogger.Info("got stop signal")
+		startLogger.Info("Got stop signal")
 	case <-deadlineCtx.Done():
-		startLogger.Info("deadline exceeded")
+		startLogger.Info("Deadline exceeded")
 	}
-	deadlineStop()
-	signalStop()
+	deadlineCancel()
+	signalCancel()
 
 	startLogger = startLogger.WithName("stopping")
 
 	err := traffic.Stop()
 	if err != nil {
-		startLogger.Error(err, "error when stopping traffic")
+		startLogger.Error(err, "Error when stopping traffic")
 	}
 
 	// Stop it here to allow the scheduler to report all before shutting down.
 	reporterCancel()
 
-	startLogger.Info("stopping modules")
+	startLogger.Info("Stopping modules")
 	for _, m := range metadata {
 		if stopErr := m.Stop(); stopErr != nil {
-			startLogger.Error(stopErr, "module stop reported an error", "module", m.Name())
+			startLogger.Error(stopErr, "Module stop reported an error", "module", m.Name())
 		}
 	}
 
-	startLogger.Info("finalising report")
+	startLogger.Info("Finalising report")
 	return reporter.Finalise()
 }
 
 // Parses the input arguments and returns the index of the subcommand and any
 // parsing errors.
-func parseArguments(args []string) (int, []error) {
-	flagset = flag.NewFlagSet("arbiter", flag.ExitOnError)
+func parseArguments(args []string) (int, error) {
+	flagset = flag.NewFlagSet("arbiter", flag.ContinueOnError)
 
 	formatFlagset := func(fset string) string {
 		return fmt.Sprintf("%-10s", fset)
@@ -201,31 +203,31 @@ func parseArguments(args []string) (int, []error) {
 	flagset.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
 	flagset.StringVar(&reportPath, "report.path", reportPath, "Path to the final report.")
 
-	// Ingore error since we're using ExitOnError.
-	_ = flagset.Parse(os.Args[1:])
+	var totalErr error
+	parseErr := flagset.Parse(os.Args[1:])
+	if parseErr != nil {
+		totalErr = errors.Join(totalErr, parseErr)
+	}
 
-	var parseErrs []error
 	subcommandIndex := slices.IndexFunc(args, func(arg string) bool {
 		return slices.Contains(subcommands, arg)
 	})
 
 	if subcommandIndex == -1 {
-		fmt.Fprint(flagset.Output(), ErrNoSubcommand.Error()+"\n")
-		parseErrs = append(parseErrs, ErrNoSubcommand)
+		totalErr = errors.Join(totalErr, ErrNoSubcommand)
 	}
 
-	if duration < 30*time.Second {
-		fmt.Fprint(flagset.Output(), ErrDurationTooShort.Error()+"\n")
-		parseErrs = append(parseErrs, ErrDurationTooShort)
+	if duration < 1*time.Second {
+		totalErr = errors.Join(totalErr, ErrDurationTooShort)
 	}
 
-	return subcommandIndex, parseErrs
+	return subcommandIndex, totalErr
 }
 
 // Starts the input modules and logs any errors.
 func startModules(meta []*module.Meta) error {
 	for _, m := range meta {
-		startLogger.Info("starting", "module", m.Name())
+		startLogger.Info("Starting", "module", m.Name())
 		if err := m.Run(); err != nil {
 			return fmt.Errorf("failed to start module %s: %w", m.Name(), err)
 		}

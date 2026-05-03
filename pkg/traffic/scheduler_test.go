@@ -24,7 +24,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 			Rate: 60000,
 			Do: func() (module.Result, error) {
 				opWg.Done()
-				log.Info("doing OP")
+				log.Info("Doing OP")
 				return module.Result{}, nil
 			},
 		},
@@ -34,7 +34,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Info("started traffic")
+	log.Info("Started traffic")
 
 	opWg.Wait()
 

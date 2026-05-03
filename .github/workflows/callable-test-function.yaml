@@ -49,9 +49,4 @@ jobs:
         run: make build-examples-samplemod
 
       - name: Run samplemod executable
-        run: |
-          ./build/examples/samplemod \
-            -duration 2s \
-            cli \
-            -sample.important 12 \
-            -sample.op.test.rate 60
+        run: make function-test

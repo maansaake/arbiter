@@ -7,16 +7,15 @@ import (
 	"strings"
 
 	"github.com/maansaake/arbiter/pkg/module"
-	"github.com/maansaake/arbiter/pkg/subcommand"
 )
 
 const argsPerOp = 2 // each op contributes a disable flag and a rate flag
 
 // Parse command line arguments for the input modules.
-func Parse(subcommandIndex int, modules module.Modules) (subcommand.Metadata, error) {
-	metadata := make(subcommand.Metadata, len(modules))
+func Parse(subcommandIndex int, modules module.Modules) (module.Metadata, error) {
+	metadata := make(module.Metadata, len(modules))
 	for i, mod := range modules {
-		meta := &subcommand.Meta{Module: mod}
+		meta := &module.Meta{Module: mod}
 
 		modArgs := make(module.Args, 0, len(mod.Args())+(len(mod.Ops())*argsPerOp))
 		modArgs = append(modArgs, mod.Args()...)

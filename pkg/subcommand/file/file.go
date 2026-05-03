@@ -3,11 +3,12 @@ package file
 
 import (
 	"github.com/maansaake/arbiter/pkg/module"
-	"github.com/maansaake/arbiter/pkg/subcommand"
 )
+
+// TODO: implement
 
 const FlagsetName = "file"
 
-func Parse(_ int, _ module.Modules) ([]*subcommand.Meta, error) {
+func Parse(_ int, _ module.Modules) ([]*module.Meta, error) {
 	return nil, nil
 }

@@ -26,6 +26,15 @@ type (
 	}
 	// Modules is a list of Module.
 	Modules []Module
+	// Meta is a collection type to help coordination between packages without relying on
+	// weird import patterns. All subcommands make use of this struct to be able
+	// to do their work, regardless of whether running using a test file or CLI.
+	Meta struct {
+		// Module is a Module.
+		Module
+	}
+	// Metadata is a list of Meta.
+	Metadata []*Meta
 	// Op represents an operation that a module performs. It contains the name, description, and the function to execute the operation.
 	Op struct {
 		// Name of the operation. This is used to name CLI and file options when starting the arbiter.

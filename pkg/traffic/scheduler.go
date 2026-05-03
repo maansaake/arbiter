@@ -9,8 +9,7 @@ import (
 
 	"github.com/maansaake/arbiter/pkg/module"
 	"github.com/maansaake/arbiter/pkg/report"
-	"github.com/maansaake/arbiter/pkg/subcommand"
-	"github.com/maansaake/arbiter/pkg/zerologr"
+	"github.com/trebent/zerologr"
 )
 
 const (
@@ -43,7 +42,7 @@ const maxWorkers = 50
 // problems to the reporter. Run() is asynchronous and returns once the main
 // go-routine has been started. Run() will monitor the context's done channel
 // and stop gracefully once it's closed.
-func Run(ctx context.Context, metadata subcommand.Metadata, r report.Reporter) error {
+func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error {
 	zerologr.Info("running traffic generator")
 	// Run initialisation of traffic synchronously
 	reporter = r

@@ -7,27 +7,27 @@ import (
 )
 
 type (
-	// Struct for the YAML yamlReport. The entire thing is marshaled into the final
-	// file.
-	yamlReport struct {
+	// Report is the YAML report struct. It contains all the information about the execution of the modules and their operations.
+	Report struct {
 		Start    time.Time                `yaml:"start"`
 		End      time.Time                `yaml:"end"`
 		Duration time.Duration            `yaml:"duration"`
-		Modules  map[string]*moduleReport `yaml:"modules"`
+		Modules  map[string]*ModuleReport `yaml:"modules"`
 	}
-
-	moduleReport struct {
-		Operations map[string]*operation `yaml:"operation"`
+	// ModuleReport contains the report information for a module. It contains the operations and their respective reports.
+	ModuleReport struct {
+		Operations map[string]*OperationDetails `yaml:"operation"`
 	}
-
-	operation struct {
+	// OperationDetails contains the report information for an operation.
+	OperationDetails struct {
 		Executions uint             `yaml:"executions"`
 		OK         uint             `yaml:"ok"`
 		NOK        uint             `yaml:"nok"`
-		Timing     *operationTiming `yaml:"timing"`
+		Timing     *OperationTiming `yaml:"timing"`
 		Errors     []string         `yaml:"errors,omitempty"`
 	}
-	operationTiming struct {
+	// OperationTiming contains the timing information for an operation.
+	OperationTiming struct {
 		Longest  time.Duration `yaml:"longest"`
 		Shortest time.Duration `yaml:"shortest"`
 		Average  time.Duration `yaml:"average"`
@@ -38,17 +38,17 @@ type (
 	}
 )
 
-func newModule() *moduleReport {
-	return &moduleReport{
-		Operations: make(map[string]*operation),
+func newModuleReport() *ModuleReport {
+	return &ModuleReport{
+		Operations: make(map[string]*OperationDetails),
 	}
 }
 
-func (m *moduleReport) addOp(name string, res *module.Result, err error) {
+func (m *ModuleReport) addOp(name string, res *module.Result, err error) {
 	op, ok := m.Operations[name]
 	if !ok {
-		op = &operation{
-			Timing: &operationTiming{},
+		op = &OperationDetails{
+			Timing: &OperationTiming{},
 		}
 		m.Operations[name] = op
 	}

@@ -16,12 +16,11 @@ import (
 	"github.com/maansaake/arbiter/pkg/module"
 	"github.com/maansaake/arbiter/pkg/report"
 	yamlreport "github.com/maansaake/arbiter/pkg/report/yaml"
-	"github.com/maansaake/arbiter/pkg/subcommand"
 	"github.com/maansaake/arbiter/pkg/subcommand/cli"
 	"github.com/maansaake/arbiter/pkg/subcommand/file"
 	"github.com/maansaake/arbiter/pkg/subcommand/gen"
 	"github.com/maansaake/arbiter/pkg/traffic"
-	"github.com/maansaake/arbiter/pkg/zerologr"
+	"github.com/trebent/zerologr"
 )
 
 const (
@@ -48,8 +47,7 @@ var (
 
 	// logger.
 	//nolint:gochecknoglobals // glob log
-	startLogger = zerologr.New(&zerologr.Opts{Console: true}).
-			WithName("start")
+	startLogger = zerologr.New(&zerologr.Opts{Console: true}).WithName("start")
 
 	// report.
 	reportPath = reportPathDefault //nolint:gochecknoglobals // modified by flag parsing
@@ -59,9 +57,10 @@ var (
 	ErrDurationTooShort   = errors.New("duration has to be minimum 30 seconds")
 )
 
-func init() { //nolint:gochecknoinits // sets up global logger at package load
+//nolint:gochecknoinits // sets up global logger at package load
+func init() {
 	zerologr.SetVFieldName("v")
-	zerologr.SetLogger(zerologr.New(&zerologr.Opts{V: 0, Console: true}).WithName("global"))
+	zerologr.Set(zerologr.New(&zerologr.Opts{Console: true}).WithName("global"))
 }
 
 // Run the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
@@ -69,8 +68,9 @@ func init() { //nolint:gochecknoinits // sets up global logger at package load
 func Run(modules module.Modules) error {
 	// TODO: change to support > 1 module
 	if len(modules) != 1 {
-		panic("number of modules must be exactly one")
+		return fmt.Errorf("currently only 1 module is supported, got %d", len(modules))
 	}
+
 	if err := module.Validate(modules); err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func Run(modules module.Modules) error {
 // model based on the modules opertation settings. Aborts on SIGINT, SIGTERM
 // or when the test duration runs out. Will immediately exit if any module
 // returns an error from its call to Run().
-func run(metadata subcommand.Metadata) error {
+func run(metadata module.Metadata) error {
 	startLogger.Info("preparing to run the modules")
 
 	if err := startModules(metadata); err != nil {
@@ -223,7 +223,7 @@ func parseArguments(args []string) (int, []error) {
 }
 
 // Starts the input modules and logs any errors.
-func startModules(meta []*subcommand.Meta) error {
+func startModules(meta []*module.Meta) error {
 	for _, m := range meta {
 		startLogger.Info("starting", "module", m.Name())
 		if err := m.Run(); err != nil {

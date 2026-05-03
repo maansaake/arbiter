@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/maansaake/arbiter/pkg/module"
-	"github.com/maansaake/arbiter/pkg/zerologr"
+	"github.com/trebent/zerologr"
 )
 
 const workloadVerboseLogLevel = 100

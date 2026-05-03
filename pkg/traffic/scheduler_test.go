@@ -10,8 +10,7 @@ import (
 	"github.com/maansaake/arbiter/pkg/module"
 	modulemock "github.com/maansaake/arbiter/pkg/module/mock"
 	reportmock "github.com/maansaake/arbiter/pkg/report/mock"
-	"github.com/maansaake/arbiter/pkg/subcommand"
-	log "github.com/maansaake/arbiter/pkg/zerologr"
+	log "github.com/trebent/zerologr"
 )
 
 func TestRunAndAwaitStop(t *testing.T) {
@@ -31,7 +30,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reportmock.NewMock())
+	err := Run(ctx, []*module.Meta{{Module: mod}}, reportmock.NewMock())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +46,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 }
 
 func TestRunNoOps(t *testing.T) {
-	err := Run(context.TODO(), []*subcommand.Meta{{Module: modulemock.NewMock()}}, nil)
+	err := Run(context.TODO(), []*module.Meta{{Module: modulemock.NewMock()}}, nil)
 	if err != nil && !errors.Is(err, ErrNoOpsToSchedule) {
 		t.Fatal("unexpected error type")
 	}
@@ -64,7 +63,7 @@ func TestRunZeroRate(t *testing.T) {
 			Rate: 0,
 		},
 	}
-	err := Run(context.TODO(), []*subcommand.Meta{{Module: mod}}, nil)
+	err := Run(context.TODO(), []*module.Meta{{Module: mod}}, nil)
 	if err != nil && !errors.Is(err, ErrZeroRate) {
 		t.Fatal("unexpected error type")
 	}
@@ -91,7 +90,7 @@ func TestReportOpToReporter(t *testing.T) {
 
 	reporter := reportmock.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
+	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,7 +123,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 
 	reporter := reportmock.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
+	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -157,7 +156,7 @@ func TestReportOpErr(t *testing.T) {
 
 	reporter := reportmock.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := Run(ctx, []*subcommand.Meta{{Module: mod}}, reporter); err != nil {
+	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter); err != nil {
 		t.Fatal(err)
 	}
 

@@ -9,7 +9,7 @@ import (
 )
 
 func TestAddOpToModule(t *testing.T) {
-	m := newModule()
+	m := newModuleReport()
 	m.addOp("op", &module.Result{Duration: time.Second}, nil)
 
 	v, ok := m.Operations["op"]

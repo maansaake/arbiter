@@ -7,7 +7,7 @@ import (
 
 	"github.com/maansaake/arbiter/pkg/module"
 	"github.com/maansaake/arbiter/pkg/report"
-	"github.com/maansaake/arbiter/pkg/zerologr"
+	"github.com/trebent/zerologr"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,7 +28,7 @@ type (
 		// The final path of the YAML report.
 		path string
 		// The YAML report.
-		report *yamlReport
+		report *Report
 		// Synchronizer channel to limit access to the report to 1 thread. Also
 		// speeds up calls to the reporter interface.
 		synchronizer chan func()
@@ -57,9 +57,9 @@ func New(opts *Opts) *Reporter {
 	}
 
 	reporter := &Reporter{
-		report: &yamlReport{
+		report: &Report{
 			Start:   start,
-			Modules: make(map[string]*moduleReport),
+			Modules: make(map[string]*ModuleReport),
 		},
 		path:         opts.Path,
 		synchronizer: make(chan func(), buffer),
@@ -122,10 +122,10 @@ func (r *Reporter) Finalise() error {
 
 /*INTERNAL*/
 
-func (r *yamlReport) module(mod string) *moduleReport {
+func (r *Report) module(mod string) *ModuleReport {
 	m, ok := r.Modules[mod]
 	if !ok {
-		m = newModule()
+		m = newModuleReport()
 		r.Modules[mod] = m
 	}
 

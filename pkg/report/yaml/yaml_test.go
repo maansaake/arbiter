@@ -44,7 +44,7 @@ func TestYAMLReporter(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to read file:", reportPath)
 	}
-	parsedReport := &yamlReport{}
+	parsedReport := &Report{}
 	err = yaml.Unmarshal(bs, parsedReport)
 	if err != nil {
 		t.Fatal("failed to unmarshal report")

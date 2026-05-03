@@ -2,6 +2,8 @@
 
 [![Main branch protection](https://github.com/maansaake/arbiter/actions/workflows/main.yaml/badge.svg)](https://github.com/maansaake/arbiter/actions/workflows/main.yaml)
 [![Code scanning](https://github.com/maansaake/arbiter/actions/workflows/code-scanning.yaml/badge.svg)](https://github.com/maansaake/arbiter/actions/workflows/code-scanning.yaml)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Go Report Card](https://goreportcard.com/badge/github.com/maansaake/arbiter)](https://goreportcard.com/report/github.com/maansaake/arbiter)
 ![tag](https://img.shields.io/github/v/tag/maansaake/arbiter?label=latest%20version)
 
 Arbiter is a system testing framework aimed at improving software testability, arbiter provides a rich and flexible framework.

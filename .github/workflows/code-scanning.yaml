@@ -32,3 +32,21 @@ jobs:
         uses: github/codeql-action/upload-sarif@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.53.3
         with:
           sarif_file: results.sarif
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-go@d60b41a563a30eb0b7b10e97f0f7b9e1c58f1b0e # v5.5.0
+        with:
+          go-version-file: tools/govulncheck/go.mod
+
+      - name: Run govulncheck
+        run: cd tools/govulncheck && go tool govulncheck -C ../.. -format sarif ./... > govulncheck.sarif
+
+      - name: Upload SARIF report
+        if: always()
+        uses: github/codeql-action/upload-sarif@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.53.3
+        with:
+          sarif_file: tools/govulncheck/govulncheck.sarif

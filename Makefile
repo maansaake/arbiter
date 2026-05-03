@@ -13,3 +13,6 @@ unit-test:
 
 function-test:
 	build/examples/samplemod -duration 20s cli -sample.important 12 -sample.op.test.rate 60
+
+vulncheck:
+	cd tools/govulncheck && go tool govulncheck -C ../.. ./...

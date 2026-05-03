@@ -51,6 +51,7 @@ func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error
 	for _, meta := range metadata {
 		for _, op := range meta.Ops() {
 			if op.Disabled {
+				zerologr.Info("Skipping disabled operation", "mod", meta.Name(), "op", op.Name)
 				continue
 			}
 

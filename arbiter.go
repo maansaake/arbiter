@@ -190,7 +190,7 @@ func run(metadata module.Metadata) error {
 // Parses the input arguments and returns the index of the subcommand and any
 // parsing errors.
 func parseArguments(args []string) (int, error) {
-	flagset = flag.NewFlagSet("arbiter", flag.ContinueOnError)
+	flagset = flag.NewFlagSet("arbiter", flag.ExitOnError)
 
 	formatFlagset := func(fset string) string {
 		return fmt.Sprintf("%-10s", fset)
@@ -223,7 +223,8 @@ func parseArguments(args []string) (int, error) {
 	})
 
 	if subcommandIndex == -1 {
-		totalErr = fmt.Errorf("%w: %w", totalErr, ErrNoSubcommand)
+		flagset.Usage()
+		os.Exit(1)
 	}
 
 	if duration < 1*time.Second {

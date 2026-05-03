@@ -10,24 +10,6 @@ import (
 	"github.com/maansaake/arbiter/pkg/subcommand/cli"
 )
 
-func TestRun_NoSubcommand(t *testing.T) {
-	// Save original args and restore after test
-	origArgs := os.Args
-	defer func() { os.Args = origArgs }()
-
-	// Set args to simulate no subcommand given
-	os.Args = []string{"arbiter"}
-
-	// Create a dummy module
-	modules := module.Modules{&modulemock.Module{SetName: "mock"}}
-
-	// Run the function and check for the expected error
-	err := Run(modules)
-	if err == nil || !errors.Is(err, ErrNoSubcommand) {
-		t.Fatalf("expected error: %v, got: %v", ErrNoSubcommand, err)
-	}
-}
-
 func TestRun_DurationTooShort(t *testing.T) {
 	// Save original args and restore after test
 	origArgs := os.Args

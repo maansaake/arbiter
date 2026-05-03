@@ -42,8 +42,8 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: unit-test-${{ matrix.go-version-alias }}-${{ steps.checksum.outputs.checksum }}
-          restore-keys: unit-test-
+          key: function-test-${{ matrix.go-version-alias }}-${{ steps.checksum.outputs.checksum }}
+          restore-keys: function-test-
 
       - name: Run samplemod executable
         run: make function-test

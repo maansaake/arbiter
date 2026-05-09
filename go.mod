@@ -3,7 +3,7 @@ module github.com/maansaake/arbiter
 go 1.25.9
 
 require (
-	github.com/trebent/zerologr v1.0.2
+	github.com/trebent/zerologr v1.0.3
 	go.opentelemetry.io/contrib/exporters/autoexport v0.68.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.68.0
 	go.opentelemetry.io/otel v1.43.0

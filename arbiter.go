@@ -116,7 +116,7 @@ func Run(modules module.Modules) error {
 			Short:   "Run from a test model file.",
 			PreRunE: validateDuration,
 			RunE: func(_ *cobra.Command, args []string) error {
-				meta, err := file.Parse(args, modules)
+				meta, err := file.Parse(args, modules) //nolint:govet // shad
 				if err != nil {
 					return err
 				}

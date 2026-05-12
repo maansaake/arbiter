@@ -69,4 +69,3 @@ func rateArg(op *module.Op) *module.Arg[uint] {
 		Value: &op.Rate,
 	}
 }
-

@@ -13,6 +13,8 @@ import (
 
 	"github.com/maansaake/arbiter/pkg/module"
 	"github.com/maansaake/arbiter/pkg/report"
+	"github.com/maansaake/arbiter/pkg/report/collection"
+	interactivereport "github.com/maansaake/arbiter/pkg/report/interactive"
 	yamlreport "github.com/maansaake/arbiter/pkg/report/yaml"
 	"github.com/maansaake/arbiter/pkg/subcommand/cli"
 	"github.com/maansaake/arbiter/pkg/subcommand/file"
@@ -38,6 +40,10 @@ var (
 
 	// report.
 	reportPath = reportPathDefault //nolint:gochecknoglobals // modified by flag parsing
+
+	// interactive enables the live TUI dashboard.
+	//nolint:gochecknoglobals // modified by flag parsing
+	interactive = false
 
 	// rootCmd holds the cobra root command for Usage access.
 	//nolint:gochecknoglobals // package-level command for Usage access
@@ -70,6 +76,7 @@ func Run(modules module.Modules) error {
 	// Reset to defaults on each Run call.
 	duration = durationDefault
 	reportPath = reportPathDefault
+	interactive = false
 
 	rootCmd = &cobra.Command{
 		Use:           "arbiter",
@@ -82,6 +89,8 @@ func Run(modules module.Modules) error {
 		DurationVarP(&duration, "duration", "d", durationDefault, "The duration of the test run, minimum 1 second.")
 	rootCmd.PersistentFlags().
 		StringVarP(&reportPath, "report-path", "r", reportPathDefault, "Path to the final report.")
+	rootCmd.PersistentFlags().
+		BoolVarP(&interactive, "interactive", "i", false, "Start in interactive TUI mode with live operation counts, errors and log output.")
 
 	cliCmd, err := cli.NewCommand(modules, run)
 	if err != nil {
@@ -146,7 +155,7 @@ func run(metadata module.Metadata) error {
 	}
 	startLogger.Info("All modules started")
 
-	reporter := setupReporter()
+	reporter, iReporter := setupReporter()
 
 	// Start traffic and monitor, with a timeout of: test >duration<
 	background := context.Background()
@@ -158,6 +167,13 @@ func run(metadata module.Metadata) error {
 	reporterCtx, reporterCancel := context.WithCancel(background)
 	defer reporterCancel()
 	reporter.Start(reporterCtx)
+
+	// Once the reporter is started (bubbletea is up if interactive), redirect
+	// zerologr output into the TUI log panel.
+	if iReporter != nil {
+		zerologr.Set(iReporter.NewLogger().WithName("global"))
+		startLogger = iReporter.NewLogger().WithName("start")
+	}
 
 	if err := traffic.Run(deadlineCtx, metadata, reporter); err != nil {
 		startLogger.Error(err, "Failed to start traffic")
@@ -218,11 +234,18 @@ func startModules(meta []*module.Meta) error {
 	return nil
 }
 
-// Creates a new YAML reporter.
-func setupReporter() report.Reporter {
-	reporter := yamlreport.New(&yamlreport.Opts{
+// Creates the reporter(s). In interactive mode a collection reporter is
+// returned that fans out to both a YAML reporter and the live TUI reporter.
+// The second return value is the interactive reporter (nil when not interactive).
+func setupReporter() (report.Reporter, *interactivereport.Reporter) {
+	yamlR := yamlreport.New(&yamlreport.Opts{
 		Path: reportPath,
 	})
 
-	return reporter
+	if interactive {
+		iR := interactivereport.New()
+		return collection.New(yamlR, iR), iR
+	}
+
+	return yamlR, nil
 }

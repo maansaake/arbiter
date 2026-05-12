@@ -32,7 +32,7 @@ func TestNewCommand(t *testing.T) {
 		FlagsetName,
 		"--mod.count=12",
 		"--mod.op.do.rate=100",
-		"--mod.op.more.disable",
+		"--mod.op.more.disable=true",
 	})
 
 	if err = root.Execute(); err != nil {
@@ -51,4 +51,3 @@ func TestNewCommand(t *testing.T) {
 		t.Fatal("module arg count should have been 12")
 	}
 }
-

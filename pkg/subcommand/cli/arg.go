@@ -12,7 +12,7 @@ import (
 const FlagsetName = "cli"
 
 var (
-	ErrNilPtr       = errors.New("Arg.Value must not be a nil pointer")
+	ErrNilPtr       = errors.New("either Arg.Value or Arg.Handler must not be a nil pointer")
 	ErrRequiredBool = errors.New("a boolean arg cannot be marked required")
 	ErrInvalid      = errors.New("validator failed")
 	ErrType         = errors.New("unsupported type")
@@ -192,7 +192,11 @@ func registerBoolFlag(cmd *cobra.Command, prefix string, arg *module.Arg[bool]) 
 		return fmt.Errorf("%w: '%s'", ErrRequiredBool, argPath(prefix, arg))
 	}
 
-	cmd.Flags().BoolVar(arg.Value, argPath(prefix, arg), *arg.Value, arg.Desc)
+	cmd.Flags().Var(&argFlagValue[bool]{
+		arg:      arg,
+		parse:    strconv.ParseBool,
+		typeName: "bool",
+	}, argPath(prefix, arg), arg.Desc)
 
 	return nil
 }

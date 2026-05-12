@@ -5,6 +5,9 @@ examples/samplemod/build:
 	mkdir -p build/examples
 	go build -o build/examples/samplemod ./examples/samplemod
 
+examples/samplemod/help: examples/samplemod/build
+	build/examples/samplemod cli --help
+
 examples/samplemod/run: examples/samplemod/build
 	build/examples/samplemod \
 		--duration 20s \

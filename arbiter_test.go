@@ -1,7 +1,6 @@
 package arbiter
 
 import (
-	"errors"
 	"os"
 	"testing"
 
@@ -23,7 +22,39 @@ func TestRun_DurationTooShort(t *testing.T) {
 
 	// Run the function and check for the expected error
 	err := Run(modules)
-	if err == nil || !errors.Is(err, ErrDurationTooShort) {
-		t.Fatalf("expected error: %v, got: %v", ErrDurationTooShort, err)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
 	}
+}
+
+func TestRun_ParsingFailed(t *testing.T) {
+	// Save original args and restore after test
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	t.Run("empty report path", func(t *testing.T) {
+		// Set args to simulate duration flag less than 1 second
+		os.Args = []string{"arbiter", "-d", "1s", "--report-path", "", cli.FlagsetName}
+
+		modules := module.Modules{&modulemock.Module{SetName: "mock"}}
+
+		err := Run(modules)
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+	})
+
+	t.Run("report path is a directory", func(t *testing.T) {
+		// Create a temporary directory to use as the report path
+		dir := t.TempDir()
+
+		os.Args = []string{"arbiter", "-d", "1s", "--report-path", dir, cli.FlagsetName}
+
+		modules := module.Modules{&modulemock.Module{SetName: "mock"}}
+
+		err := Run(modules)
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+	})
 }

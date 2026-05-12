@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -41,9 +42,6 @@ var (
 	// rootCmd holds the cobra root command for Usage access.
 	//nolint:gochecknoglobals // package-level command for Usage access
 	rootCmd *cobra.Command
-
-	ErrDurationTooShort = errors.New("duration cannot be less than 1 second")
-	ErrParsingFailed    = errors.New("parsing failed")
 )
 
 //nolint:gochecknoinits // sets up global logger at package load
@@ -60,8 +58,6 @@ func Usage() {
 // Run the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
 // runs out (5 minute default).
 func Run(modules module.Modules) error {
-	startLogger.Info("Starting the Arbiter")
-
 	// TODO: change to support > 1 module
 	if len(modules) != 1 {
 		return fmt.Errorf("currently only 1 module is supported, got %d", len(modules))
@@ -77,7 +73,7 @@ func Run(modules module.Modules) error {
 
 	rootCmd = &cobra.Command{
 		Use:           "arbiter",
-		Short:         "Arbiter traffic testing framework",
+		Short:         "Arbiter load testing framework.",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
@@ -87,20 +83,32 @@ func Run(modules module.Modules) error {
 	rootCmd.PersistentFlags().
 		StringVarP(&reportPath, "report-path", "r", reportPathDefault, "Path to the final report.")
 
-	validateDuration := func(_ *cobra.Command, _ []string) error {
-		if duration < 1*time.Second {
-			return ErrDurationTooShort
-		}
-
-		return nil
-	}
-
 	cliCmd, err := cli.NewCommand(modules, run)
 	if err != nil {
 		return err
 	}
 
-	cliCmd.PreRunE = validateDuration
+	preRunE := func(_ *cobra.Command, _ []string) error {
+		if duration < 1*time.Second {
+			return errors.New("duration must be at least 1 second")
+		}
+
+		if reportPath == "" {
+			return errors.New("report path cannot be empty")
+		}
+
+		stat, err := os.Stat(reportPath) //nolint:govet // shad
+		if err != nil {
+			return fmt.Errorf("invalid report path: %w", err)
+		}
+
+		if stat.IsDir() {
+			return errors.New("report path cannot be a directory")
+		}
+
+		return nil
+	}
+	cliCmd.PreRunE = preRunE
 
 	rootCmd.AddCommand(
 		cliCmd,
@@ -114,7 +122,7 @@ func Run(modules module.Modules) error {
 		&cobra.Command{
 			Use:     file.FlagsetName,
 			Short:   "Run from a test model file.",
-			PreRunE: validateDuration,
+			PreRunE: preRunE,
 			RunE: func(_ *cobra.Command, args []string) error {
 				meta, err := file.Parse(args, modules) //nolint:govet // shad
 				if err != nil {
@@ -144,12 +152,11 @@ func run(metadata module.Metadata) error {
 
 	reporter := setupReporter()
 
-	// Start traffic and monitor, with a deadline set to time.Now() + test duration
+	// Start traffic and monitor, with a timeout of: test >duration<
 	background := context.Background()
-	deadline := time.Now().Add(duration)
-	deadlineCtx, deadlineCancel := context.WithDeadline(background, deadline)
+	deadlineCtx, deadlineCancel := context.WithTimeout(background, duration)
 	defer deadlineCancel()
-	startLogger.Info("Traffic will run until: " + deadline.String())
+	startLogger.Info("Traffic will run for: " + duration.String())
 
 	// Separate the reporter context to allow for finishing reporting separately from stopping traffic.
 	reporterCtx, reporterCancel := context.WithCancel(background)

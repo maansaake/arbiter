@@ -57,7 +57,7 @@ func NewCommand(modules module.Modules, run func(module.Metadata) error) (*cobra
 func disableArg(op *module.Op) *module.Arg[bool] {
 	return &module.Arg[bool]{
 		Name:  fmt.Sprintf("op.%s.disable", strings.ToLower(op.Name)),
-		Desc:  fmt.Sprintf("Disable %s.", op.Name),
+		Desc:  fmt.Sprintf("Disable the %s operation.", op.Name),
 		Value: &op.Disabled,
 	}
 }
@@ -65,7 +65,7 @@ func disableArg(op *module.Op) *module.Arg[bool] {
 func rateArg(op *module.Op) *module.Arg[uint] {
 	return &module.Arg[uint]{
 		Name:  fmt.Sprintf("op.%s.rate", strings.ToLower(op.Name)),
-		Desc:  fmt.Sprintf("Rate of %s per minute.", op.Name),
+		Desc:  fmt.Sprintf("Rate at which to call the %s operation per minute.", op.Name),
 		Value: &op.Rate,
 	}
 }

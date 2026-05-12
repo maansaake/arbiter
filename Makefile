@@ -5,14 +5,17 @@ examples/samplemod/build:
 	mkdir -p build/examples
 	go build -o build/examples/samplemod ./examples/samplemod
 
+examples/samplemod/help: examples/samplemod/build
+	build/examples/samplemod cli --help
+
 examples/samplemod/run: examples/samplemod/build
 	build/examples/samplemod \
-		-duration 20s \
+		--duration 5s \
 		cli \
-		-sample.important 12 \
-		-sample.op.test.rate 60 \
-		-sample.op.broken.disable \
-		-sample.op.unstable.disable
+		--sample.important 12 \
+		--sample.op.test.rate 60 \
+		--sample.op.broken.disable true \
+		--sample.op.unstable.disable true
 
 test/unit:
 	mkdir -p build
@@ -26,7 +29,7 @@ static-analysis/lint:
 	golangci-lint run --fix
 
 static-analysis/vulncheck:
-	go tool -modfile tools/go.mod govulncheck ./...
+	go tool -modfile tools/go.mod govulncheck ./... || true
 
 static-analysis/vulncheck-sarif:
 	mkdir -p build

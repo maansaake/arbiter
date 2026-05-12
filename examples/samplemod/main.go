@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -16,9 +15,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	if errors.Is(err, arbiter.ErrParsingFailed) {
-		fmt.Fprintf(os.Stderr, "Error running Arbiter: %v\n\n", err)
-	}
-
+	fmt.Fprintf(os.Stderr, "Error running the Arbiter: %v\n\n", err)
 	os.Exit(1)
 }

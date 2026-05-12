@@ -7,6 +7,6 @@ import "github.com/maansaake/arbiter/pkg/module"
 
 const FlagsetName = "gen"
 
-func Generate(_ int, _ module.Modules) error {
+func Generate(_ []string, _ module.Modules) error {
 	return nil
 }

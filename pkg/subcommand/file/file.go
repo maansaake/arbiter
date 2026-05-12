@@ -9,6 +9,6 @@ import (
 
 const FlagsetName = "file"
 
-func Parse(_ int, _ module.Modules) ([]*module.Meta, error) {
+func Parse(_ []string, _ module.Modules) ([]*module.Meta, error) {
 	return nil, nil
 }

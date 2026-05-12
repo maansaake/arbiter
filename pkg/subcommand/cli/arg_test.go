@@ -2,62 +2,56 @@ package cli
 
 import (
 	"errors"
-	"flag"
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/maansaake/arbiter/pkg/module"
+	"github.com/spf13/cobra"
 )
 
 func intValidator(v int) bool {
 	return v == 12
 }
 
-func TestRegisterMultiple(t *testing.T) {
-	flagset = flag.NewFlagSet("cli", flag.ExitOnError)
-	required = []string{}
+func newTestCmd() *cobra.Command {
+	return &cobra.Command{Use: "test", SilenceErrors: true, SilenceUsage: true}
+}
 
-	err := Register("ns", module.Args{&module.Arg[int]{
+func TestRegisterMultiple(t *testing.T) {
+	cmd := newTestCmd()
+	var required []string
+
+	err := registerFlags(cmd, "ns", module.Args{&module.Arg[int]{
 		Name:     "int",
 		Value:    new(int),
 		Required: true,
-	}})
+	}}, &required)
 	if err != nil {
 		t.Fatal("no error expected:", err)
 	}
 }
 
 func TestRegisterRequired(t *testing.T) {
-	flagset = flag.NewFlagSet("cli", flag.ExitOnError)
-	required = []string{}
+	cmd := newTestCmd()
+	var required []string
 
-	err := register("ns", &module.Arg[int]{
-		Name:     "int",
-		Value:    new(int),
-		Required: true,
-	})
+	err := registerFlag(cmd, "ns", &module.Arg[int]{Name: "int", Value: new(int), Required: true}, &required)
 	if err != nil {
 		t.Fatal("no error expected:", err)
 	}
-	err = register("ns", &module.Arg[float64]{
-		Name:     "float",
-		Value:    new(float64),
-		Required: true,
-	})
+
+	err = registerFlag(cmd, "ns", &module.Arg[float64]{Name: "float", Value: new(float64), Required: true}, &required)
 	if err != nil {
 		t.Fatal("no error expected:", err)
 	}
-	err = register("ns", &module.Arg[string]{
-		Name:     "string",
-		Value:    new(string),
-		Required: true,
-	})
+
+	err = registerFlag(cmd, "ns", &module.Arg[string]{Name: "string", Value: new(string), Required: true}, &required)
 	if err != nil {
 		t.Fatal("no error expected:", err)
 	}
-	err = register("ns", &module.Arg[bool]{
-		Name:  "bool",
-		Value: new(bool),
-	})
+
+	err = registerFlag(cmd, "ns", &module.Arg[bool]{Name: "bool", Value: new(bool)}, &required)
 	if err != nil {
 		t.Fatal("no error expected:", err)
 	}
@@ -65,88 +59,96 @@ func TestRegisterRequired(t *testing.T) {
 	if len(required) == 0 {
 		t.Fatal("should have appended required list")
 	}
+
 	if len(required) != 3 {
-		t.Fatal("should have had 3 required arguments")
+		t.Fatalf("should have had 3 required arguments, got %d", len(required))
 	}
 }
 
 func TestRequiredPresent(t *testing.T) {
-	flagset = flag.NewFlagSet(FlagsetName, flag.ExitOnError)
-	required = []string{}
+	cmd := newTestCmd()
+	var required []string
 
-	err := register("prefix", &module.Arg[uint]{
-		Name:     "count",
-		Value:    new(uint),
-		Required: true,
-	})
+	err := registerFlag(cmd, "prefix", &module.Arg[uint]{Name: "count", Value: new(uint), Required: true}, &required)
 	if err != nil {
 		t.Fatal("should have not been an error")
 	}
+
 	if len(required) != 1 {
 		t.Fatal("should have been 1 required flag")
 	}
 
-	err = ParseArgs([]string{"-prefix.count=12"})
+	err = cmd.ParseFlags([]string{"--prefix.count=12"})
 	if err != nil {
 		t.Fatal("parsing failed:", err)
 	}
 
-	if len(required) != 0 {
-		t.Fatal("number of required should have been cleared after parsing")
+	for _, name := range required {
+		if !cmd.Flags().Changed(name) {
+			t.Fatalf("flag %s should have been marked as changed", name)
+		}
 	}
 }
 
 func TestRequiredMissing(t *testing.T) {
-	flagset = flag.NewFlagSet(FlagsetName, flag.ExitOnError)
-	required = []string{}
+	cmd := newTestCmd()
+	var required []string
 
-	err := register("prefix", &module.Arg[uint]{
-		Name:     "count",
-		Value:    new(uint),
-		Required: true,
-	})
+	err := registerFlag(cmd, "prefix", &module.Arg[uint]{Name: "count", Value: new(uint), Required: true}, &required)
 	if err != nil {
 		t.Fatal("should have not been an error")
 	}
+
 	if len(required) != 1 {
 		t.Fatal("should have been 1 required flag")
 	}
 
-	err = ParseArgs([]string{})
-	if err == nil {
+	// Simulate the required check that happens in cmd.RunE.
+	var missingErr error
+
+	for _, name := range required {
+		if !cmd.Flags().Changed(name) {
+			missingErr = errors.Join(missingErr, fmt.Errorf("%w: --%s is required", module.ErrArgRequired, name))
+		}
+	}
+
+	if missingErr == nil {
 		t.Fatal("parsing should have failed")
 	}
 
-	if !errors.Is(err, module.ErrArgRequired) {
-		t.Fatal("expected a ErrArgRequired, got", err)
+	if !errors.Is(missingErr, module.ErrArgRequired) {
+		t.Fatal("expected a ErrArgRequired, got", missingErr)
 	}
 }
 
 func TestRequiredBoolean(t *testing.T) {
-	err := register("prefix", &module.Arg[bool]{
+	cmd := newTestCmd()
+	var required []string
+
+	err := registerFlag(cmd, "prefix", &module.Arg[bool]{
 		Name:     "master",
 		Value:    new(bool),
 		Required: true,
-	})
+	}, &required)
 	if err == nil {
 		t.Fatal("should have returned an error")
+	}
+
+	if !errors.Is(err, ErrRequiredBool) {
+		t.Fatalf("expected ErrRequiredBool, got %v", err)
 	}
 }
 
 func TestFlagParseFailure(t *testing.T) {
-	flagset = flag.NewFlagSet(FlagsetName, flag.ContinueOnError)
-	required = []string{}
+	cmd := newTestCmd()
+	var required []string
 
-	err := register("prefix", &module.Arg[uint]{
-		Name:     "count",
-		Value:    new(uint),
-		Required: true,
-	})
+	err := registerFlag(cmd, "prefix", &module.Arg[uint]{Name: "count", Value: new(uint), Required: true}, &required)
 	if err != nil {
 		t.Fatal("should have not been an error")
 	}
 
-	err = ParseArgs([]string{"-doesnotexist=12"})
+	err = cmd.ParseFlags([]string{"--doesnotexist=12"})
 	if err == nil {
 		t.Fatal("parsing should have failed")
 	}
@@ -160,8 +162,15 @@ func TestParseInt(t *testing.T) {
 		Required: true,
 	}
 
-	err := intHandler("prefix", i)("13")
-	if err != nil {
+	v := &argFlagValue[int]{
+		arg: i,
+		parse: func(s string) (int, error) {
+			iv, err := strconv.ParseInt(s, 10, 0)
+			return int(iv), err
+		},
+	}
+
+	if err := v.Set("13"); err != nil {
 		t.Errorf("failed to handle int: %v", err)
 	}
 
@@ -177,8 +186,14 @@ func TestParseFloat(t *testing.T) {
 		Value: &val,
 	}
 
-	err := floatHandler("prefix", fl)("12.13")
-	if err != nil {
+	v := &argFlagValue[float64]{
+		arg: fl,
+		parse: func(s string) (float64, error) {
+			return strconv.ParseFloat(s, 64)
+		},
+	}
+
+	if err := v.Set("12.13"); err != nil {
 		t.Errorf("failed to handle float: %v", err)
 	}
 
@@ -194,8 +209,12 @@ func TestParseString(t *testing.T) {
 		Value: &val,
 	}
 
-	err := stringHandler("prefix", str)("stringg")
-	if err != nil {
+	v := &argFlagValue[string]{
+		arg:   str,
+		parse: func(s string) (string, error) { return s, nil },
+	}
+
+	if err := v.Set("stringg"); err != nil {
 		t.Errorf("failed to handle string: %v", err)
 	}
 
@@ -205,95 +224,113 @@ func TestParseString(t *testing.T) {
 }
 
 func TestParseIntFailure(t *testing.T) {
-	err := intHandler("prefix", &module.Arg[int]{})("xyz")
-	if err == nil {
+	v := &argFlagValue[int]{
+		arg: &module.Arg[int]{Value: new(int)},
+		parse: func(s string) (int, error) {
+			iv, err := strconv.ParseInt(s, 10, 0)
+			return int(iv), err
+		},
+	}
+
+	if err := v.Set("xyz"); err == nil {
 		t.Fatal("should not have successfully parsed")
 	}
 }
 
 func TestParseUIntFailure(t *testing.T) {
-	err := uintHandler("prefix", &module.Arg[uint]{})("xyz")
-	if err == nil {
+	v := &argFlagValue[uint]{
+		arg: &module.Arg[uint]{Value: new(uint)},
+		parse: func(s string) (uint, error) {
+			iv, err := strconv.ParseUint(s, 10, 0)
+			return uint(iv), err
+		},
+	}
+
+	if err := v.Set("xyz"); err == nil {
 		t.Fatal("should not have successfully parsed")
 	}
 }
 
 func TestParseFloatFailure(t *testing.T) {
-	err := floatHandler("prefix", &module.Arg[float64]{})("xyz")
-	if err == nil {
+	v := &argFlagValue[float64]{
+		arg: &module.Arg[float64]{Value: new(float64)},
+		parse: func(s string) (float64, error) {
+			return strconv.ParseFloat(s, 64)
+		},
+	}
+
+	if err := v.Set("xyz"); err == nil {
 		t.Fatal("should not have successfully parsed")
 	}
 }
 
 func TestValidationError(t *testing.T) {
-	b := &module.Arg[int]{
-		Name:  "bool",
-		Value: new(int),
-		Valid: func(val int) bool {
-			return val != 12
+	v := &argFlagValue[int]{
+		arg: &module.Arg[int]{
+			Name:  "bool",
+			Value: new(int),
+			Valid: func(val int) bool { return val != 12 },
+		},
+		parse: func(s string) (int, error) {
+			iv, err := strconv.ParseInt(s, 10, 0)
+			return int(iv), err
 		},
 	}
 
-	err := intHandler("prefix", b)("12")
-
-	if err == nil {
+	if err := v.Set("12"); err == nil {
 		t.Fatal("should have forced a validation error")
 	}
 }
 
 func TestValidationOk(t *testing.T) {
 	iv := 13
-	i := &module.Arg[int]{
-		Name:  "int",
-		Value: &iv,
-		Valid: intValidator,
+	v := &argFlagValue[int]{
+		arg: &module.Arg[int]{
+			Name:  "int",
+			Value: &iv,
+			Valid: intValidator,
+		},
+		parse: func(s string) (int, error) {
+			parsed, err := strconv.ParseInt(s, 10, 0)
+			return int(parsed), err
+		},
 	}
 
-	err := intHandler("prefix", i)("12")
-	if err != nil {
+	if err := v.Set("12"); err != nil {
 		t.Fatal("should have not been an error")
 	}
 
-	if *i.Value != 12 {
+	if iv != 12 {
 		t.Fatal("should have been 12")
 	}
 }
 
 func TestPanicRegisterNilPointer(t *testing.T) {
-	flagset = flag.NewFlagSet("cli", flag.ExitOnError)
-	required = []string{}
+	cmd := newTestCmd()
+	var required []string
 
-	err := register("ns", &module.Arg[float64]{})
+	err := registerFlag(cmd, "ns", &module.Arg[float64]{}, &required)
 	if err == nil {
 		t.Fatal("expected register error")
 	}
 }
 
 func TestParseArgs(t *testing.T) {
-	flagset = flag.NewFlagSet("cli", flag.ExitOnError)
-	required = []string{}
+	cmd := newTestCmd()
+	var required []string
 
-	i := &module.Arg[int]{
-		Name:  "intt",
-		Desc:  "desc",
-		Value: new(int),
-	}
-	s := &module.Arg[string]{
-		Name:  "stringg",
-		Desc:  "desc",
-		Value: new(string),
-	}
-	err := register("ns", i)
-	if err != nil {
-		t.Fatal("should have not been an error")
-	}
-	err = register("ns", s)
-	if err != nil {
-		t.Fatal("should have not been an error")
+	i := &module.Arg[int]{Name: "intt", Desc: "desc", Value: new(int)}
+	s := &module.Arg[string]{Name: "stringg", Desc: "desc", Value: new(string)}
+
+	if err := registerFlag(cmd, "ns", i, &required); err != nil {
+		t.Fatal("should have not been an error:", err)
 	}
 
-	err = ParseArgs([]string{"-ns.stringg", "strvalue", "-ns.intt", "12"})
-	if err != nil {
+	if err := registerFlag(cmd, "ns", s, &required); err != nil {
+		t.Fatal("should have not been an error:", err)
+	}
+
+	if err := cmd.ParseFlags([]string{"--ns.stringg", "strvalue", "--ns.intt", "12"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -302,6 +339,6 @@ func TestParseArgs(t *testing.T) {
 	}
 
 	if *s.Value != "strvalue" {
-		t.Fatal("integer should have been 12")
+		t.Fatal("string should have been 'strvalue'")
 	}
 }

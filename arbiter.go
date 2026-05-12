@@ -98,11 +98,7 @@ func Run(modules module.Modules) error {
 		}
 
 		stat, err := os.Stat(reportPath) //nolint:govet // shad
-		if err != nil {
-			return fmt.Errorf("invalid report path: %w", err)
-		}
-
-		if stat.IsDir() {
+		if err == nil && stat.IsDir() {
 			return errors.New("report path cannot be a directory")
 		}
 

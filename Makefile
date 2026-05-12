@@ -9,10 +9,10 @@ examples/samplemod/run: examples/samplemod/build
 	build/examples/samplemod \
 		--duration 20s \
 		cli \
-		-sample.important 12 \
-		-sample.op.test.rate 60 \
-		-sample.op.broken.disable \
-		-sample.op.unstable.disable
+		--sample.important 12 \
+		--sample.op.test.rate 60 \
+		--sample.op.broken.disable \
+		--sample.op.unstable.disable
 
 test/unit:
 	mkdir -p build

@@ -6,9 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/signal"
-	"slices"
 	"syscall"
 	"time"
 
@@ -97,25 +95,15 @@ func Run(modules module.Modules) error {
 		return nil
 	}
 
+	cliCmd, err := cli.NewCommand(modules, run)
+	if err != nil {
+		return err
+	}
+
+	cliCmd.PreRunE = validateDuration
+
 	rootCmd.AddCommand(
-		&cobra.Command{
-			Use:                cli.FlagsetName,
-			Short:              "Run using CLI flags.",
-			FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
-			PreRunE:            validateDuration,
-			RunE: func(_ *cobra.Command, _ []string) error {
-				// cobra/pflag cannot parse single-dash long flags (e.g. -foo.bar),
-				// so we read os.Args directly, bypassing pflag for module args.
-				subcmdIdx := slices.Index(os.Args, cli.FlagsetName)
-
-				meta, err := cli.Parse(os.Args[subcmdIdx+1:], modules)
-				if err != nil {
-					return err
-				}
-
-				return run(meta)
-			},
-		},
+		cliCmd,
 		&cobra.Command{
 			Use:   gen.FlagsetName,
 			Short: "Generate a test model file.",

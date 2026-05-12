@@ -2,173 +2,188 @@ package cli
 
 import (
 	"errors"
-	"flag"
 	"fmt"
-	"os"
-	"slices"
 	"strconv"
 
 	"github.com/maansaake/arbiter/pkg/module"
+	"github.com/spf13/cobra"
 )
 
 const FlagsetName = "cli"
 
 var (
-	//nolint:gochecknoglobals // package-level state for CLI parsing
-	flagset = flag.NewFlagSet(
-		FlagsetName,
-		flag.ExitOnError,
-	)
-	required []string //nolint:gochecknoglobals // tracks required args for validation
-
 	ErrNilPtr       = errors.New("Arg.Value must not be a nil pointer")
 	ErrRequiredBool = errors.New("a boolean arg cannot be marked required")
 	ErrInvalid      = errors.New("validator failed")
 	ErrType         = errors.New("unsupported type")
 )
 
-func Register(prefix string, args module.Args) error {
-	errs := make([]error, 0)
+// registerFlags registers all args on cmd's flag set using prefix as a namespace.
+// Required flag names are appended to required.
+func registerFlags(cmd *cobra.Command, prefix string, args module.Args, required *[]string) error {
+	errs := make([]error, 0, len(args))
 	for _, arg := range args {
-		errs = append(errs, register(prefix, arg))
+		errs = append(errs, registerFlag(cmd, prefix, arg, required))
 	}
 
 	return errors.Join(errs...)
 }
 
-// ParseArgs parses command line input.
-func ParseArgs(args []string) error {
-	// Ignore error since we're using ExitOnError.
-	_ = flagset.Parse(args)
-
-	if len(required) > 0 {
-		for _, an := range required {
-			fmt.Fprintf(os.Stderr, "missing required argument -%s\n", an)
-		}
-		flagset.SetOutput(os.Stderr)
-		flagset.Usage()
-		return fmt.Errorf("%w: %d required flags have been missed", module.ErrArgRequired, len(required))
-	}
-
-	return nil
-}
-
-// Register the argument with the given prefix, resulting in a command line
-// flag: prefix.<argument.Name>
-func register(prefix string, argument any) error {
-	switch typedArgument := argument.(type) {
+// registerFlag dispatches to the type-specific registration function.
+func registerFlag(cmd *cobra.Command, prefix string, argument any, required *[]string) error {
+	switch a := argument.(type) {
 	case *module.Arg[int]:
-		return registerInt(prefix, typedArgument)
+		return registerIntFlag(cmd, prefix, a, required)
 	case *module.Arg[uint]:
-		return registerUint(prefix, typedArgument)
+		return registerUintFlag(cmd, prefix, a, required)
 	case *module.Arg[float64]:
-		return registerFloat(prefix, typedArgument)
+		return registerFloatFlag(cmd, prefix, a, required)
 	case *module.Arg[string]:
-		return registerString(prefix, typedArgument)
+		return registerStringFlag(cmd, prefix, a, required)
 	case *module.Arg[bool]:
-		return registerBool(prefix, typedArgument)
+		return registerBoolFlag(cmd, prefix, a)
 	}
-	// This is basically a type constraint mismatch.
+
 	return ErrType
 }
 
-func registerInt(prefix string, arg *module.Arg[int]) error {
-	if err := verifyArgValue(arg); err != nil {
+// argFlagValue implements pflag.Value for a typed module.Arg.
+// It calls the arg's validator and handler when the flag value is set.
+type argFlagValue[T module.TypeConstraint] struct {
+	arg      *module.Arg[T]
+	parse    func(string) (T, error)
+	typeName string
+}
+
+func (v *argFlagValue[T]) String() string {
+	if v.arg.Value == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%v", *v.arg.Value)
+}
+
+func (v *argFlagValue[T]) Set(s string) error {
+	val, err := v.parse(s)
+	if err != nil {
 		return err
 	}
 
-	if arg.Required {
-		required = append(required, argPath(prefix, arg))
+	*v.arg.Value = val
+
+	if v.arg.Valid != nil && !v.arg.Valid(val) {
+		return ErrInvalid
 	}
 
-	flagset.Func(argPath(prefix, arg), arg.Desc, intHandler(prefix, arg))
-	return nil
-}
-
-func intHandler(prefix string, arg *module.Arg[int]) func(string) error {
-	return func(val string) error {
-		iv, err := strconv.ParseInt(val, 10, 0)
-		if err != nil {
-			return err
-		}
-		*arg.Value = int(iv)
-
-		return generalHandler(prefix, arg)
+	if v.arg.Handler != nil {
+		v.arg.Handler(val)
 	}
-}
-
-func registerUint(prefix string, arg *module.Arg[uint]) error {
-	if err := verifyArgValue(arg); err != nil {
-		return err
-	}
-
-	if arg.Required {
-		required = append(required, argPath(prefix, arg))
-	}
-
-	flagset.Func(argPath(prefix, arg), arg.Desc, uintHandler(prefix, arg))
-	return nil
-}
-
-func uintHandler(prefix string, arg *module.Arg[uint]) func(string) error {
-	return func(val string) error {
-		iv, err := strconv.ParseUint(val, 10, 0)
-		if err != nil {
-			return err
-		}
-		*arg.Value = uint(iv)
-
-		return generalHandler(prefix, arg)
-	}
-}
-
-func registerFloat(prefix string, arg *module.Arg[float64]) error {
-	if err := verifyArgValue(arg); err != nil {
-		return err
-	}
-
-	if arg.Required {
-		required = append(required, argPath(prefix, arg))
-	}
-
-	flagset.Func(argPath(prefix, arg), arg.Desc, floatHandler(prefix, arg))
-	return nil
-}
-
-func floatHandler(prefix string, arg *module.Arg[float64]) func(string) error {
-	return func(val string) error {
-		fv, err := strconv.ParseFloat(val, 64)
-		if err != nil {
-			return err
-		}
-		*arg.Value = fv
-
-		return generalHandler(prefix, arg)
-	}
-}
-
-func registerString(prefix string, arg *module.Arg[string]) error {
-	if err := verifyArgValue(arg); err != nil {
-		return err
-	}
-
-	if arg.Required {
-		required = append(required, argPath(prefix, arg))
-	}
-
-	flagset.Func(argPath(prefix, arg), arg.Desc, stringHandler(prefix, arg))
 
 	return nil
 }
 
-func stringHandler(prefix string, arg *module.Arg[string]) func(string) error {
-	return func(val string) error {
-		*arg.Value = val
-		return generalHandler(prefix, arg)
-	}
+func (v *argFlagValue[T]) Type() string {
+	return v.typeName
 }
 
-func registerBool(prefix string, arg *module.Arg[bool]) error {
+func verifyArgValue[T module.TypeConstraint](arg *module.Arg[T]) error {
+	if arg.Handler == nil && arg.Value == nil {
+		return fmt.Errorf("%w: '%s'", ErrNilPtr, arg.Name)
+	} else if arg.Value == nil {
+		// For a Handler-only arg, allocate storage so Set() can write to it.
+		arg.Value = new(T)
+	}
+
+	return nil
+}
+
+func registerIntFlag(cmd *cobra.Command, prefix string, arg *module.Arg[int], required *[]string) error {
+	if err := verifyArgValue(arg); err != nil {
+		return err
+	}
+
+	name := argPath(prefix, arg)
+	cmd.Flags().Var(&argFlagValue[int]{
+		arg: arg,
+		parse: func(s string) (int, error) {
+			iv, err := strconv.ParseInt(s, 10, 0)
+			return int(iv), err
+		},
+		typeName: "int",
+	}, name, arg.Desc)
+
+	if arg.Required {
+		*required = append(*required, name)
+	}
+
+	return nil
+}
+
+func registerUintFlag(cmd *cobra.Command, prefix string, arg *module.Arg[uint], required *[]string) error {
+	if err := verifyArgValue(arg); err != nil {
+		return err
+	}
+
+	name := argPath(prefix, arg)
+	cmd.Flags().Var(&argFlagValue[uint]{
+		arg: arg,
+		parse: func(s string) (uint, error) {
+			iv, err := strconv.ParseUint(s, 10, 0)
+			return uint(iv), err
+		},
+		typeName: "uint",
+	}, name, arg.Desc)
+
+	if arg.Required {
+		*required = append(*required, name)
+	}
+
+	return nil
+}
+
+func registerFloatFlag(cmd *cobra.Command, prefix string, arg *module.Arg[float64], required *[]string) error {
+	if err := verifyArgValue(arg); err != nil {
+		return err
+	}
+
+	name := argPath(prefix, arg)
+	cmd.Flags().Var(&argFlagValue[float64]{
+		arg: arg,
+		parse: func(s string) (float64, error) {
+			return strconv.ParseFloat(s, 64)
+		},
+		typeName: "float64",
+	}, name, arg.Desc)
+
+	if arg.Required {
+		*required = append(*required, name)
+	}
+
+	return nil
+}
+
+func registerStringFlag(cmd *cobra.Command, prefix string, arg *module.Arg[string], required *[]string) error {
+	if err := verifyArgValue(arg); err != nil {
+		return err
+	}
+
+	name := argPath(prefix, arg)
+	cmd.Flags().Var(&argFlagValue[string]{
+		arg: arg,
+		parse: func(s string) (string, error) {
+			return s, nil
+		},
+		typeName: "string",
+	}, name, arg.Desc)
+
+	if arg.Required {
+		*required = append(*required, name)
+	}
+
+	return nil
+}
+
+func registerBoolFlag(cmd *cobra.Command, prefix string, arg *module.Arg[bool]) error {
 	if err := verifyArgValue(arg); err != nil {
 		return err
 	}
@@ -177,39 +192,7 @@ func registerBool(prefix string, arg *module.Arg[bool]) error {
 		return fmt.Errorf("%w: '%s'", ErrRequiredBool, argPath(prefix, arg))
 	}
 
-	flagset.BoolVar(arg.Value, argPath(prefix, arg), *arg.Value, arg.Desc)
-	return nil
-}
-
-func verifyArgValue[T module.TypeConstraint](arg *module.Arg[T]) error {
-	if arg.Handler == nil && arg.Value == nil {
-		return fmt.Errorf("%w: '%s'", ErrNilPtr, arg.Name)
-	} else if arg.Value == nil {
-		// For a Handler arg not having to declare a Value, simplifies things a
-		// bit.
-		arg.Value = new(T)
-	}
-	return nil
-}
-
-// Handle required, validation and all other actions.
-func generalHandler[T module.TypeConstraint](prefix string, arg *module.Arg[T]) error {
-	if arg.Required {
-		// Find and pop arg from required slice
-		for i, an := range required {
-			if an == argPath(prefix, arg) {
-				required = slices.Delete(required, i, i+1)
-			}
-		}
-	}
-
-	if arg.Valid != nil && !arg.Valid(*arg.Value) {
-		return ErrInvalid
-	}
-
-	if arg.Handler != nil {
-		arg.Handler(*arg.Value)
-	}
+	cmd.Flags().BoolVar(arg.Value, argPath(prefix, arg), *arg.Value, arg.Desc)
 
 	return nil
 }

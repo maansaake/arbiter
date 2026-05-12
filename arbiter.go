@@ -85,8 +85,9 @@ func Run(modules module.Modules) error {
 	}
 
 	rootCmd.PersistentFlags().
-		DurationVar(&duration, "duration", durationDefault, "The duration of the test run, minimum 1 second.")
-	rootCmd.PersistentFlags().StringVar(&reportPath, "report.path", reportPathDefault, "Path to the final report.")
+		DurationVarP(&duration, "duration", "d", durationDefault, "The duration of the test run, minimum 1 second.")
+	rootCmd.PersistentFlags().
+		StringVarP(&reportPath, "report-path", "r", reportPathDefault, "Path to the final report.")
 
 	validateDuration := func(_ *cobra.Command, _ []string) error {
 		if duration < 1*time.Second {

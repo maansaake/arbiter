@@ -33,7 +33,10 @@ func (s *interactiveSink) Info(_ int, msg string, keysAndValues ...any) {
 		prefix = fmt.Sprintf("[INFO] %s:", s.name)
 	}
 
-	fmt.Fprintf(s.capture, "%s %s%s\n", prefix, msg, formatKVs(append(s.kvs, keysAndValues...)))
+	all := make([]any, 0, len(s.kvs)+len(keysAndValues))
+	all = append(all, s.kvs...)
+	all = append(all, keysAndValues...)
+	fmt.Fprintf(s.capture, "%s %s%s\n", prefix, msg, formatKVs(all))
 }
 
 // Error implements logr.LogSink.
@@ -43,7 +46,10 @@ func (s *interactiveSink) Error(err error, msg string, keysAndValues ...any) {
 		prefix = fmt.Sprintf("[ERROR] %s:", s.name)
 	}
 
-	all := append([]any{"err", err.Error()}, append(s.kvs, keysAndValues...)...)
+	all := make([]any, 0, 2+len(s.kvs)+len(keysAndValues))
+	all = append(all, "err", err.Error())
+	all = append(all, s.kvs...)
+	all = append(all, keysAndValues...)
 	fmt.Fprintf(s.capture, "%s %s%s\n", prefix, msg, formatKVs(all))
 }
 

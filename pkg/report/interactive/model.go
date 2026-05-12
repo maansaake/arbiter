@@ -39,9 +39,9 @@ type errorEntry struct {
 }
 
 const (
-	maxErrors   = 20
-	maxLogLines = 50
-	tickInterval = 2500 * time.Millisecond
+	maxErrors    = 20
+	maxLogLines  = 50
+	refreshInterval = 2500 * time.Millisecond
 )
 
 // Styles.
@@ -98,7 +98,7 @@ func newModel() model {
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(tickInterval, func(t time.Time) tea.Msg {
+	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg {
 		return tickMsg{t: t}
 	})
 }
@@ -119,8 +119,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			// Test still running: re-raise SIGINT so the arbiter stops traffic.
-			proc, _ := os.FindProcess(os.Getpid())
-			_ = proc.Signal(syscall.SIGINT)
+			// os.FindProcess on Unix never returns an error. The Signal call is
+			// best-effort; if it fails there is nothing useful to do from inside
+			// the TUI model.
+			if proc, err := os.FindProcess(os.Getpid()); err == nil {
+				_ = proc.Signal(syscall.SIGINT)
+			}
 		}
 
 	case tea.WindowSizeMsg:

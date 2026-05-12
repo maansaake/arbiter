@@ -3,7 +3,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/maansaake/arbiter/pkg/module"
@@ -12,7 +11,7 @@ import (
 const argsPerOp = 2 // each op contributes a disable flag and a rate flag
 
 // Parse command line arguments for the input modules.
-func Parse(subcommandIndex int, modules module.Modules) (module.Metadata, error) {
+func Parse(args []string, modules module.Modules) (module.Metadata, error) {
 	metadata := make(module.Metadata, len(modules))
 	for i, mod := range modules {
 		meta := &module.Meta{Module: mod}
@@ -33,7 +32,7 @@ func Parse(subcommandIndex int, modules module.Modules) (module.Metadata, error)
 		metadata[i] = meta
 	}
 
-	return metadata, ParseArgs(os.Args[subcommandIndex+1:])
+	return metadata, ParseArgs(args)
 }
 
 func disableArg(op *module.Op) *module.Arg[bool] {

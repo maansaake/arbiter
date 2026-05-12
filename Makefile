@@ -7,7 +7,7 @@ examples/samplemod/build:
 
 examples/samplemod/run: examples/samplemod/build
 	build/examples/samplemod \
-		-duration 20s \
+		--duration 20s \
 		cli \
 		-sample.important 12 \
 		-sample.op.test.rate 60 \

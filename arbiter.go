@@ -5,11 +5,8 @@ package arbiter
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
-	"os"
 	"os/signal"
-	"slices"
 	"syscall"
 	"time"
 
@@ -20,6 +17,7 @@ import (
 	"github.com/maansaake/arbiter/pkg/subcommand/file"
 	"github.com/maansaake/arbiter/pkg/subcommand/gen"
 	"github.com/maansaake/arbiter/pkg/traffic"
+	"github.com/spf13/cobra"
 	"github.com/trebent/zerologr"
 )
 
@@ -29,21 +27,9 @@ const (
 )
 
 var (
-	// flagset.
-	//nolint:gochecknoglobals // package-level flagset for CLI parsing
-	flagset *flag.FlagSet
-
 	// global flag vars.
 	//nolint:gochecknoglobals // modified by flag parsing
 	duration = durationDefault
-
-	// subcommand parsing vars.
-	//nolint:gochecknoglobals // modified by flag parsing
-	subcommands = []string{
-		cli.FlagsetName,
-		gen.FlagsetName,
-		file.FlagsetName,
-	}
 
 	// logger.
 	//nolint:gochecknoglobals // glob log
@@ -52,10 +38,12 @@ var (
 	// report.
 	reportPath = reportPathDefault //nolint:gochecknoglobals // modified by flag parsing
 
-	ErrNoSubcommand       = errors.New("no subcommand given")
-	ErrSubcommandNotFound = errors.New("subcommand not found")
-	ErrDurationTooShort   = errors.New("duration cannot be less than 1 second")
-	ErrParsingFailed      = errors.New("parsing failed")
+	// rootCmd holds the cobra root command for Usage access.
+	//nolint:gochecknoglobals // package-level command for Usage access
+	rootCmd *cobra.Command
+
+	ErrDurationTooShort = errors.New("duration cannot be less than 1 second")
+	ErrParsingFailed    = errors.New("parsing failed")
 )
 
 //nolint:gochecknoinits // sets up global logger at package load
@@ -66,7 +54,10 @@ func init() {
 
 // Usage prints the usage information for the Arbiter command line arguments.
 func Usage() {
-	flagset.Usage()
+	if rootCmd != nil {
+		//nolint:errcheck // best-effort usage output
+		_ = rootCmd.Usage()
+	}
 }
 
 // Run the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
@@ -81,36 +72,69 @@ func Run(modules module.Modules) error {
 		return err
 	}
 
-	// Verify input arguments and parse subcommand.
-	subcommandIndex, parseErr := parseArguments(os.Args)
-	if parseErr != nil {
-		return parseErr
+	// Reset to defaults on each Run call.
+	duration = durationDefault
+	reportPath = reportPathDefault
+
+	rootCmd = &cobra.Command{
+		Use:           "arbiter",
+		Short:         "Arbiter traffic testing framework",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
-	// Check invoked subcommand
-	switch os.Args[subcommandIndex] {
-	case cli.FlagsetName:
-		// Parse module arguments and continue to run block.
-		meta, err := cli.Parse(subcommandIndex, modules)
-		if err != nil {
-			return err
+	rootCmd.PersistentFlags().DurationVar(&duration, "duration", durationDefault, "The duration of the test run, minimum 1 second.")
+	rootCmd.PersistentFlags().StringVar(&reportPath, "report.path", reportPathDefault, "Path to the final report.")
+
+	validateDuration := func(_ *cobra.Command, _ []string) error {
+		if duration < 1*time.Second {
+			return ErrDurationTooShort
 		}
 
-		return run(meta)
-	case gen.FlagsetName:
-		// Generate run file based on input modules.
-		return gen.Generate(subcommandIndex, modules)
-	case file.FlagsetName:
-		// Parse run file information and continue to run block.
-		meta, err := file.Parse(subcommandIndex, modules)
-		if err != nil {
-			return err
-		}
-
-		return run(meta)
-	default:
-		return fmt.Errorf("%w: %v", ErrSubcommandNotFound, os.Args)
+		return nil
 	}
+
+	rootCmd.AddCommand(
+		&cobra.Command{
+			Use:     cli.FlagsetName,
+			Short:   "Run using CLI flags.",
+			Args:    cobra.ArbitraryArgs,
+			PreRunE: validateDuration,
+			RunE: func(_ *cobra.Command, args []string) error {
+				meta, err := cli.Parse(args, modules)
+				if err != nil {
+					return err
+				}
+
+				return run(meta)
+			},
+		},
+		&cobra.Command{
+			Use:     gen.FlagsetName,
+			Short:   "Generate a test model file.",
+			Args:    cobra.ArbitraryArgs,
+			PreRunE: validateDuration,
+			RunE: func(_ *cobra.Command, args []string) error {
+				return gen.Generate(args, modules)
+			},
+		},
+		&cobra.Command{
+			Use:     file.FlagsetName,
+			Short:   "Run from a test model file.",
+			Args:    cobra.ArbitraryArgs,
+			PreRunE: validateDuration,
+			RunE: func(_ *cobra.Command, args []string) error {
+				meta, err := file.Parse(args, modules)
+				if err != nil {
+					return err
+				}
+
+				return run(meta)
+			},
+		},
+	)
+
+	return rootCmd.Execute()
 }
 
 // Runs the input modules and starts generating traffic. Creates a traffic
@@ -187,53 +211,6 @@ func run(metadata module.Metadata) error {
 	return stopErr
 }
 
-// Parses the input arguments and returns the index of the subcommand and any
-// parsing errors.
-func parseArguments(args []string) (int, error) {
-	flagset = flag.NewFlagSet("arbiter", flag.ExitOnError)
-
-	formatFlagset := func(fset string) string {
-		return fmt.Sprintf("%-10s", fset)
-	}
-
-	flagset.SetOutput(os.Stdout)
-	flagset.Usage = func() {
-		fmt.Fprintf(flagset.Output(), "%s [subcommand]\n\n", os.Args[0])
-		fmt.Fprint(flagset.Output(), "subcommands:\n")
-		fmt.Fprintf(flagset.Output(), "  %s Run using CLI flags.\n", formatFlagset(cli.FlagsetName))
-		fmt.Fprintf(flagset.Output(), "  %s Generate a test model file.\n", formatFlagset(gen.FlagsetName))
-		fmt.Fprintf(flagset.Output(), "  %s Run from a test model file.\n", formatFlagset(file.FlagsetName))
-		fmt.Fprint(flagset.Output(), "\n")
-		fmt.Fprint(flagset.Output(), "global flags:\n")
-		flagset.PrintDefaults()
-	}
-
-	// Global flags
-	flagset.DurationVar(&duration, "duration", duration, "The duration of the test run, minimum 30 seconds.")
-	flagset.StringVar(&reportPath, "report.path", reportPath, "Path to the final report.")
-
-	var totalErr error
-	parseErr := flagset.Parse(os.Args[1:])
-	if parseErr != nil {
-		totalErr = fmt.Errorf("%w: %w", ErrParsingFailed, parseErr)
-	}
-
-	subcommandIndex := slices.IndexFunc(args, func(arg string) bool {
-		return slices.Contains(subcommands, arg)
-	})
-
-	if subcommandIndex == -1 {
-		flagset.Usage()
-		os.Exit(1)
-	}
-
-	if duration < 1*time.Second {
-		totalErr = fmt.Errorf("%w: %w", totalErr, ErrDurationTooShort)
-	}
-
-	return subcommandIndex, totalErr
-}
-
 // Starts the input modules and logs any errors.
 func startModules(meta []*module.Meta) error {
 	for _, m := range meta {
@@ -242,6 +219,7 @@ func startModules(meta []*module.Meta) error {
 			return fmt.Errorf("failed to start module %s: %w", m.Name(), err)
 		}
 	}
+
 	return nil
 }
 

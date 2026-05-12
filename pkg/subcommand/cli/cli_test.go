@@ -27,7 +27,7 @@ func TestParse(t *testing.T) {
 		"-mod.op.more.disable",
 	}
 
-	_, err := Parse(0, module.Modules{mod})
+	_, err := Parse(os.Args[1:], module.Modules{mod})
 	if err != nil {
 		t.Fatal("should not have been an error")
 	}

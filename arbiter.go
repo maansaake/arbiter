@@ -54,10 +54,8 @@ func init() {
 
 // Usage prints the usage information for the Arbiter command line arguments.
 func Usage() {
-	if rootCmd != nil {
-		//nolint:errcheck // best-effort usage output
-		_ = rootCmd.Usage()
-	}
+	//nolint:errcheck // best-effort usage output
+	_ = rootCmd.Usage()
 }
 
 // Run the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration

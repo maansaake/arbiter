@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
@@ -54,13 +56,14 @@ func init() {
 
 // Usage prints the usage information for the Arbiter command line arguments.
 func Usage() {
-	//nolint:errcheck // best-effort usage output
 	_ = rootCmd.Usage()
 }
 
 // Run the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
 // runs out (5 minute default).
 func Run(modules module.Modules) error {
+	startLogger.Info("Starting the Arbiter")
+
 	// TODO: change to support > 1 module
 	if len(modules) != 1 {
 		return fmt.Errorf("currently only 1 module is supported, got %d", len(modules))
@@ -81,7 +84,8 @@ func Run(modules module.Modules) error {
 		SilenceUsage:  true,
 	}
 
-	rootCmd.PersistentFlags().DurationVar(&duration, "duration", durationDefault, "The duration of the test run, minimum 1 second.")
+	rootCmd.PersistentFlags().
+		DurationVar(&duration, "duration", durationDefault, "The duration of the test run, minimum 1 second.")
 	rootCmd.PersistentFlags().StringVar(&reportPath, "report.path", reportPathDefault, "Path to the final report.")
 
 	validateDuration := func(_ *cobra.Command, _ []string) error {
@@ -94,12 +98,16 @@ func Run(modules module.Modules) error {
 
 	rootCmd.AddCommand(
 		&cobra.Command{
-			Use:     cli.FlagsetName,
-			Short:   "Run using CLI flags.",
-			Args:    cobra.ArbitraryArgs,
-			PreRunE: validateDuration,
-			RunE: func(_ *cobra.Command, args []string) error {
-				meta, err := cli.Parse(args, modules)
+			Use:                cli.FlagsetName,
+			Short:              "Run using CLI flags.",
+			FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
+			PreRunE:            validateDuration,
+			RunE: func(_ *cobra.Command, _ []string) error {
+				// cobra/pflag cannot parse single-dash long flags (e.g. -foo.bar),
+				// so we read os.Args directly, bypassing pflag for module args.
+				subcmdIdx := slices.Index(os.Args, cli.FlagsetName)
+
+				meta, err := cli.Parse(os.Args[subcmdIdx+1:], modules)
 				if err != nil {
 					return err
 				}
@@ -108,10 +116,8 @@ func Run(modules module.Modules) error {
 			},
 		},
 		&cobra.Command{
-			Use:     gen.FlagsetName,
-			Short:   "Generate a test model file.",
-			Args:    cobra.ArbitraryArgs,
-			PreRunE: validateDuration,
+			Use:   gen.FlagsetName,
+			Short: "Generate a test model file.",
 			RunE: func(_ *cobra.Command, args []string) error {
 				return gen.Generate(args, modules)
 			},
@@ -119,7 +125,6 @@ func Run(modules module.Modules) error {
 		&cobra.Command{
 			Use:     file.FlagsetName,
 			Short:   "Run from a test model file.",
-			Args:    cobra.ArbitraryArgs,
 			PreRunE: validateDuration,
 			RunE: func(_ *cobra.Command, args []string) error {
 				meta, err := file.Parse(args, modules)

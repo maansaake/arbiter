@@ -46,13 +46,22 @@ jobs:
           restore-keys: unit-test-
 
       - name: Run tests
-        run: go test ./... -v -failfast -coverprofile=coverage.out
+        run: make test/unit-json
+
+      - name: Publish test results
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        if: always()
+        with:
+          name: Unit tests
+          path: build/unit-test-output.json
+          reporter: golang-json
+          fail-on-error: "false"
 
       - name: Generate coverage report
-        run: go tool cover -html=coverage.out -o coverage.html
+        run: go tool cover -html=build/coverage.out -o build/coverage.html
 
       - name: Upload coverage report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: go-coverage-report-${{ matrix.go-version-alias }}
-          path: coverage.html
+          path: build/coverage.html

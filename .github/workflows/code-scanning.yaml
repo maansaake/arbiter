@@ -44,7 +44,7 @@ jobs:
           cache-dependency-path: tools/go.sum
 
       - name: Run govulncheck
-        run: go tool -modfile tools/go.mod govulncheck -format sarif ./... > results.sarif
+        run: make static-analysis/vulncheck-sarif
 
       - name: Upload SARIF report
         if: always()

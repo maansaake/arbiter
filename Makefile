@@ -30,7 +30,7 @@ static-analysis/vulncheck:
 
 static-analysis/vulncheck-sarif:
 	mkdir -p build
-	go tool -modfile tools/go.mod govulncheck -sarif ./... > build/vulncheck.sarif
+	go tool -modfile tools/go.mod govulncheck -format sarif ./... > build/vulncheck.sarif
 
 install/tools:
 	curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.12.2

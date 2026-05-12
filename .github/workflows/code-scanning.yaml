@@ -50,4 +50,4 @@ jobs:
         if: always()
         uses: github/codeql-action/upload-sarif@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v4.53.3
         with:
-          sarif_file: results.sarif
+          sarif_file: build/results.sarif

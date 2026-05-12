@@ -46,4 +46,4 @@ jobs:
           restore-keys: build-
 
       - name: Build sample mod
-        run: make build-examples-samplemod
+        run: make examples/samplemod/build

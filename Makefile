@@ -17,6 +17,14 @@ examples/samplemod/run: examples/samplemod/build
 		--sample.op.broken.disable true \
 		--sample.op.unstable.disable true
 
+examples/samplemod/run-longer: examples/samplemod/build
+	build/examples/samplemod \
+		--duration 120s \
+		cli \
+		--sample.important 12 \
+		--sample.op.test.rate 120 \
+		--sample.op.broken.disable true \
+
 test/unit:
 	mkdir -p build
 	go test ./... -v -failfast -coverprofile=build/coverage.out

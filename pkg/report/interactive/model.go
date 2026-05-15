@@ -47,6 +47,7 @@ type modInfo struct {
 const (
 	refreshInterval = time.Second
 	defaultWidth    = 80
+	opNameWidth     = 20
 )
 
 // Styles used throughout the TUI.
@@ -142,13 +143,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			if !m.done {
-				// Send SIGINT so arbiter stops traffic and generates the report
-				// before we exit. The Signal call is best-effort; failure here
-				// cannot be meaningfully recovered inside the TUI model.
-				if proc, err := os.FindProcess(os.Getpid()); err == nil {
-					_ = proc.Signal(syscall.SIGINT)
-				}
-			}
+			// Send SIGINT so arbiter stops traffic and generates the report
+			// before we exit.
+			_ = syscall.Kill(os.Getpid(), syscall.SIGINT)
+		}
 			return m, tea.Quit
 		}
 
@@ -284,7 +282,7 @@ func (m model) renderOp(modName string, op opInfo, w int) string {
 
 	if op.disabled {
 		content := opDisabledTextStyle.Render(
-			fmt.Sprintf("%-20s  [DISABLED]", op.name),
+			fmt.Sprintf("%-*s  [DISABLED]", opNameWidth, op.name),
 		)
 
 		return opDisabledBoxStyle.Width(innerW).Render(content)
@@ -303,8 +301,8 @@ func (m model) renderOp(modName string, op opInfo, w int) string {
 	}
 
 	content := fmt.Sprintf(
-		"%-20s  rate: %d/min   calls: %d   failed: %d   success: %s",
-		op.name, op.rate, executions, nok, successStr(executions, okCount),
+		"%-*s  rate: %d/min   calls: %d   failed: %d   success: %s",
+		opNameWidth, op.name, op.rate, executions, nok, successStr(executions, okCount),
 	)
 
 	return opBoxStyle.Width(innerW).Render(content)

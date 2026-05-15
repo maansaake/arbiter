@@ -22,33 +22,36 @@ import (
 	"github.com/maansaake/arbiter/pkg/subcommand/gen"
 	"github.com/maansaake/arbiter/pkg/traffic"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/trebent/zerologr"
 )
 
 const (
-	durationDefault   = time.Minute * 5
-	reportPathDefault = "report.yaml"
+	defaultDuration    = time.Minute * 5
+	defaultReportPath  = "report.yaml"
+	defaultInteractive = false
 )
 
 var (
 	// global flag vars.
 	//nolint:gochecknoglobals // modified by flag parsing
-	duration = durationDefault
-
-	// logger.
-	//nolint:gochecknoglobals // glob log
-	startLogger = zerologr.New(&zerologr.Opts{Console: true}).WithName("start")
+	duration time.Duration
 
 	// report.
-	reportPath = reportPathDefault //nolint:gochecknoglobals // modified by flag parsing
+	reportPath string //nolint:gochecknoglobals // modified by flag parsing
 
 	// interactive enables the live TUI dashboard.
 	//nolint:gochecknoglobals // modified by flag parsing
-	interactive = false
+	interactive bool
 
 	// rootCmd holds the cobra root command for Usage access.
 	//nolint:gochecknoglobals // package-level command for Usage access
 	rootCmd *cobra.Command
+
+	// ErrStopping is returned when there was an error stopping traffic or modules.
+	// It is used to wrap any errors from traffic or module stopping to allow
+	// callers to check for this specific case.
+	ErrStopping = errors.New("error stopping traffic or modules")
 )
 
 //nolint:gochecknoinits // sets up global logger at package load
@@ -65,77 +68,36 @@ func Usage() {
 // Run the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
 // runs out (5 minute default).
 func Run(modules module.Modules) error {
-	// TODO: change to support > 1 module
-	if len(modules) != 1 {
-		return fmt.Errorf("currently only 1 module is supported, got %d", len(modules))
-	}
-
 	if err := module.Validate(modules); err != nil {
 		return err
 	}
 
 	// Reset to defaults on each Run call.
-	duration = durationDefault
-	reportPath = reportPathDefault
-	interactive = false
+	duration = defaultDuration
+	reportPath = defaultReportPath
+	interactive = defaultInteractive
 
+	// Root cmd that all subcommands are added to.
 	rootCmd = &cobra.Command{
 		Use:           "arbiter",
-		Short:         "Arbiter load testing framework.",
+		Short:         "Arbiter load testing.",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
 
-	rootCmd.PersistentFlags().
-		DurationVarP(&duration, "duration", "d", durationDefault, "The duration of the test run, minimum 1 second.")
-	rootCmd.PersistentFlags().
-		StringVarP(&reportPath, "report-path", "r", reportPathDefault, "Path to the final report.")
-	rootCmd.PersistentFlags().
-		BoolVarP(&interactive, "interactive", "i", false, "Start in interactive TUI mode with a live progress bar and per-operation statistics.")
-
-	cliCmd, err := cli.NewCommand(modules, run)
+	cliCmd, fileCmd, err := buildRunnerCmds(modules)
 	if err != nil {
 		return err
 	}
 
-	preRunE := func(_ *cobra.Command, _ []string) error {
-		if duration < 1*time.Second {
-			return errors.New("duration must be at least 1 second")
-		}
-
-		if reportPath == "" {
-			return errors.New("report path cannot be empty")
-		}
-
-		stat, err := os.Stat(reportPath) //nolint:govet // shad
-		if err == nil && stat.IsDir() {
-			return errors.New("report path cannot be a directory")
-		}
-
-		return nil
-	}
-	cliCmd.PreRunE = preRunE
-
 	rootCmd.AddCommand(
 		cliCmd,
+		fileCmd,
 		&cobra.Command{
 			Use:   gen.FlagsetName,
 			Short: "Generate a test model file.",
 			RunE: func(_ *cobra.Command, args []string) error {
 				return gen.Generate(args, modules)
-			},
-		},
-		&cobra.Command{
-			Use:     file.FlagsetName,
-			Short:   "Run from a test model file.",
-			PreRunE: preRunE,
-			RunE: func(_ *cobra.Command, args []string) error {
-				meta, err := file.Parse(args, modules) //nolint:govet // shad
-				if err != nil {
-					return err
-				}
-
-				return run(meta)
 			},
 		},
 	)
@@ -148,76 +110,62 @@ func Run(modules module.Modules) error {
 // or when the test duration runs out. Will immediately exit if any module
 // returns an error from its call to Run().
 func run(metadata module.Metadata) error {
-	startLogger.Info("Starting modules")
+	zerologr.Info("Starting modules")
 
 	if err := startModules(metadata); err != nil {
-		startLogger.Error(err, "Start failure")
+		zerologr.Error(err, "Start failure")
 		return err
 	}
-	startLogger.Info("All modules started")
+	zerologr.Info("All modules started")
 
 	reporter := setupReporter(metadata)
 
+	// Start signal interceptor for SIGINT and SIGTERM
+	signalCtx, signalCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer signalCancel()
+
 	// Start traffic and monitor, with a timeout of: test >duration<
-	background := context.Background()
-	deadlineCtx, deadlineCancel := context.WithTimeout(background, duration)
-	defer deadlineCancel()
-	startLogger.Info("Traffic will run for: " + duration.String())
+	timeoutCtx, timeoutCancel := context.WithTimeout(signalCtx, duration)
+	defer timeoutCancel()
+	zerologr.Info("Traffic will run for: " + duration.String())
 
-	// Separate the reporter context to allow for finishing reporting separately from stopping traffic.
-	reporterCtx, reporterCancel := context.WithCancel(background)
-	defer reporterCancel()
-	reporter.Start(reporterCtx)
+	reporter.Start(signalCtx)
 
-	// Suppress log output while the TUI is active to prevent interference
-	// with the alternate-screen renderer.
-	if interactive {
-		zerologr.Set(logr.Discard())
-		startLogger = logr.Discard()
-	}
-
-	if err := traffic.Run(deadlineCtx, metadata, reporter); err != nil {
-		startLogger.Error(err, "Failed to start traffic")
+	if err := traffic.Run(timeoutCtx, metadata, reporter); err != nil {
+		zerologr.Error(err, "Failed to start traffic")
 		return err
 	}
 
-	// Start signal interceptor for SIGINT and SIGTERM
-	signalCtx, signalCancel := signal.NotifyContext(background, syscall.SIGINT, syscall.SIGTERM)
-	defer signalCancel()
-	startLogger.Info("Awaiting stop signal")
+	zerologr.Info("Awaiting completion (SIGINT/SIGTERM or duration timeout)")
 	select {
 	case <-signalCtx.Done():
-		startLogger.Info("Got stop signal")
-	case <-deadlineCtx.Done():
-		startLogger.Info("Deadline exceeded")
+		zerologr.Info("Got stop signal")
+	case <-timeoutCtx.Done():
+		zerologr.Info("Deadline exceeded")
 	}
-	deadlineCancel()
-	signalCancel()
 
-	startLogger = startLogger.WithName("stopping")
-
+	// stopErr accumulates any errors from stopping traffic and modules, and finalising the report,
+	// to be returned at the end of the function.
 	var stopErr error
-	stopErr = traffic.Stop()
-	if stopErr != nil {
-		startLogger.Error(stopErr, "Error when stopping traffic")
+	if stopErr = traffic.Stop(); stopErr != nil {
+		zerologr.Error(stopErr, "Error when stopping traffic")
+		stopErr = fmt.Errorf("%w: traffic stop: %w", ErrStopping, stopErr)
 	}
+	signalCancel() // Cancel the signal context to unblock the reporter if it's waiting on it.
 
-	// Stop it here to allow the scheduler to report all before shutting down.
-	reporterCancel()
-
-	startLogger.Info("Stopping modules")
+	zerologr.Info("Stopping modules")
 	for _, m := range metadata {
 		if moduleStopErr := m.Stop(); moduleStopErr != nil {
-			startLogger.Error(moduleStopErr, "Module stop reported an error", "module", m.Name())
-			stopErr = errors.Join(stopErr, fmt.Errorf("module %s: %w", m.Name(), moduleStopErr))
+			zerologr.Error(moduleStopErr, "Module stop reported an error", "module", m.Name())
+			stopErr = errors.Join(stopErr, fmt.Errorf("module %s stop: %w", m.Name(), moduleStopErr))
 		}
 	}
 
-	startLogger.Info("Finalising report")
+	zerologr.Info("Finalising report")
 	reporterStopErr := reporter.Finalise()
 	if reporterStopErr != nil {
-		startLogger.Error(reporterStopErr, "Error when finalising report")
-		stopErr = errors.Join(stopErr, reporterStopErr)
+		zerologr.Error(reporterStopErr, "Error when finalising report")
+		stopErr = errors.Join(stopErr, fmt.Errorf("reporter stop: %w", reporterStopErr))
 	}
 
 	return stopErr
@@ -226,7 +174,7 @@ func run(metadata module.Metadata) error {
 // Starts the input modules and logs any errors.
 func startModules(meta []*module.Meta) error {
 	for _, m := range meta {
-		startLogger.Info("Starting", "module", m.Name())
+		zerologr.Info("Starting", "module", m.Name())
 		if err := m.Run(); err != nil {
 			return fmt.Errorf("failed to start module %s: %w", m.Name(), err)
 		}
@@ -247,4 +195,85 @@ func setupReporter(metadata module.Metadata) report.Reporter {
 	}
 
 	return yamlR
+}
+
+func buildRunnerCmds(modules module.Modules) (*cobra.Command, *cobra.Command, error) {
+	// The runner flagset is passed to cli and file commands that run tests.
+	runnerFlagSet := buildRunnerFlagSet()
+
+	cliCmd, err := cli.NewCommand(modules, run)
+	if err != nil {
+		return nil, nil, err
+	}
+	cliCmd.Flags().AddFlagSet(runnerFlagSet)
+
+	runnerPreRunE := func(_ *cobra.Command, _ []string) error {
+		if duration < 1*time.Second {
+			return errors.New("duration must be at least 1 second")
+		}
+
+		if reportPath == "" {
+			return errors.New("report path cannot be empty")
+		}
+
+		// err is fine since the file does not have to exist prior to the test ending.
+		stat, err := os.Stat(reportPath) //nolint:govet // shad
+		if err == nil && stat.IsDir() {
+			return errors.New("report path cannot be a directory")
+		}
+
+		if interactive {
+			// Suppress log output while the TUI is active to prevent interference
+			// TODO: create file sink instead to be able to capture logs in interactive mode as well
+			zerologr.Set(logr.Discard())
+		} else {
+			zerologr.Set(zerologr.New(&zerologr.Opts{Console: true, Caller: true}).WithName("arbiter"))
+		}
+
+		return nil
+	}
+	cliCmd.PreRunE = runnerPreRunE
+
+	fileCmd := &cobra.Command{
+		Use:     file.FlagsetName,
+		Short:   "Run from a test model file.",
+		PreRunE: runnerPreRunE,
+		RunE: func(_ *cobra.Command, args []string) error {
+			meta, err := file.Parse(args, modules) //nolint:govet // shad
+			if err != nil {
+				return err
+			}
+
+			return run(meta)
+		},
+	}
+	fileCmd.Flags().AddFlagSet(runnerFlagSet)
+
+	return cliCmd, fileCmd, nil
+}
+
+func buildRunnerFlagSet() *pflag.FlagSet {
+	runnerFlagSet := &pflag.FlagSet{}
+	runnerFlagSet.DurationVarP(
+		&duration,
+		"duration",
+		"d",
+		defaultDuration,
+		"The duration of the test run, minimum 1 second.",
+	)
+	runnerFlagSet.StringVarP(
+		&reportPath,
+		"report-path",
+		"r",
+		defaultReportPath,
+		"Path to the final report.",
+	)
+	runnerFlagSet.BoolVarP(
+		&interactive,
+		"interactive",
+		"i",
+		defaultInteractive,
+		"Start in interactive TUI mode with a live progress bar and per-operation statistics.",
+	)
+	return runnerFlagSet
 }

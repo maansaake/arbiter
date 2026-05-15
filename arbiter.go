@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/maansaake/arbiter/pkg/module"
 	"github.com/maansaake/arbiter/pkg/report"
 	"github.com/maansaake/arbiter/pkg/report/collection"
@@ -90,7 +91,7 @@ func Run(modules module.Modules) error {
 	rootCmd.PersistentFlags().
 		StringVarP(&reportPath, "report-path", "r", reportPathDefault, "Path to the final report.")
 	rootCmd.PersistentFlags().
-		BoolVarP(&interactive, "interactive", "i", false, "Start in interactive TUI mode with live operation counts, errors and log output.")
+		BoolVarP(&interactive, "interactive", "i", false, "Start in interactive TUI mode with a live progress bar and per-operation statistics.")
 
 	cliCmd, err := cli.NewCommand(modules, run)
 	if err != nil {
@@ -155,7 +156,7 @@ func run(metadata module.Metadata) error {
 	}
 	startLogger.Info("All modules started")
 
-	reporter, iReporter := setupReporter()
+	reporter := setupReporter(metadata)
 
 	// Start traffic and monitor, with a timeout of: test >duration<
 	background := context.Background()
@@ -168,11 +169,11 @@ func run(metadata module.Metadata) error {
 	defer reporterCancel()
 	reporter.Start(reporterCtx)
 
-	// Once the reporter is started (bubbletea is up if interactive), redirect
-	// zerologr output into the TUI log panel.
-	if iReporter != nil {
-		zerologr.Set(iReporter.NewLogger().WithName("global"))
-		startLogger = iReporter.NewLogger().WithName("start")
+	// Suppress log output while the TUI is active to prevent interference
+	// with the alternate-screen renderer.
+	if interactive {
+		zerologr.Set(logr.Discard())
+		startLogger = logr.Discard()
 	}
 
 	if err := traffic.Run(deadlineCtx, metadata, reporter); err != nil {
@@ -236,16 +237,14 @@ func startModules(meta []*module.Meta) error {
 
 // Creates the reporter(s). In interactive mode a collection reporter is
 // returned that fans out to both a YAML reporter and the live TUI reporter.
-// The second return value is the interactive reporter (nil when not interactive).
-func setupReporter() (report.Reporter, *interactivereport.Reporter) {
+func setupReporter(metadata module.Metadata) report.Reporter {
 	yamlR := yamlreport.New(&yamlreport.Opts{
 		Path: reportPath,
 	})
 
 	if interactive {
-		iR := interactivereport.New()
-		return collection.New(yamlR, iR), iR
+		return collection.New(yamlR, interactivereport.New(metadata, duration))
 	}
 
-	return yamlR, nil
+	return yamlR
 }

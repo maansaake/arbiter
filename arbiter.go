@@ -205,13 +205,18 @@ func run(metadata module.Metadata) error {
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer signalCancel()
 
-	// Start traffic and monitor, with a timeout of: test >duration<
+	// Traffic context with a timeout of the test's >>> duration <<<
 	timeoutCtx, timeoutCancel := context.WithTimeout(signalCtx, duration)
 	defer timeoutCancel()
 	zerologr.Info("Traffic will run for: " + duration.String())
 
-	reporter.Start(signalCtx)
+	// The reporter runs in its own context to allow reporting to finalize separately from traffic and module
+	// shutdown.
+	reporterCtx, reporterCancel := context.WithCancel(context.Background())
+	defer reporterCancel()
+	reporter.Start(reporterCtx)
 
+	// Run traffic.
 	if err := traffic.Run(timeoutCtx, metadata, reporter); err != nil {
 		zerologr.Error(err, "Failed to start traffic")
 		return err
@@ -221,8 +226,13 @@ func run(metadata module.Metadata) error {
 	select {
 	case <-signalCtx.Done():
 		zerologr.Info("Got stop signal")
+		// no need to call timeoutCancel() here since the traffic context is a child of the signal context,
+		// so will be cancelled automatically.
+		// timeoutCancel()
 	case <-timeoutCtx.Done():
 		zerologr.Info("Deadline exceeded")
+		// Needed to terminate the parent context, in case other's are reliant on it.
+		signalCancel()
 	}
 
 	// stopErr accumulates any errors from stopping traffic and modules, and finalising the report,
@@ -232,7 +242,9 @@ func run(metadata module.Metadata) error {
 		zerologr.Error(stopErr, "Error when stopping traffic")
 		stopErr = fmt.Errorf("%w: traffic stop: %w", ErrStopping, stopErr)
 	}
-	signalCancel() // Cancel the signal context to unblock the reporter if it's waiting on it.
+
+	// Now that traffic has been stopped, we can stop the reporter to allow it to finalise the report.
+	reporterCancel()
 
 	zerologr.Info("Stopping modules")
 	for _, m := range metadata {

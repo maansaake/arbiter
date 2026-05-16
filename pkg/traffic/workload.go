@@ -10,8 +10,6 @@ import (
 	"github.com/trebent/zerologr"
 )
 
-const workloadVerboseLogLevel = 100
-
 type workload struct {
 	mod string
 	op  *module.Op
@@ -22,6 +20,8 @@ type workload struct {
 	calls    float64
 	totalDur time.Duration
 }
+
+const workloadVerboseLogLevel = 100
 
 // run runs the workload, which in turn spawns workers to do the actual invocations. The workload
 // will monitor call-rates and scale the number of workers as needed.
@@ -168,6 +168,8 @@ func (w *workload) addWorker(ctx context.Context) {
 	go worker.run(ctx)
 }
 
+// doOp executes the workload operation and reports the result to the reporter. It also updates
+// the total duration and call count for the workload, which are used to calculate the average execution time.
 func (w *workload) doOp() {
 	zerologr.V(workloadVerboseLogLevel).Info("Triggering workload op", "mod", w.mod, "op", w.op.Name)
 

@@ -1,4 +1,4 @@
-package yaml
+package yamlreport
 
 import (
 	"context"
@@ -23,8 +23,8 @@ type (
 		// to be handled. Values < 1 will be ignored.
 		Buffer int
 	}
-	// Reporter implements the reporter interface. //nolint:revive // exported type name stutter is intentional for clarity.
-	Reporter struct {
+	// reporter implements the reporter interface. //nolint:revive // exported type name stutter is intentional for clarity.
+	reporter struct {
 		// The final path of the YAML report.
 		path string
 		// The YAML report.
@@ -36,12 +36,12 @@ type (
 	}
 )
 
-var _ report.Reporter = &Reporter{}
+var _ report.Reporter = &reporter{}
 
 const yamlIndent = 2
 
 // New creates a new YAML reporter.
-func New(opts *Opts) *Reporter {
+func New(opts *Opts) report.Reporter {
 	var start time.Time
 	var buffer int
 	if opts.Buffer > 0 {
@@ -56,7 +56,7 @@ func New(opts *Opts) *Reporter {
 		start = opts.Start
 	}
 
-	reporter := &Reporter{
+	reporter := &reporter{
 		report: &Report{
 			Start:   start,
 			Modules: make(map[string]*ModuleReport),
@@ -70,7 +70,7 @@ func New(opts *Opts) *Reporter {
 }
 
 // Start the YAML reporter and run until the context is cancelled.
-func (r *Reporter) Start(ctx context.Context) {
+func (r *reporter) Start(ctx context.Context) {
 	zerologr.Info("Starting reporter")
 
 	go func() {
@@ -96,13 +96,13 @@ func (r *Reporter) Start(ctx context.Context) {
 	}()
 }
 
-func (r *Reporter) Op(mod, op string, res *module.Result, err error) {
+func (r *reporter) Op(mod, op string, res *module.Result, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addOp(op, res, err)
 	}
 }
 
-func (r *Reporter) Finalise() error {
+func (r *reporter) Finalise() error {
 	// Await synchronizer, no value expected
 	<-r.stopped
 	zerologr.Info("Synchronizer stopped, writing report")

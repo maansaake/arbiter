@@ -1,4 +1,4 @@
-package yaml
+package yamlreport
 
 import (
 	"context"
@@ -13,7 +13,9 @@ import (
 
 func TestYAMLReporter(t *testing.T) {
 	reportPath := "report.yaml"
-	yamlReporter := New(&Opts{Buffer: 100, Path: reportPath})
+	i := New(&Opts{Buffer: 100, Path: reportPath})
+	yamlReporter := i.(*reporter)
+
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	yamlReporter.Start(ctx)

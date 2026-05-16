@@ -1,6 +1,6 @@
-// Package interactive provides a bubbletea-powered live TUI reporter that
+// Package interactivereport provides a bubbletea-powered live TUI reporter that
 // displays a progress bar, countdown timer, and per-module operation statistics.
-package interactive
+package interactivereport
 
 import (
 	"context"

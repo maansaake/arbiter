@@ -1,5 +1,5 @@
 //nolint:gochecknoglobals,mnd // model has a lot of global styles
-package interactive
+package interactivereport
 
 import (
 	"fmt"
@@ -14,46 +14,38 @@ import (
 	"github.com/maansaake/arbiter/pkg/module"
 )
 
-// Message types exchanged with the bubbletea program.
 type (
+	// Message types exchanged with the bubbletea program.
+
+	// opMsg is sent when an operation is executed, containing the module and operation
+	// name and whether the call was successful.
 	opMsg struct {
 		mod string
 		op  string
 		ok  bool
 	}
+	// doneMsg is sent when the test completes.
 	doneMsg struct{}
+	// tickMsg is sent at regular intervals to trigger screen refreshes and progress bar updates.
 	tickMsg struct{ t time.Time }
+
+	// model is the bubbletea model for the interactive TUI.
+	model struct {
+		metadata      module.Metadata
+		stats         map[string]map[string]*opStats
+		done          bool
+		startTime     time.Time
+		totalDuration time.Duration
+		width         int
+	}
+
+	// opStats holds the running totals for a single operation.
+	opStats struct {
+		executions uint
+		ok         uint
+		nok        uint
+	}
 )
-
-// opStats holds the running totals for a single operation.
-type opStats struct {
-	executions uint
-	ok         uint
-	nok        uint
-}
-
-// opInfo contains static metadata for an operation.
-type opInfo struct {
-	name     string
-	rate     uint
-	disabled bool
-}
-
-// modInfo contains static metadata for a module.
-type modInfo struct {
-	name string
-	ops  []opInfo
-}
-
-// model is the bubbletea model for the interactive TUI.
-type model struct {
-	modules       []modInfo
-	stats         map[string]map[string]*opStats
-	done          bool
-	startTime     time.Time
-	totalDuration time.Duration
-	width         int
-}
 
 const (
 	refreshInterval = time.Second
@@ -105,22 +97,8 @@ var (
 
 // newModel creates a model pre-populated with module and operation metadata.
 func newModel(metadata module.Metadata, d time.Duration) *model {
-	mods := make([]modInfo, len(metadata))
-	for i, meta := range metadata {
-		ops := meta.Ops()
-		opInfos := make([]opInfo, len(ops))
-		for j, op := range ops {
-			opInfos[j] = opInfo{
-				name:     op.Name,
-				rate:     op.Rate,
-				disabled: op.Disabled,
-			}
-		}
-		mods[i] = modInfo{name: meta.Name(), ops: opInfos}
-	}
-
 	return &model{
-		modules:       mods,
+		metadata:      metadata,
 		stats:         make(map[string]map[string]*opStats),
 		startTime:     time.Now(),
 		totalDuration: d,
@@ -200,11 +178,11 @@ func (m *model) View() string {
 	sb.WriteString(separatorStyle.Render(strings.Repeat("─", w)))
 	sb.WriteString("\n\n")
 
-	for _, mod := range m.modules {
-		sb.WriteString(modHeaderStyle.Render(mod.name))
+	for _, mod := range m.metadata {
+		sb.WriteString(modHeaderStyle.Render(mod.Name()))
 		sb.WriteString("\n")
-		for _, op := range mod.ops {
-			sb.WriteString(m.renderOp(mod.name, op, w))
+		for _, op := range mod.Ops() {
+			sb.WriteString(m.renderOp(mod.Name(), op, w))
 			sb.WriteString("\n")
 		}
 		sb.WriteString("\n")
@@ -277,13 +255,13 @@ func (m *model) timeRemaining() time.Duration {
 
 // renderOp renders a single operation's statistics box. Disabled operations
 // are rendered with a greyed-out border and [DISABLED] label.
-func (m *model) renderOp(modName string, op opInfo, w int) string {
+func (m *model) renderOp(modName string, op *module.Op, w int) string {
 	// Inner width: total minus 2 border chars and 2 padding chars.
 	innerW := w - 4
 
-	if op.disabled {
+	if op.Disabled {
 		content := opDisabledTextStyle.Render(
-			fmt.Sprintf("%-*s  [DISABLED]", opNameWidth, op.name),
+			fmt.Sprintf("%-*s  [DISABLED]", opNameWidth, op.Name),
 		)
 
 		return opDisabledBoxStyle.Width(innerW).Render(content)
@@ -291,7 +269,7 @@ func (m *model) renderOp(modName string, op opInfo, w int) string {
 
 	var stats *opStats
 	if modStats, ok := m.stats[modName]; ok {
-		stats = modStats[op.name]
+		stats = modStats[op.Name]
 	}
 
 	var executions, nok, okCount uint
@@ -303,7 +281,7 @@ func (m *model) renderOp(modName string, op opInfo, w int) string {
 
 	content := fmt.Sprintf(
 		"%-*s  rate: %d/min   calls: %d   failed: %d   success: %s",
-		opNameWidth, op.name, op.rate, executions, nok, successStr(executions, okCount),
+		opNameWidth, op.Name, op.Rate, executions, nok, successStr(executions, okCount),
 	)
 
 	return opBoxStyle.Width(innerW).Render(content)

@@ -105,6 +105,87 @@ func Run(modules module.Modules) error {
 	return rootCmd.Execute()
 }
 
+func buildRunnerCmds(modules module.Modules) (*cobra.Command, *cobra.Command, error) {
+	// The runner flagset is passed to cli and file commands that run tests.
+	runnerFlagSet := buildRunnerFlagSet()
+
+	cliCmd, err := cli.NewCommand(modules, run)
+	if err != nil {
+		return nil, nil, err
+	}
+	cliCmd.Flags().AddFlagSet(runnerFlagSet)
+
+	runnerPreRunE := func(_ *cobra.Command, _ []string) error {
+		if duration < 1*time.Second {
+			return errors.New("duration must be at least 1 second")
+		}
+
+		if reportPath == "" {
+			return errors.New("report path cannot be empty")
+		}
+
+		// err is fine since the file does not have to exist prior to the test ending.
+		stat, err := os.Stat(reportPath) //nolint:govet // shad
+		if err == nil && stat.IsDir() {
+			return errors.New("report path cannot be a directory")
+		}
+
+		if interactive {
+			// Suppress log output while the TUI is active to prevent interference
+			// TODO: create file sink instead to be able to capture logs in interactive mode as well
+			zerologr.Set(logr.Discard())
+		} else {
+			zerologr.Set(zerologr.New(&zerologr.Opts{Console: true, Caller: true}).WithName("arbiter"))
+		}
+
+		return nil
+	}
+	cliCmd.PreRunE = runnerPreRunE
+
+	fileCmd := &cobra.Command{
+		Use:     file.FlagsetName,
+		Short:   "Run from a test model file.",
+		PreRunE: runnerPreRunE,
+		RunE: func(_ *cobra.Command, args []string) error {
+			meta, err := file.Parse(args, modules) //nolint:govet // shad
+			if err != nil {
+				return err
+			}
+
+			return run(meta)
+		},
+	}
+	fileCmd.Flags().AddFlagSet(runnerFlagSet)
+
+	return cliCmd, fileCmd, nil
+}
+
+func buildRunnerFlagSet() *pflag.FlagSet {
+	runnerFlagSet := &pflag.FlagSet{}
+	runnerFlagSet.DurationVarP(
+		&duration,
+		"duration",
+		"d",
+		defaultDuration,
+		"The duration of the test run, minimum 1 second.",
+	)
+	runnerFlagSet.StringVarP(
+		&reportPath,
+		"report-path",
+		"r",
+		defaultReportPath,
+		"Path to the final report.",
+	)
+	runnerFlagSet.BoolVarP(
+		&interactive,
+		"interactive",
+		"i",
+		defaultInteractive,
+		"Start in interactive TUI mode with a live progress bar and per-operation statistics.",
+	)
+	return runnerFlagSet
+}
+
 // Runs the input modules and starts generating traffic. Creates a traffic
 // model based on the modules opertation settings. Aborts on SIGINT, SIGTERM
 // or when the test duration runs out. Will immediately exit if any module
@@ -195,85 +276,4 @@ func setupReporter(metadata module.Metadata) report.Reporter {
 	}
 
 	return yamlR
-}
-
-func buildRunnerCmds(modules module.Modules) (*cobra.Command, *cobra.Command, error) {
-	// The runner flagset is passed to cli and file commands that run tests.
-	runnerFlagSet := buildRunnerFlagSet()
-
-	cliCmd, err := cli.NewCommand(modules, run)
-	if err != nil {
-		return nil, nil, err
-	}
-	cliCmd.Flags().AddFlagSet(runnerFlagSet)
-
-	runnerPreRunE := func(_ *cobra.Command, _ []string) error {
-		if duration < 1*time.Second {
-			return errors.New("duration must be at least 1 second")
-		}
-
-		if reportPath == "" {
-			return errors.New("report path cannot be empty")
-		}
-
-		// err is fine since the file does not have to exist prior to the test ending.
-		stat, err := os.Stat(reportPath) //nolint:govet // shad
-		if err == nil && stat.IsDir() {
-			return errors.New("report path cannot be a directory")
-		}
-
-		if interactive {
-			// Suppress log output while the TUI is active to prevent interference
-			// TODO: create file sink instead to be able to capture logs in interactive mode as well
-			zerologr.Set(logr.Discard())
-		} else {
-			zerologr.Set(zerologr.New(&zerologr.Opts{Console: true, Caller: true}).WithName("arbiter"))
-		}
-
-		return nil
-	}
-	cliCmd.PreRunE = runnerPreRunE
-
-	fileCmd := &cobra.Command{
-		Use:     file.FlagsetName,
-		Short:   "Run from a test model file.",
-		PreRunE: runnerPreRunE,
-		RunE: func(_ *cobra.Command, args []string) error {
-			meta, err := file.Parse(args, modules) //nolint:govet // shad
-			if err != nil {
-				return err
-			}
-
-			return run(meta)
-		},
-	}
-	fileCmd.Flags().AddFlagSet(runnerFlagSet)
-
-	return cliCmd, fileCmd, nil
-}
-
-func buildRunnerFlagSet() *pflag.FlagSet {
-	runnerFlagSet := &pflag.FlagSet{}
-	runnerFlagSet.DurationVarP(
-		&duration,
-		"duration",
-		"d",
-		defaultDuration,
-		"The duration of the test run, minimum 1 second.",
-	)
-	runnerFlagSet.StringVarP(
-		&reportPath,
-		"report-path",
-		"r",
-		defaultReportPath,
-		"Path to the final report.",
-	)
-	runnerFlagSet.BoolVarP(
-		&interactive,
-		"interactive",
-		"i",
-		defaultInteractive,
-		"Start in interactive TUI mode with a live progress bar and per-operation statistics.",
-	)
-	return runnerFlagSet
 }

@@ -252,11 +252,11 @@ func (a *abtr) run(metadata module.Metadata) error {
 	}
 	logger.Info("All modules started")
 
-	reporter := a.setupReporter(metadata)
-
 	// Start signal interceptor for SIGINT and SIGTERM
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer signalCancel()
+
+	reporter := a.setupReporter(metadata, signalCancel)
 
 	// Traffic context with a timeout of the test's >>> duration <<<
 	timeoutCtx, timeoutCancel := context.WithTimeout(signalCtx, a.duration)
@@ -331,14 +331,17 @@ func startModules(meta []*module.Meta) error {
 
 // Creates the reporter(s). In interactive mode a collection reporter is
 // returned that fans out to both a YAML reporter and the live TUI reporter.
-func (a *abtr) setupReporter(metadata module.Metadata) report.Reporter {
+// stopFn is called by the interactive reporter when the user requests an early
+// stop (e.g. Ctrl-C inside the TUI), triggering the same shutdown path as
+// SIGINT/SIGTERM.
+func (a *abtr) setupReporter(metadata module.Metadata, stopFn func()) report.Reporter {
 	yamlR := yamlreport.New(&yamlreport.Opts{
 		Path:        a.reportPath,
 		ErrorLogger: a.errorLogger,
 	})
 
 	if a.interactive {
-		return collection.New(yamlR, interactivereport.New(metadata, a.duration))
+		return collection.New(yamlR, interactivereport.New(metadata, a.duration, stopFn))
 	}
 
 	return yamlR

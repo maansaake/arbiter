@@ -21,8 +21,12 @@ var _ report.Reporter = &Reporter{}
 // New creates a new Reporter initialised with module metadata and the total
 // test duration so the TUI can display accurate progress and operation
 // information from the start. Call Start to begin rendering.
-func New(metadata module.Metadata, totalDuration time.Duration) *Reporter {
-	return &Reporter{program: tea.NewProgram(newModel(metadata, totalDuration), tea.WithAltScreen())}
+// stopFn is called when the user presses Ctrl-C inside the TUI, allowing the
+// caller to cancel the test context without relying on OS signal delivery
+// (bubbletea runs the terminal in raw mode and intercepts the key event before
+// the OS can raise SIGINT).
+func New(metadata module.Metadata, totalDuration time.Duration, stopFn func()) *Reporter {
+	return &Reporter{program: tea.NewProgram(newModel(metadata, totalDuration, stopFn), tea.WithAltScreen())}
 }
 
 // Start implements report.Reporter. It launches the bubbletea program in a

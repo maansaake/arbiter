@@ -35,6 +35,11 @@ type (
 		startTime     time.Time
 		totalDuration time.Duration
 		width         int
+		// stopFn is called when the user presses Ctrl-C inside the TUI so that
+		// the arbiter shutdown sequence is triggered without relying on SIGINT
+		// delivery (bubbletea runs in raw terminal mode and consumes the key
+		// event before the OS raises the signal).
+		stopFn func()
 	}
 
 	// opStats holds the running totals for a single operation.
@@ -94,10 +99,11 @@ var (
 )
 
 // newModel creates a model pre-populated with module and operation metadata.
-func newModel(metadata module.Metadata, d time.Duration) *model {
+func newModel(metadata module.Metadata, d time.Duration, stopFn func()) *model {
 	return &model{
 		metadata:      metadata,
 		stats:         make(map[string]map[string]*opStats),
+		stopFn:        stopFn,
 		startTime:     time.Now(),
 		totalDuration: d,
 	}
@@ -119,6 +125,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
+			if m.stopFn != nil {
+				m.stopFn()
+			}
 			return m, tea.Quit
 		}
 

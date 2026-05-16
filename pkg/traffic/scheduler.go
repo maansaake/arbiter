@@ -12,20 +12,13 @@ import (
 	"github.com/trebent/zerologr"
 )
 
-const (
-	maxCleanupAttempts      = 5
-	minRateForDefaultSample = 30
-	defaultSampleIntervalS  = 10
-)
-
 var (
 	reporter report.Reporter //nolint:gochecknoglobals // package-level state for traffic scheduler
 
 	workloads []*workload //nolint:gochecknoglobals // package-level state for traffic scheduler
 
 	// Stop stuff.
-	stop           chan *workload    //nolint:gochecknoglobals // package-level state for traffic scheduler
-	cleanupTimeout = 5 * time.Second //nolint:gochecknoglobals // package-level config constant
+	stopChan chan *workload //nolint:gochecknoglobals // package-level state for traffic scheduler
 
 	ErrNoOpsToSchedule = errors.New("there were no operations to schedule")
 	ErrZeroRate        = errors.New("operation has a zero rate")
@@ -35,7 +28,14 @@ var (
 	SampleTolerancePerc = 0.05 //nolint:gochecknoglobals // exported config var for tests
 )
 
-const maxWorkers = 50
+const (
+	defaultMaxWorkers            = 10
+	defaultSampleIntervalSeconds = 10
+
+	cleanupTimeout = 5 * time.Second
+
+	minRateForDefaultSample = 30
+)
 
 // Run traffic for the input modules using their exposed operations. Traffic
 // generation will make operation calls at the specified rates and report
@@ -72,8 +72,9 @@ func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error
 	}
 
 	// Create stop channel that workloads will report to when stopping.
-	stop = make(chan *workload, len(workloads))
-	// Start traffic generation in separate go-routine, runs until context is done
+	stopChan = make(chan *workload, len(workloads))
+
+	// Run the workload in a separate go-routine, runs until context is done
 	for _, workload := range workloads {
 		go workload.run(ctx)
 	}
@@ -83,20 +84,14 @@ func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error
 
 func Stop() error {
 	zerologr.Info("Stopping traffic generator", "workload_count", len(workloads))
+
 	stopCount := 0
-	cleanupAttempts := 0
-	t := time.NewTicker(time.Second)
-	defer t.Stop()
 	for {
 		select {
-		case <-t.C:
-			zerologr.Error(ErrCleanupTimeout, "Cleanup timed out", "timeout", cleanupTimeout)
-			cleanupAttempts++
-
-			if cleanupAttempts > maxCleanupAttempts {
-				return ErrCleanupTimeout
-			}
-		case workload := <-stop:
+		case <-time.After(cleanupTimeout):
+			zerologr.Error(ErrCleanupTimeout, "Cleanup timed out after "+cleanupTimeout.String())
+			return ErrCleanupTimeout
+		case workload := <-stopChan:
 			zerologr.Info("Workload stopped", "mod", workload.mod, "op", workload.op.Name)
 			stopCount++
 			if stopCount == len(workloads) {
@@ -115,5 +110,5 @@ func getSampleInterval(op *module.Op) time.Duration {
 		return time.Minute/time.Duration(op.Rate)*5 + 250*time.Millisecond
 	}
 
-	return defaultSampleIntervalS * time.Second
+	return defaultSampleIntervalSeconds * time.Second
 }

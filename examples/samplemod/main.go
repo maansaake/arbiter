@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	err := arbiter.Run(module.Modules{samplemod.New()})
+	err := arbiter.Run(module.Modules{samplemod.New()}, nil)
 	if err == nil {
 		os.Exit(0)
 	}

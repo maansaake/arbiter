@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/maansaake/arbiter/pkg/module"
-	"github.com/trebent/zerologr"
 )
 
 type workload struct {
 	mod string
 	op  *module.Op
 
-	workers []*worker
+	workerLimit int
+	workers     []*worker
 
 	statLock *sync.Mutex
 	calls    float64
@@ -26,7 +26,7 @@ const workloadVerboseLogLevel = 100
 // run runs the workload, which in turn spawns workers to do the actual invocations. The workload
 // will monitor call-rates and scale the number of workers as needed.
 func (w *workload) run(ctx context.Context) {
-	zerologr.Info("Starting workload", "mod", w.mod, "op", w.op.Name, "rate", w.op.Rate)
+	logger.Info("Starting workload", "mod", w.mod, "op", w.op.Name, "rate", w.op.Rate)
 
 	// All workload start with exactly one worker. After the first sampling
 	// period, this may be increased.
@@ -36,7 +36,7 @@ func (w *workload) run(ctx context.Context) {
 
 	samplingInterval := getSampleInterval(w.op)
 	expectedCalls := float64(samplingInterval) / float64(time.Minute) * float64(w.op.Rate)
-	zerologr.Info(
+	logger.Info(
 		"Setting sampling interval",
 		"mod",
 		w.mod,
@@ -52,20 +52,20 @@ func (w *workload) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			zerologr.Info("Context closed, stopping workload", "mod", w.mod, "op", w.op.Name)
+			logger.Info("Context closed, stopping workload", "mod", w.mod, "op", w.op.Name)
 			rateCheckTicker.Stop()
 
 			for i, worker := range w.workers {
-				zerologr.Info("Awaiting worker", "mod", w.mod, "op", w.op.Name, "worker", i)
+				logger.Info("Awaiting worker", "mod", w.mod, "op", w.op.Name, "worker", i)
 				// Await the stop of each worker
 				<-worker.done
-				zerologr.Info("Worker stopped", "mod", w.mod, "op", w.op.Name, "worker", i)
+				logger.Info("Worker stopped", "mod", w.mod, "op", w.op.Name, "worker", i)
 			}
 
 			stopChan <- w
 			return
 		case <-rateCheckTicker.C:
-			zerologr.Info(
+			logger.Info(
 				"Running rate check",
 				"mod",
 				w.mod,
@@ -79,7 +79,7 @@ func (w *workload) run(ctx context.Context) {
 
 			if w.calls > 0 {
 				avgUs := (w.totalDur / time.Duration(w.calls)).Microseconds()
-				zerologr.Info("Average exec time", "mod", w.mod, "op", w.op.Name, "avg_µs", avgUs)
+				logger.Info("Average exec time", "mod", w.mod, "op", w.op.Name, "avg_µs", avgUs)
 
 				w.scale(ctx)
 			}
@@ -105,10 +105,10 @@ func (w *workload) withStatLock(f func()) {
 // rate per worker when this is called.
 func (w *workload) scale(ctx context.Context) {
 	requiredWorkers := w.getWorkerCount()
-	zerologr.Info("Required worker count", "required_workers", requiredWorkers, "mod", w.mod, "op", w.op.Name)
+	logger.Info("Required worker count", "required_workers", requiredWorkers, "mod", w.mod, "op", w.op.Name)
 
 	if int(requiredWorkers) > len(w.workers) {
-		zerologr.Info("Adding workers", "count", int(requiredWorkers)-len(w.workers), "mod", w.mod, "op", w.op.Name)
+		logger.Info("Adding workers", "count", int(requiredWorkers)-len(w.workers), "mod", w.mod, "op", w.op.Name)
 		for i := int(requiredWorkers) - len(w.workers); i > 0; i-- {
 			w.addWorker(ctx)
 		}
@@ -140,7 +140,7 @@ func (w *workload) ratePerWorker(workerCount float64) float64 {
 // below zero is produced, indicating no more than 1 worker is needed. Returns
 // a maximum of 50 workers.
 func (w *workload) getWorkerCount() float64 {
-	return math.Min(math.Ceil(float64(w.op.Rate)/w.getMaxRate()), defaultMaxWorkers)
+	return math.Min(math.Ceil(float64(w.op.Rate)/w.getMaxRate()), float64(w.workerLimit))
 }
 
 // getMaxRate returns the maximum rate of a single worker, derived from the actual average
@@ -156,7 +156,7 @@ func (w *workload) getAverageDuration() time.Duration {
 }
 
 func (w *workload) addWorker(ctx context.Context) {
-	zerologr.Info("Adding worker", "mod", w.mod, "op", w.op.Name)
+	logger.Info("Adding worker", "mod", w.mod, "op", w.op.Name)
 
 	worker := &worker{
 		parent: w,
@@ -171,11 +171,11 @@ func (w *workload) addWorker(ctx context.Context) {
 // doOp executes the workload operation and reports the result to the reporter. It also updates
 // the total duration and call count for the workload, which are used to calculate the average execution time.
 func (w *workload) doOp() {
-	zerologr.V(workloadVerboseLogLevel).Info("Triggering workload op", "mod", w.mod, "op", w.op.Name)
+	logger.V(workloadVerboseLogLevel).Info("Triggering workload op", "mod", w.mod, "op", w.op.Name)
 
 	start := time.Now()
 	res, err := w.op.Do()
-	zerologr.V(workloadVerboseLogLevel).Info("Ran op", "mod", w.mod, "op", w.op.Name)
+	logger.V(workloadVerboseLogLevel).Info("Ran op", "mod", w.mod, "op", w.op.Name)
 
 	if res.Duration == 0 {
 		res.Duration = time.Since(start)
@@ -187,10 +187,10 @@ func (w *workload) doOp() {
 		w.calls++
 		w.totalDur += res.Duration
 	})
-	zerologr.V(workloadVerboseLogLevel).Info("Reporting", "mod", w.mod, "op", w.op.Name)
+	logger.V(workloadVerboseLogLevel).Info("Reporting", "mod", w.mod, "op", w.op.Name)
 
 	reporter.ReportOp(w.mod, w.op.Name, &res, err)
 
-	zerologr.V(workloadVerboseLogLevel).
+	logger.V(workloadVerboseLogLevel).
 		Info("Trigger done", "mod", w.mod, "op", w.op.Name, "duration_µs", time.Since(start).Microseconds())
 }

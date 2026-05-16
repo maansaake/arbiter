@@ -30,7 +30,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	err := Run(ctx, []*module.Meta{{Module: mod}}, reportmock.NewMock())
+	err := Run(ctx, []*module.Meta{{Module: mod}}, reportmock.NewMock(), DefaultWorkerLimit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestRunAndAwaitStop(t *testing.T) {
 }
 
 func TestRunNoOps(t *testing.T) {
-	err := Run(context.TODO(), []*module.Meta{{Module: modulemock.NewMock()}}, nil)
+	err := Run(context.TODO(), []*module.Meta{{Module: modulemock.NewMock()}}, nil, DefaultWorkerLimit)
 	if err != nil && !errors.Is(err, ErrNoOpsToSchedule) {
 		t.Fatal("unexpected error type")
 	}
@@ -63,7 +63,7 @@ func TestRunZeroRate(t *testing.T) {
 			Rate: 0,
 		},
 	}
-	err := Run(context.TODO(), []*module.Meta{{Module: mod}}, nil)
+	err := Run(context.TODO(), []*module.Meta{{Module: mod}}, nil, DefaultWorkerLimit)
 	if err != nil && !errors.Is(err, ErrZeroRate) {
 		t.Fatal("unexpected error type")
 	}
@@ -90,7 +90,7 @@ func TestReportOpToReporter(t *testing.T) {
 
 	reporter := reportmock.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter); err != nil {
+	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter, DefaultWorkerLimit); err != nil {
 		t.Fatal(err)
 	}
 
@@ -123,7 +123,7 @@ func TestReportOpDurationOverrideToReporter(t *testing.T) {
 
 	reporter := reportmock.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter); err != nil {
+	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter, DefaultWorkerLimit); err != nil {
 		t.Fatal(err)
 	}
 
@@ -156,7 +156,7 @@ func TestReportOpErr(t *testing.T) {
 
 	reporter := reportmock.NewMock()
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter); err != nil {
+	if err := Run(ctx, []*module.Meta{{Module: mod}}, reporter, DefaultWorkerLimit); err != nil {
 		t.Fatal(err)
 	}
 

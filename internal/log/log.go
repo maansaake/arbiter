@@ -60,7 +60,7 @@ func Setup(opts *Opts) (logr.Logger, error) {
 			Console: true,
 			Caller:  true,
 			V:       opts.Verbosity,
-		})
+		}).WithName("abtr")
 	}
 
 	errorLogger := zerologr.New(&zerologr.Opts{

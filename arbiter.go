@@ -51,13 +51,6 @@ type (
 	}
 )
 
-// defaultOpts returns an Opts struct with default values set. This is used when the user does not provide any options.
-func defaultOpts() *Opts {
-	opts := &Opts{}
-	opts.defaultOpts()
-	return opts
-}
-
 // defaultOpts sets zero-value fields to their defaults.
 func (o *Opts) defaultOpts() {
 	if o.ErrorLogPath == "" {
@@ -108,13 +101,13 @@ func Usage() {
 	_ = rootCmd.Usage()
 }
 
-// Run the Arbiter. Blocks until SIGINT, SIGTERM or when the test duration
+// Run the Arbiter. Tests block until SIGINT, SIGTERM or when the test duration
 // runs out (5 minute default).
 func Run(modules module.Modules, opts *Opts) error {
 	// Parse is idempotent, so can be called in subcommands without issue.
 	_ = envparser.Parse()
 	if opts == nil {
-		opts = defaultOpts()
+		opts = &Opts{}
 	}
 	opts.defaultOpts()
 
@@ -168,6 +161,9 @@ func Run(modules module.Modules, opts *Opts) error {
 	return rootCmd.Execute()
 }
 
+// buildRunnerCmds builds the cli and file subcommands for running tests,
+// which have a shared set of flags. The cli command runs tests based on
+// CLI arguments, while the file command runs tests based on a test model file.
 func (a *abtr) buildRunnerCmds(modules module.Modules) (*cobra.Command, *cobra.Command, error) {
 	// The runner flagset is passed to cli and file commands that run tests.
 	runnerFlagSet := a.buildRunnerFlagSet()
@@ -238,7 +234,7 @@ func (a *abtr) buildRunnerFlagSet() *pflag.FlagSet {
 		"interactive",
 		"i",
 		defaultInteractive,
-		"Start in interactive TUI mode with a live progress bar and per-operation statistics.",
+		"Start in interactive TUI mode with per-operation statistics in real time.",
 	)
 	return runnerFlagSet
 }

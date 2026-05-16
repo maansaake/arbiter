@@ -28,10 +28,12 @@ func New(metadata module.Metadata, totalDuration time.Duration) *Reporter {
 // Start implements report.Reporter. It launches the bubbletea program in a
 // goroutine and sends a doneMsg when ctx is cancelled (test finished normally).
 func (r *Reporter) Start(ctx context.Context) {
+	// bubbletea TUI go-routine, blocks until program exit via tea.Quit.
 	go func() {
 		_, _ = r.program.Run()
 	}()
 
+	// Reporter context monitor, once the context is cancelled the test is shutting down.
 	go func() {
 		<-ctx.Done()
 		r.program.Send(doneMsg{})

@@ -189,7 +189,7 @@ func (w *workload) doOp() {
 	})
 	zerologr.V(workloadVerboseLogLevel).Info("Reporting", "mod", w.mod, "op", w.op.Name)
 
-	reporter.Op(w.mod, w.op.Name, &res, err)
+	reporter.ReportOp(w.mod, w.op.Name, &res, err)
 
 	zerologr.V(workloadVerboseLogLevel).
 		Info("Trigger done", "mod", w.mod, "op", w.op.Name, "duration_µs", time.Since(start).Microseconds())

@@ -29,10 +29,10 @@ func (r *Reporter) Start(ctx context.Context) {
 	}
 }
 
-// Op implements report.Reporter.
-func (r *Reporter) Op(mod, op string, res *module.Result, err error) {
+// ReportOp implements report.Reporter.
+func (r *Reporter) ReportOp(mod, op string, res *module.Result, err error) {
 	for _, rep := range r.reporters {
-		rep.Op(mod, op, res, err)
+		rep.ReportOp(mod, op, res, err)
 	}
 }
 

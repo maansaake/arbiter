@@ -81,12 +81,15 @@ func (r *reporter) Start(ctx context.Context) {
 			case <-ctx.Done():
 				zerologr.Info("Reporter context closed, flushing synchronizer", "len", len(r.synchronizer))
 
-				// This isn't safe and depends completely on that the coordinator
-				// (arbiter) ensures no more calls will come to the reporter when
-				// terminating this context. Should find a better solution
-				close(r.synchronizer)
-				for f := range r.synchronizer {
-					f()
+			out:
+				// Empty the synchronizer buffer, up to 100 items, if not empty.
+				for range 100 {
+					select {
+					case f := <-r.synchronizer:
+						f()
+					default:
+						break out
+					}
 				}
 				zerologr.Info("Synchronizer flushed, stopping reporter")
 				close(r.stopped)
@@ -96,7 +99,7 @@ func (r *reporter) Start(ctx context.Context) {
 	}()
 }
 
-func (r *reporter) Op(mod, op string, res *module.Result, err error) {
+func (r *reporter) ReportOp(mod, op string, res *module.Result, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addOp(op, res, err)
 	}

@@ -38,8 +38,8 @@ func (r *Reporter) Start(ctx context.Context) {
 	}()
 }
 
-// Op implements report.Reporter.
-func (r *Reporter) Op(mod, op string, _ *module.Result, err error) {
+// ReportOp implements report.Reporter.
+func (r *Reporter) ReportOp(mod, op string, _ *module.Result, err error) {
 	r.program.Send(opMsg{
 		mod: mod,
 		op:  op,

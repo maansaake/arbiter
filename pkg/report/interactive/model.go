@@ -4,9 +4,7 @@ package interactivereport
 import (
 	"fmt"
 	"math"
-	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -121,11 +119,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			if !m.done {
-				// Send SIGINT so arbiter stops traffic and generates the report
-				// before we exit.
-				_ = syscall.Kill(os.Getpid(), syscall.SIGINT)
-			}
 			return m, tea.Quit
 		}
 
@@ -189,7 +182,7 @@ func (m *model) View() string {
 	}
 
 	if m.done {
-		sb.WriteString(doneStyle.Render("Test complete. Press CTRL-C to exit."))
+		sb.WriteString(doneStyle.Render("Test complete! Press CTRL-C to exit."))
 		sb.WriteString("\n")
 	}
 

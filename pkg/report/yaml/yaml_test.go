@@ -27,10 +27,10 @@ func TestYAMLReporter(t *testing.T) {
 		t.Fatal("should have been zero")
 	}
 
-	yamlReporter.Op("mod", "op", &module.Result{Duration: 1 * time.Second}, nil)
-	yamlReporter.Op("mod", "op", &module.Result{Duration: 1 * time.Second}, errors.New("operation error"))
-	yamlReporter.Op("mod", "op2", &module.Result{Duration: 11 * time.Millisecond}, nil)
-	yamlReporter.Op("mod", "op2", &module.Result{Duration: 2 * time.Second}, nil)
+	yamlReporter.ReportOp("mod", "op", &module.Result{Duration: 1 * time.Second}, nil)
+	yamlReporter.ReportOp("mod", "op", &module.Result{Duration: 1 * time.Second}, errors.New("operation error"))
+	yamlReporter.ReportOp("mod", "op2", &module.Result{Duration: 11 * time.Millisecond}, nil)
+	yamlReporter.ReportOp("mod", "op2", &module.Result{Duration: 2 * time.Second}, nil)
 
 	cancel()
 

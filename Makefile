@@ -10,8 +10,8 @@ examples/samplemod/help: examples/samplemod/build
 
 examples/samplemod/run: examples/samplemod/build
 	build/examples/samplemod \
-		--duration 5s \
 		cli \
+		--duration 5s \
 		--sample.important 12 \
 		--sample.op.test.rate 60 \
 		--sample.op.broken.disable true \
@@ -19,11 +19,21 @@ examples/samplemod/run: examples/samplemod/build
 
 examples/samplemod/run-longer: examples/samplemod/build
 	build/examples/samplemod \
-		--duration 120s \
 		cli \
+		--duration 120s \
 		--sample.important 12 \
 		--sample.op.test.rate 120 \
 		--sample.op.broken.disable true \
+
+examples/samplemod/run-interactive: examples/samplemod/build
+	build/examples/samplemod \
+		cli \
+		-i \
+		-d 120s \
+		--sample.important 12 \
+		--sample.op.test.rate 120 \
+		--sample.op.broken.disable true \
+		--sample.op.unstable.disable true
 
 test/unit:
 	mkdir -p build

@@ -1,3 +1,4 @@
+//nolint:gochecknoglobals,mnd // model has a lot of global styles
 package interactive
 
 import (
@@ -42,6 +43,16 @@ type opInfo struct {
 type modInfo struct {
 	name string
 	ops  []opInfo
+}
+
+// model is the bubbletea model for the interactive TUI.
+type model struct {
+	modules       []modInfo
+	stats         map[string]map[string]*opStats
+	done          bool
+	startTime     time.Time
+	totalDuration time.Duration
+	width         int
 }
 
 const (
@@ -92,18 +103,8 @@ var (
 			Foreground(lipgloss.Color("214"))
 )
 
-// model is the bubbletea model for the interactive TUI.
-type model struct {
-	modules       []modInfo
-	stats         map[string]map[string]*opStats
-	done          bool
-	startTime     time.Time
-	totalDuration time.Duration
-	width         int
-}
-
 // newModel creates a model pre-populated with module and operation metadata.
-func newModel(metadata module.Metadata, d time.Duration) model {
+func newModel(metadata module.Metadata, d time.Duration) *model {
 	mods := make([]modInfo, len(metadata))
 	for i, meta := range metadata {
 		ops := meta.Ops()
@@ -118,7 +119,7 @@ func newModel(metadata module.Metadata, d time.Duration) model {
 		mods[i] = modInfo{name: meta.Name(), ops: opInfos}
 	}
 
-	return model{
+	return &model{
 		modules:       mods,
 		stats:         make(map[string]map[string]*opStats),
 		startTime:     time.Now(),
@@ -133,20 +134,20 @@ func tickCmd() tea.Cmd {
 }
 
 // Init implements tea.Model.
-func (m model) Init() tea.Cmd {
+func (m *model) Init() tea.Cmd {
 	return tickCmd()
 }
 
 // Update implements tea.Model.
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			if !m.done {
-			// Send SIGINT so arbiter stops traffic and generates the report
-			// before we exit.
-			_ = syscall.Kill(os.Getpid(), syscall.SIGINT)
-		}
+				// Send SIGINT so arbiter stops traffic and generates the report
+				// before we exit.
+				_ = syscall.Kill(os.Getpid(), syscall.SIGINT)
+			}
 			return m, tea.Quit
 		}
 
@@ -186,7 +187,7 @@ func (m *model) handleOp(msg opMsg) {
 }
 
 // View implements tea.Model.
-func (m model) View() string {
+func (m *model) View() string {
 	w := m.width
 	if w == 0 {
 		w = defaultWidth
@@ -219,7 +220,7 @@ func (m model) View() string {
 
 // renderHeader renders the top bar: "arbiter" brand on the left, progress bar
 // and countdown clock filling the remaining width.
-func (m model) renderHeader(w int) string {
+func (m *model) renderHeader(w int) string {
 	brand := brandStyle.Render("arbiter")
 	suffix := " " + timeRemainingStyle.Render(formatDuration(m.timeRemaining())+" remaining")
 
@@ -234,7 +235,7 @@ func (m model) renderHeader(w int) string {
 }
 
 // renderProgressBar renders a filled/empty Unicode block progress bar.
-func (m model) renderProgressBar(w int) string {
+func (m *model) renderProgressBar(w int) string {
 	filled := int(math.Round(m.progressRatio() * float64(w)))
 	if filled > w {
 		filled = w
@@ -247,7 +248,7 @@ func (m model) renderProgressBar(w int) string {
 }
 
 // progressRatio returns a value in [0.0, 1.0] representing elapsed test time.
-func (m model) progressRatio() float64 {
+func (m *model) progressRatio() float64 {
 	if m.done || m.totalDuration == 0 {
 		return 1.0
 	}
@@ -261,7 +262,7 @@ func (m model) progressRatio() float64 {
 }
 
 // timeRemaining returns the time left until the test completes.
-func (m model) timeRemaining() time.Duration {
+func (m *model) timeRemaining() time.Duration {
 	if m.done {
 		return 0
 	}
@@ -276,7 +277,7 @@ func (m model) timeRemaining() time.Duration {
 
 // renderOp renders a single operation's statistics box. Disabled operations
 // are rendered with a greyed-out border and [DISABLED] label.
-func (m model) renderOp(modName string, op opInfo, w int) string {
+func (m *model) renderOp(modName string, op opInfo, w int) string {
 	// Inner width: total minus 2 border chars and 2 padding chars.
 	innerW := w - 4
 

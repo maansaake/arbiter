@@ -22,8 +22,7 @@ var _ report.Reporter = &Reporter{}
 // test duration so the TUI can display accurate progress and operation
 // information from the start. Call Start to begin rendering.
 func New(metadata module.Metadata, totalDuration time.Duration) *Reporter {
-	prog := tea.NewProgram(newModel(metadata, totalDuration), tea.WithAltScreen())
-	return &Reporter{program: prog}
+	return &Reporter{program: tea.NewProgram(newModel(metadata, totalDuration), tea.WithAltScreen())}
 }
 
 // Start implements report.Reporter. It launches the bubbletea program in a

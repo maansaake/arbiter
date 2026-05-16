@@ -32,7 +32,7 @@ type (
 		// Synchronizer channel to limit access to the report to 1 thread. Also
 		// speeds up calls to the reporter interface.
 		synchronizer chan func()
-		stopped      chan bool
+		stopped      chan struct{}
 	}
 )
 
@@ -63,7 +63,7 @@ func New(opts *Opts) *Reporter {
 		},
 		path:         opts.Path,
 		synchronizer: make(chan func(), buffer),
-		stopped:      make(chan bool),
+		stopped:      make(chan struct{}),
 	}
 
 	return reporter
@@ -79,7 +79,7 @@ func (r *Reporter) Start(ctx context.Context) {
 			case f := <-r.synchronizer:
 				f()
 			case <-ctx.Done():
-				zerologr.Info("Reporter context closed, cleaning synchronizer", "len", len(r.synchronizer))
+				zerologr.Info("Reporter context closed, flushing synchronizer", "len", len(r.synchronizer))
 
 				// This isn't safe and depends completely on that the coordinator
 				// (arbiter) ensures no more calls will come to the reporter when
@@ -88,6 +88,7 @@ func (r *Reporter) Start(ctx context.Context) {
 				for f := range r.synchronizer {
 					f()
 				}
+				zerologr.Info("Synchronizer flushed, stopping reporter")
 				close(r.stopped)
 				return
 			}
@@ -102,8 +103,9 @@ func (r *Reporter) Op(mod, op string, res *module.Result, err error) {
 }
 
 func (r *Reporter) Finalise() error {
-	// Await synchronizer
+	// Await synchronizer, no value expected
 	<-r.stopped
+	zerologr.Info("Synchronizer stopped, writing report")
 
 	r.report.End = time.Now()
 	r.report.Duration = r.report.End.Sub(r.report.Start)

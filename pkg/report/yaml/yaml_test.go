@@ -1,4 +1,4 @@
-package yaml
+package yamlreport
 
 import (
 	"context"
@@ -13,7 +13,9 @@ import (
 
 func TestYAMLReporter(t *testing.T) {
 	reportPath := "report.yaml"
-	yamlReporter := New(&Opts{Buffer: 100, Path: reportPath})
+	i := New(&Opts{Buffer: 100, Path: reportPath})
+	yamlReporter := i.(*reporter)
+
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	yamlReporter.Start(ctx)
@@ -25,10 +27,10 @@ func TestYAMLReporter(t *testing.T) {
 		t.Fatal("should have been zero")
 	}
 
-	yamlReporter.Op("mod", "op", &module.Result{Duration: 1 * time.Second}, nil)
-	yamlReporter.Op("mod", "op", &module.Result{Duration: 1 * time.Second}, errors.New("operation error"))
-	yamlReporter.Op("mod", "op2", &module.Result{Duration: 11 * time.Millisecond}, nil)
-	yamlReporter.Op("mod", "op2", &module.Result{Duration: 2 * time.Second}, nil)
+	yamlReporter.ReportOp("mod", "op", &module.Result{Duration: 1 * time.Second}, nil)
+	yamlReporter.ReportOp("mod", "op", &module.Result{Duration: 1 * time.Second}, errors.New("operation error"))
+	yamlReporter.ReportOp("mod", "op2", &module.Result{Duration: 11 * time.Millisecond}, nil)
+	yamlReporter.ReportOp("mod", "op2", &module.Result{Duration: 2 * time.Second}, nil)
 
 	cancel()
 

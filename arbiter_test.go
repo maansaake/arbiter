@@ -21,7 +21,7 @@ func TestRun_DurationTooShort(t *testing.T) {
 	modules := module.Modules{&modulemock.Module{SetName: "mock"}}
 
 	// Run the function and check for the expected error
-	err := Run(modules)
+	err := Run(modules, nil)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -38,7 +38,7 @@ func TestRun_ParsingFailed(t *testing.T) {
 
 		modules := module.Modules{&modulemock.Module{SetName: "mock"}}
 
-		err := Run(modules)
+		err := Run(modules, nil)
 		if err == nil {
 			t.Fatalf("expected error, got nil")
 		}
@@ -52,7 +52,7 @@ func TestRun_ParsingFailed(t *testing.T) {
 
 		modules := module.Modules{&modulemock.Module{SetName: "mock"}}
 
-		err := Run(modules)
+		err := Run(modules, nil)
 		if err == nil {
 			t.Fatalf("expected error, got nil")
 		}

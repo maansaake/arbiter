@@ -1,4 +1,4 @@
-package yaml
+package yamlreport
 
 import (
 	"time"
@@ -24,7 +24,6 @@ type (
 		OK         uint             `yaml:"ok"`
 		NOK        uint             `yaml:"nok"`
 		Timing     *OperationTiming `yaml:"timing"`
-		Errors     []string         `yaml:"errors,omitempty"`
 	}
 	// OperationTiming contains the timing information for an operation.
 	OperationTiming struct {
@@ -57,7 +56,6 @@ func (m *ModuleReport) addOp(name string, res *module.Result, err error) {
 
 	if err != nil {
 		op.NOK++
-		op.Errors = append(op.Errors, err.Error())
 	} else {
 		op.OK++
 		if op.Timing.count == 0 {

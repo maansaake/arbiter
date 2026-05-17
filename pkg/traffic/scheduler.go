@@ -7,15 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
+	abtrlog "github.com/maansaake/arbiter/internal/log"
 	"github.com/maansaake/arbiter/pkg/module"
 	"github.com/maansaake/arbiter/pkg/report"
-	"github.com/trebent/zerologr"
-)
-
-const (
-	maxCleanupAttempts      = 5
-	minRateForDefaultSample = 30
-	defaultSampleIntervalS  = 10
 )
 
 var (
@@ -24,8 +19,10 @@ var (
 	workloads []*workload //nolint:gochecknoglobals // package-level state for traffic scheduler
 
 	// Stop stuff.
-	stop           chan *workload    //nolint:gochecknoglobals // package-level state for traffic scheduler
-	cleanupTimeout = 5 * time.Second //nolint:gochecknoglobals // package-level config constant
+	stopChan chan *workload //nolint:gochecknoglobals // package-level state for traffic scheduler
+
+	// logger is the package logger for the traffic package.
+	logger logr.Logger //nolint:gochecknoglobals // package-level state for traffic scheduler
 
 	ErrNoOpsToSchedule = errors.New("there were no operations to schedule")
 	ErrZeroRate        = errors.New("operation has a zero rate")
@@ -35,15 +32,28 @@ var (
 	SampleTolerancePerc = 0.05 //nolint:gochecknoglobals // exported config var for tests
 )
 
-const maxWorkers = 50
+const (
+	DefaultWorkerLimit = 10
+
+	defaultSampleIntervalSeconds = 10
+	cleanupTimeout               = 5 * time.Second
+	minRateForDefaultSample      = 30
+)
 
 // Run traffic for the input modules using their exposed operations. Traffic
 // generation will make operation calls at the specified rates and report
 // problems to the reporter. Run() is asynchronous and returns once the main
 // go-routine has been started. Run() will monitor the context's done channel
 // and stop gracefully once it's closed.
-func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error {
-	zerologr.Info("Running traffic generator")
+func Run(
+	ctx context.Context,
+	metadata module.Metadata,
+	r report.Reporter,
+	workerLimit int,
+) error {
+	logger = abtrlog.GetLogger()
+
+	logger.Info("Running traffic generator")
 	// Run initialisation of traffic synchronously
 	reporter = r
 
@@ -51,7 +61,7 @@ func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error
 	for _, meta := range metadata {
 		for _, op := range meta.Ops() {
 			if op.Disabled {
-				zerologr.Info("Skipping disabled operation", "mod", meta.Name(), "op", op.Name)
+				logger.Info("Skipping disabled operation", "mod", meta.Name(), "op", op.Name)
 				continue
 			}
 
@@ -60,9 +70,10 @@ func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error
 			}
 
 			workloads = append(workloads, &workload{
-				statLock: &sync.Mutex{},
-				mod:      meta.Name(),
-				op:       op,
+				workerLimit: workerLimit,
+				statLock:    &sync.Mutex{},
+				mod:         meta.Name(),
+				op:          op,
 			})
 		}
 	}
@@ -72,8 +83,9 @@ func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error
 	}
 
 	// Create stop channel that workloads will report to when stopping.
-	stop = make(chan *workload, len(workloads))
-	// Start traffic generation in separate go-routine, runs until context is done
+	stopChan = make(chan *workload, len(workloads))
+
+	// Run the workload in a separate go-routine, runs until context is done
 	for _, workload := range workloads {
 		go workload.run(ctx)
 	}
@@ -82,25 +94,19 @@ func Run(ctx context.Context, metadata module.Metadata, r report.Reporter) error
 }
 
 func Stop() error {
-	zerologr.Info("Stopping traffic generator", "workload_count", len(workloads))
+	logger.Info("Stopping traffic generator", "workload_count", len(workloads))
+
 	stopCount := 0
-	cleanupAttempts := 0
-	t := time.NewTicker(time.Second)
-	defer t.Stop()
 	for {
 		select {
-		case <-t.C:
-			zerologr.Error(ErrCleanupTimeout, "Cleanup timed out", "timeout", cleanupTimeout)
-			cleanupAttempts++
-
-			if cleanupAttempts > maxCleanupAttempts {
-				return ErrCleanupTimeout
-			}
-		case workload := <-stop:
-			zerologr.Info("Workload stopped", "mod", workload.mod, "op", workload.op.Name)
+		case <-time.After(cleanupTimeout):
+			logger.Error(ErrCleanupTimeout, "Cleanup timed out after "+cleanupTimeout.String())
+			return ErrCleanupTimeout
+		case workload := <-stopChan:
+			logger.Info("Workload stopped", "mod", workload.mod, "op", workload.op.Name)
 			stopCount++
 			if stopCount == len(workloads) {
-				zerologr.Info("All workloads have stopped")
+				logger.Info("All workloads have stopped")
 				return nil
 			}
 		}
@@ -115,5 +121,5 @@ func getSampleInterval(op *module.Op) time.Duration {
 		return time.Minute/time.Duration(op.Rate)*5 + 250*time.Millisecond
 	}
 
-	return defaultSampleIntervalS * time.Second
+	return defaultSampleIntervalSeconds * time.Second
 }

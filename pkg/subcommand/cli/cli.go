@@ -22,9 +22,17 @@ func NewCommand(modules module.Modules, run func(module.Metadata) error) (*cobra
 	cmd := &cobra.Command{
 		Use:   FlagsetName,
 		Short: "Run using CLI flags.",
+		Long: `Run using CLI flags. Flags are generated from the provided modules and their operations. 
+Each module's arguments for operations and pure args are prefixed with the module name.
+
+Included modules are:`,
 	}
 
 	for i, mod := range modules {
+		cmd.Long = fmt.Sprintf(`%s
+
+  %s: %s`, cmd.Long, mod.Name(), mod.Desc())
+
 		meta := &module.Meta{Module: mod}
 		metadata[i] = meta
 

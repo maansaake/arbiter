@@ -1,4 +1,4 @@
-package yaml
+package yamlreport
 
 import (
 	"errors"

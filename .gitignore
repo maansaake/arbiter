@@ -41,6 +41,8 @@ coverprofile
 
 # arbiter
 report.yaml
+error.log
+info.log
 
 # build
 build/

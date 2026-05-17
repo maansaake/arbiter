@@ -9,7 +9,8 @@ import (
 type (
 	Reporter interface {
 		Start(context.Context)
-		Op(module, op string, result *module.Result, err error)
+		ReportError(err error)
+		ReportOp(module, op string, result *module.Result, err error)
 		Finalise() error
 	}
 )

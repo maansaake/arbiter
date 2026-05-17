@@ -18,9 +18,10 @@ type (
 	// opMsg is sent when an operation is executed, containing the module and operation
 	// name and whether the call was successful.
 	opMsg struct {
-		mod string
-		op  string
-		ok  bool
+		mod      string
+		op       string
+		ok       bool
+		duration time.Duration
 	}
 	// errMsg is sent when an error is reported via ReportError.
 	errMsg struct {
@@ -55,9 +56,12 @@ type (
 
 	// opStats holds the running totals for a single operation.
 	opStats struct {
-		executions uint
-		ok         uint
-		nok        uint
+		executions    uint
+		ok            uint
+		nok           uint
+		totalDuration time.Duration
+		minDuration   time.Duration
+		maxDuration   time.Duration
 	}
 )
 
@@ -65,6 +69,7 @@ const (
 	refreshInterval = time.Second
 	defaultWidth    = 80
 	opNameWidth     = 20
+	opColWidth      = 20
 )
 
 // Styles used throughout the TUI.
@@ -107,6 +112,9 @@ var (
 	doneStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("214"))
+
+	opNameStyle = lipgloss.NewStyle().
+			Bold(true)
 )
 
 // newModel creates a model pre-populated with module and operation metadata.
@@ -168,17 +176,27 @@ func (m *model) handleOp(msg opMsg) {
 		m.stats[msg.mod] = make(map[string]*opStats)
 	}
 
-	s, ok := m.stats[msg.mod][msg.op]
+	stats, ok := m.stats[msg.mod][msg.op]
 	if !ok {
-		s = &opStats{}
-		m.stats[msg.mod][msg.op] = s
+		stats = &opStats{}
+		m.stats[msg.mod][msg.op] = stats
 	}
 
-	s.executions++
+	stats.executions++
 	if msg.ok {
-		s.ok++
+		stats.ok++
 	} else {
-		s.nok++
+		stats.nok++
+	}
+
+	if msg.duration > 0 {
+		stats.totalDuration += msg.duration
+		if stats.minDuration == 0 || msg.duration < stats.minDuration {
+			stats.minDuration = msg.duration
+		}
+		if msg.duration > stats.maxDuration {
+			stats.maxDuration = msg.duration
+		}
 	}
 }
 
@@ -199,8 +217,25 @@ func (m *model) View() string {
 	for _, mod := range m.metadata {
 		sb.WriteString(modHeaderStyle.Render(mod.Name()))
 		sb.WriteString("\n")
-		for _, op := range mod.Ops() {
-			sb.WriteString(m.renderOp(mod.Name(), op, w))
+
+		innerW := w - 4
+		twoCol := false
+		if halfInnerW := (w - 10) / 2; halfInnerW >= 30 {
+			innerW = halfInnerW
+			twoCol = true
+		}
+
+		ops := mod.Ops()
+		for i := 0; i < len(ops); {
+			box1 := m.renderOp(mod.Name(), ops[i], innerW)
+			i++
+			if twoCol && i < len(ops) {
+				box2 := m.renderOp(mod.Name(), ops[i], innerW)
+				i++
+				sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, box1, "  ", box2))
+			} else {
+				sb.WriteString(box1)
+			}
 			sb.WriteString("\n")
 		}
 		sb.WriteString("\n")
@@ -281,10 +316,7 @@ func (m *model) timeRemaining() time.Duration {
 
 // renderOp renders a single operation's statistics box. Disabled operations
 // are rendered with a greyed-out border and [DISABLED] label.
-func (m *model) renderOp(modName string, op *module.Op, w int) string {
-	// Inner width: total minus 2 border chars and 2 padding chars.
-	innerW := w - 4
-
+func (m *model) renderOp(modName string, op *module.Op, innerW int) string {
 	if op.Disabled {
 		content := opDisabledTextStyle.Render(
 			fmt.Sprintf("%-*s  [DISABLED]", opNameWidth, op.Name),
@@ -293,24 +325,37 @@ func (m *model) renderOp(modName string, op *module.Op, w int) string {
 		return opDisabledBoxStyle.Width(innerW).Render(content)
 	}
 
-	var stats *opStats
+	var (
+		executions, nok, okCount, rpm uint
+		avgDur, minDur, maxDur        time.Duration
+	)
 	if modStats, ok := m.stats[modName]; ok {
-		stats = modStats[op.Name]
-	}
-
-	var executions, nok, okCount uint
-	if stats != nil {
+		stats := modStats[op.Name]
 		executions = stats.executions
 		nok = stats.nok
 		okCount = stats.ok
+		rpm = stats.observedRPM(m.startTime)
+		if executions > 0 && stats.totalDuration > 0 {
+			//nolint:gosec // no risk of overflow since the total duration is the sum
+			avgDur = stats.totalDuration / time.Duration(executions)
+			minDur = stats.minDuration
+			maxDur = stats.maxDuration
+		}
 	}
 
-	content := fmt.Sprintf(
-		"%-*s  rate: %d/min   calls: %d   failed: %d   success: %s",
-		opNameWidth, op.Name, op.Rate, executions, nok, successStr(executions, okCount),
-	)
+	line1 := fmt.Sprintf("%-*s  %s",
+		opColWidth, fmt.Sprintf("rate: %d/min", op.Rate),
+		fmt.Sprintf("actual: %d/min", rpm))
+	line2 := fmt.Sprintf("%-*s  %-*s  %s",
+		opColWidth, fmt.Sprintf("calls: %d", executions),
+		opColWidth, fmt.Sprintf("failed: %d", nok),
+		fmt.Sprintf("success: %s", successStr(executions, okCount)))
+	line3 := fmt.Sprintf("%-*s  %-*s  %s",
+		opColWidth, fmt.Sprintf("avg %s", formatOpDuration(avgDur)),
+		opColWidth, fmt.Sprintf("min %s", formatOpDuration(minDur)),
+		fmt.Sprintf("max %s", formatOpDuration(maxDur)))
 
-	return opBoxStyle.Width(innerW).Render(content)
+	return opBoxStyle.Width(innerW).Render(opNameStyle.Render(op.Name) + "\n" + line1 + "\n" + line2 + "\n" + line3)
 }
 
 // successStr returns a formatted success percentage, or "—" when no calls
@@ -321,6 +366,41 @@ func successStr(executions, ok uint) string {
 	}
 
 	return fmt.Sprintf("%.1f%%", float64(ok)/float64(executions)*100)
+}
+
+// observedRPM returns the actual observed rate per minute since the first call.
+func (s *opStats) observedRPM(startTime time.Time) uint {
+	if s.executions == 0 {
+		return 0
+	}
+
+	elapsed := time.Since(startTime).Minutes()
+	if elapsed < 0.001 {
+		return 0
+	}
+
+	return uint(math.Round(float64(s.executions) / elapsed))
+}
+
+// formatOpDuration formats an operation duration in a human-readable short form.
+func formatOpDuration(d time.Duration) string {
+	if d == 0 {
+		return "—"
+	}
+
+	if d >= time.Second {
+		return fmt.Sprintf("%.2fs", d.Seconds())
+	}
+
+	if d >= time.Millisecond {
+		return fmt.Sprintf("%.0fms", float64(d)/float64(time.Millisecond))
+	}
+
+	if d >= time.Microsecond {
+		return fmt.Sprintf("%.0fµs", float64(d)/float64(time.Microsecond))
+	}
+
+	return fmt.Sprintf("%dns", d.Nanoseconds())
 }
 
 // formatDuration formats a duration as MM:SS or H:MM:SS.

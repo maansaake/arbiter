@@ -68,11 +68,12 @@ func (r *reporter) ReportError(err error) {
 }
 
 // ReportOp implements report.Reporter.
-func (r *reporter) ReportOp(mod, op string, _ *module.Result, err error) {
+func (r *reporter) ReportOp(mod, op string, result *module.Result, err error) {
 	r.program.Send(opMsg{
-		mod: mod,
-		op:  op,
-		ok:  err == nil,
+		mod:      mod,
+		op:       op,
+		ok:       err == nil,
+		duration: result.Duration,
 	})
 }
 

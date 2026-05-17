@@ -14,6 +14,10 @@ import (
 // Reporter implements report.Reporter and drives a bubbletea TUI program.
 type Reporter struct {
 	program *tea.Program
+
+	// trafficCtx is used to monitor the traffic progression, to display helpful
+	// messages in the TUI.
+	trafficCtx context.Context
 }
 
 var _ report.Reporter = &Reporter{}
@@ -25,13 +29,21 @@ var _ report.Reporter = &Reporter{}
 // caller to cancel the test context without relying on OS signal delivery
 // (bubbletea runs the terminal in raw mode and intercepts the key event before
 // the OS can raise SIGINT).
-func New(metadata module.Metadata, totalDuration time.Duration, stopFn func()) *Reporter {
-	return &Reporter{program: tea.NewProgram(newModel(metadata, totalDuration, stopFn), tea.WithAltScreen())}
+func New(
+	metadata module.Metadata,
+	totalDuration time.Duration,
+	//nolint:revive // the traffic context is special and not releated to the function really
+	trafficCtx context.Context, trafficCancel func(),
+) *Reporter {
+	return &Reporter{
+		program:    tea.NewProgram(newModel(metadata, totalDuration, trafficCancel), tea.WithAltScreen()),
+		trafficCtx: trafficCtx,
+	}
 }
 
 // Start implements report.Reporter. It launches the bubbletea program in a
 // goroutine and sends a doneMsg when ctx is cancelled (test finished normally).
-func (r *Reporter) Start(ctx context.Context) {
+func (r *Reporter) Start(reporterCtx context.Context) {
 	// bubbletea TUI go-routine, blocks until program exit via tea.Quit.
 	go func() {
 		_, _ = r.program.Run()
@@ -39,8 +51,15 @@ func (r *Reporter) Start(ctx context.Context) {
 
 	// Reporter context monitor, once the context is cancelled the test is shutting down.
 	go func() {
-		<-ctx.Done()
-		r.program.Send(doneMsg{})
+		for {
+			select {
+			case <-reporterCtx.Done():
+				r.program.Send(doneMsg{})
+				return
+			case <-r.trafficCtx.Done():
+				r.program.Send(trafficDoneMsg{})
+			}
+		}
 	}()
 }
 
@@ -57,7 +76,6 @@ func (r *Reporter) ReportOp(mod, op string, _ *module.Result, err error) {
 // the completion footer and blocks until the user presses CTRL-C; for an
 // early exit the TUI has already quit so this returns immediately.
 func (r *Reporter) Finalise() error {
-	r.program.Send(doneMsg{})
 	r.program.Wait()
 	return nil
 }

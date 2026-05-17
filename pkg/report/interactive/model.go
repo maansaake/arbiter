@@ -22,6 +22,8 @@ type (
 		op  string
 		ok  bool
 	}
+	// trafficDoneMsg is sent when the traffic context is cancelled.
+	trafficDoneMsg struct{}
 	// doneMsg is sent when the test completes.
 	doneMsg struct{}
 	// tickMsg is sent at regular intervals to trigger screen refreshes and progress bar updates.
@@ -29,17 +31,21 @@ type (
 
 	// model is the bubbletea model for the interactive TUI.
 	model struct {
-		metadata      module.Metadata
-		stats         map[string]map[string]*opStats
-		done          bool
+		metadata module.Metadata
+		stats    map[string]map[string]*opStats
+
+		trafficDone bool
+		done        bool
+
 		startTime     time.Time
 		totalDuration time.Duration
 		width         int
-		// stopFn is called when the user presses Ctrl-C inside the TUI so that
+
+		// trafficCancel is called when the user presses Ctrl-C inside the TUI so that
 		// the arbiter shutdown sequence is triggered without relying on SIGINT
 		// delivery (bubbletea runs in raw terminal mode and consumes the key
 		// event before the OS raises the signal).
-		stopFn func()
+		trafficCancel func()
 	}
 
 	// opStats holds the running totals for a single operation.
@@ -103,7 +109,7 @@ func newModel(metadata module.Metadata, d time.Duration, stopFn func()) *model {
 	return &model{
 		metadata:      metadata,
 		stats:         make(map[string]map[string]*opStats),
-		stopFn:        stopFn,
+		trafficCancel: stopFn,
 		startTime:     time.Now(),
 		totalDuration: d,
 	}
@@ -125,9 +131,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			if m.stopFn != nil {
-				m.stopFn()
-			}
+			// Call traffic cancel in case this is a premature interrupt.
+			m.trafficCancel()
 			return m, tea.Quit
 		}
 
@@ -139,6 +144,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case opMsg:
 		m.handleOp(msg)
+
+	case trafficDoneMsg:
+		m.trafficDone = true
 
 	case doneMsg:
 		m.done = true
@@ -192,6 +200,9 @@ func (m *model) View() string {
 
 	if m.done {
 		sb.WriteString(doneStyle.Render("Test complete! Press CTRL-C to exit."))
+		sb.WriteString("\n")
+	} else if m.trafficDone {
+		sb.WriteString(doneStyle.Render("Ramping down..."))
 		sb.WriteString("\n")
 	}
 

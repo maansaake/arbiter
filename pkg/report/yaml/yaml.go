@@ -92,6 +92,7 @@ func (r *reporter) Start(ctx context.Context) {
 			case <-ctx.Done():
 				logger.Info("Reporter context closed, flushing synchronizer", "len", len(r.synchronizer))
 
+				// TODO: test buffer emptying
 			out:
 				// Empty the synchronizer buffer, up to 100 items, if not empty.
 				for range 100 {

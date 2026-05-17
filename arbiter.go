@@ -256,7 +256,10 @@ func (a *abtr) run(metadata module.Metadata) error {
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer signalCancel()
 
-	reporter := a.setupReporter(metadata, signalCancel)
+	reporter := a.setupReporter(
+		metadata,
+		signalCtx, signalCancel,
+	)
 
 	// Traffic context with a timeout of the test's >>> duration <<<
 	timeoutCtx, timeoutCancel := context.WithTimeout(signalCtx, a.duration)
@@ -334,14 +337,18 @@ func startModules(meta []*module.Meta) error {
 // stopFn is called by the interactive reporter when the user requests an early
 // stop (e.g. Ctrl-C inside the TUI), triggering the same shutdown path as
 // SIGINT/SIGTERM.
-func (a *abtr) setupReporter(metadata module.Metadata, stopFn func()) report.Reporter {
+func (a *abtr) setupReporter(
+	metadata module.Metadata,
+	//nolint:revive // the traffic context is special and not releated to the function really
+	trafficCtx context.Context, trafficCancel func(),
+) report.Reporter {
 	yamlR := yamlreport.New(&yamlreport.Opts{
 		Path:        a.reportPath,
 		ErrorLogger: a.errorLogger,
 	})
 
 	if a.interactive {
-		return collection.New(yamlR, interactivereport.New(metadata, a.duration, stopFn))
+		return collection.New(yamlR, interactivereport.New(metadata, a.duration, trafficCtx, trafficCancel))
 	}
 
 	return yamlR

@@ -26,6 +26,10 @@ func (r *ReporterMock) Finalise() error {
 	panic("unimplemented")
 }
 
+func (r *ReporterMock) ReportError(_ error) {
+	// no-op
+}
+
 // ReportOp implements report.Reporter.
 func (r *ReporterMock) ReportOp(_, _ string, result *module.Result, err error) {
 	if err != nil {

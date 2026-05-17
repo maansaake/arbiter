@@ -111,6 +111,10 @@ func (r *reporter) Start(ctx context.Context) {
 	}()
 }
 
+func (r *reporter) ReportError(_ error) {
+	// no-op
+}
+
 func (r *reporter) ReportOp(mod, op string, res *module.Result, err error) {
 	r.synchronizer <- func() {
 		r.report.module(mod).addOp(op, res, err)

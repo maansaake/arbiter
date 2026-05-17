@@ -123,13 +123,6 @@ func Run(modules module.Modules, opts *Opts) error {
 		SilenceUsage:  true,
 	}
 
-	abtr := &abtr{
-		opts:        opts,
-		duration:    defaultDuration,
-		reportPath:  defaultReportPath,
-		interactive: defaultInteractive,
-	}
-
 	errorLogger, err := abtrlog.Setup(&abtrlog.Opts{
 		Verbosity:    logVerbosity.Value(),
 		ErrorLogPath: opts.ErrorLogPath,
@@ -139,7 +132,14 @@ func Run(modules module.Modules, opts *Opts) error {
 		return fmt.Errorf("failed to build loggers: %w", err)
 	}
 	logger = abtrlog.GetLogger()
-	abtr.errorLogger = errorLogger
+
+	abtr := &abtr{
+		opts:        opts,
+		duration:    defaultDuration,
+		reportPath:  defaultReportPath,
+		interactive: defaultInteractive,
+		errorLogger: errorLogger,
+	}
 
 	cliCmd, fileCmd, err := abtr.buildRunnerCmds(modules)
 	if err != nil {
@@ -213,6 +213,7 @@ func (a *abtr) buildRunnerCmds(modules module.Modules) (*cobra.Command, *cobra.C
 	return cliCmd, fileCmd, nil
 }
 
+// buildRunnerFlagSet builds the flagset used by both the cli and file subcommands.
 func (a *abtr) buildRunnerFlagSet() *pflag.FlagSet {
 	runnerFlagSet := &pflag.FlagSet{}
 	runnerFlagSet.DurationVarP(
@@ -274,6 +275,7 @@ func (a *abtr) run(metadata module.Metadata) error {
 
 	// Run traffic.
 	if err := traffic.Run(timeoutCtx, metadata, reporter, workerLimit.Value()); err != nil {
+		reporter.ReportError(err) // Report is done in case of early traffic failure, to highlight issues in the TUI.
 		logger.Error(err, "Failed to start traffic")
 		return err
 	}
@@ -334,9 +336,10 @@ func startModules(meta []*module.Meta) error {
 
 // Creates the reporter(s). In interactive mode a collection reporter is
 // returned that fans out to both a YAML reporter and the live TUI reporter.
-// stopFn is called by the interactive reporter when the user requests an early
+// trafficCancel is called by the interactive reporter when the user requests an early
 // stop (e.g. Ctrl-C inside the TUI), triggering the same shutdown path as
-// SIGINT/SIGTERM.
+// SIGINT/SIGTERM on the parent context. trafficCtx is used by the interactive
+// reporter to monitor the traffic progression and display helpful messages in the TUI.
 func (a *abtr) setupReporter(
 	metadata module.Metadata,
 	//nolint:revive // the traffic context is special and not releated to the function really
@@ -348,7 +351,15 @@ func (a *abtr) setupReporter(
 	})
 
 	if a.interactive {
-		return collection.New(yamlR, interactivereport.New(metadata, a.duration, trafficCtx, trafficCancel))
+		return collection.New(
+			yamlR,
+			interactivereport.New(
+				metadata,
+				a.duration,
+				trafficCtx,
+				trafficCancel,
+			),
+		)
 	}
 
 	return yamlR

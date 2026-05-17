@@ -9,28 +9,35 @@ import (
 	"github.com/maansaake/arbiter/pkg/report"
 )
 
-// Reporter dispatches every reporter interface call to each of its child
+// reporter dispatches every reporter interface call to each of its child
 // reporters in registration order.
-type Reporter struct {
+type reporter struct {
 	reporters []report.Reporter
 }
 
-var _ report.Reporter = &Reporter{}
+var _ report.Reporter = &reporter{}
 
 // New returns a Reporter that delegates to each of the provided reporters.
-func New(reporters ...report.Reporter) *Reporter {
-	return &Reporter{reporters: reporters}
+func New(reporters ...report.Reporter) report.Reporter {
+	return &reporter{reporters: reporters}
 }
 
 // Start implements report.Reporter.
-func (r *Reporter) Start(ctx context.Context) {
+func (r *reporter) Start(ctx context.Context) {
 	for _, rep := range r.reporters {
 		rep.Start(ctx)
 	}
 }
 
+// ReportError implements report.Reporter.
+func (r *reporter) ReportError(err error) {
+	for _, rep := range r.reporters {
+		rep.ReportError(err)
+	}
+}
+
 // ReportOp implements report.Reporter.
-func (r *Reporter) ReportOp(mod, op string, res *module.Result, err error) {
+func (r *reporter) ReportOp(mod, op string, res *module.Result, err error) {
 	for _, rep := range r.reporters {
 		rep.ReportOp(mod, op, res, err)
 	}
@@ -38,7 +45,7 @@ func (r *Reporter) ReportOp(mod, op string, res *module.Result, err error) {
 
 // Finalise implements report.Reporter. Reporters are finalised in registration
 // order; all errors are joined and returned.
-func (r *Reporter) Finalise() error {
+func (r *reporter) Finalise() error {
 	var errs []error
 	for _, rep := range r.reporters {
 		if err := rep.Finalise(); err != nil {

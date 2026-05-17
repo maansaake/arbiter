@@ -11,8 +11,8 @@ import (
 	"github.com/maansaake/arbiter/pkg/report"
 )
 
-// Reporter implements report.Reporter and drives a bubbletea TUI program.
-type Reporter struct {
+// reporter implements report.reporter and drives a bubbletea TUI program.
+type reporter struct {
 	program *tea.Program
 
 	// trafficCtx is used to monitor the traffic progression, to display helpful
@@ -20,7 +20,7 @@ type Reporter struct {
 	trafficCtx context.Context
 }
 
-var _ report.Reporter = &Reporter{}
+var _ report.Reporter = &reporter{}
 
 // New creates a new Reporter initialised with module metadata and the total
 // test duration so the TUI can display accurate progress and operation
@@ -34,8 +34,8 @@ func New(
 	totalDuration time.Duration,
 	//nolint:revive // the traffic context is special and not releated to the function really
 	trafficCtx context.Context, trafficCancel func(),
-) *Reporter {
-	return &Reporter{
+) report.Reporter {
+	return &reporter{
 		program:    tea.NewProgram(newModel(metadata, totalDuration, trafficCancel), tea.WithAltScreen()),
 		trafficCtx: trafficCtx,
 	}
@@ -43,7 +43,7 @@ func New(
 
 // Start implements report.Reporter. It launches the bubbletea program in a
 // goroutine and sends a doneMsg when ctx is cancelled (test finished normally).
-func (r *Reporter) Start(reporterCtx context.Context) {
+func (r *reporter) Start(reporterCtx context.Context) {
 	// bubbletea TUI go-routine, blocks until program exit via tea.Quit.
 	go func() {
 		_, _ = r.program.Run()
@@ -63,8 +63,12 @@ func (r *Reporter) Start(reporterCtx context.Context) {
 	}()
 }
 
+func (r *reporter) ReportError(err error) {
+	r.program.Send(errMsg{err: err})
+}
+
 // ReportOp implements report.Reporter.
-func (r *Reporter) ReportOp(mod, op string, _ *module.Result, err error) {
+func (r *reporter) ReportOp(mod, op string, _ *module.Result, err error) {
 	r.program.Send(opMsg{
 		mod: mod,
 		op:  op,
@@ -75,7 +79,7 @@ func (r *Reporter) ReportOp(mod, op string, _ *module.Result, err error) {
 // Finalise implements report.Reporter. For a normally completed test it shows
 // the completion footer and blocks until the user presses CTRL-C; for an
 // early exit the TUI has already quit so this returns immediately.
-func (r *Reporter) Finalise() error {
+func (r *reporter) Finalise() error {
 	r.program.Wait()
 	return nil
 }

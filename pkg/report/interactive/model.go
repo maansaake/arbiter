@@ -22,6 +22,10 @@ type (
 		op  string
 		ok  bool
 	}
+	// errMsg is sent when an error is reported via ReportError.
+	errMsg struct {
+		err error
+	}
 	// trafficDoneMsg is sent when the traffic context is cancelled.
 	trafficDoneMsg struct{}
 	// doneMsg is sent when the test completes.
@@ -34,6 +38,7 @@ type (
 		metadata module.Metadata
 		stats    map[string]map[string]*opStats
 
+		errMsg      string
 		trafficDone bool
 		done        bool
 
@@ -142,6 +147,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		return m, tickCmd()
 
+	case errMsg:
+		m.errMsg = msg.err.Error()
+
 	case opMsg:
 		m.handleOp(msg)
 
@@ -198,10 +206,15 @@ func (m *model) View() string {
 		sb.WriteString("\n")
 	}
 
-	if m.done {
+	// err -> done -> traffic done
+	switch {
+	case m.errMsg != "":
+		sb.WriteString(doneStyle.Render("Error: " + m.errMsg))
+		sb.WriteString("\n")
+	case m.done:
 		sb.WriteString(doneStyle.Render("Test complete! Press CTRL-C to exit."))
 		sb.WriteString("\n")
-	} else if m.trafficDone {
+	case m.trafficDone:
 		sb.WriteString(doneStyle.Render("Ramping down..."))
 		sb.WriteString("\n")
 	}

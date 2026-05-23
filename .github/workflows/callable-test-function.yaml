@@ -42,15 +42,15 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/go/pkg/mod
-          key: go-mod-${{ hashFiles('go.sum') }}
+          key: function-test-go-mod-${{ hashFiles('go.sum') }}
 
       - name: Cache Go build cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/go-build
-          key: function-test-${{ matrix.go-version-alias }}-${{ steps.checksum.outputs.checksum }}
+          key: function-test-go-build-${{ matrix.go-version-alias }}-${{ steps.checksum.outputs.checksum }}
           restore-keys: |
-            function-test-${{ matrix.go-version-alias }}-
+            function-test-go-build-${{ matrix.go-version-alias }}-
 
       - name: Run samplemod executable
         run: make examples/samplemod/run

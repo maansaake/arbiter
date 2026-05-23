@@ -1,3 +1,6 @@
+GOPATH ?= $(shell go env GOPATH)
+GOBIN ?= $(GOPATH)/bin
+
 validate: static-analysis/lint static-analysis/vulncheck test/unit examples/samplemod/run
 	@echo "Validation successful"
 
@@ -54,4 +57,4 @@ static-analysis/vulncheck-sarif:
 	go tool -modfile tools/go.mod govulncheck -format sarif ./... > build/vulncheck.sarif
 
 install/tools:
-	curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.12.2
+	curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(GOBIN) v2.12.2

@@ -69,7 +69,7 @@ jobs:
             govulncheck-go-build-
 
       - name: Run govulncheck
-        run: make static-analysis/vulncheck-sarif
+        run: make static-analysis/vulncheck/sarif
 
 
       - name: Upload SARIF report

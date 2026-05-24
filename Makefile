@@ -20,7 +20,7 @@ examples/samplemod/run: examples/samplemod/build
 		--sample.op.broken.disable true \
 		--sample.op.unstable.disable true
 
-examples/samplemod/run-longer: examples/samplemod/build
+examples/samplemod/run/longer: examples/samplemod/build
 	build/examples/samplemod \
 		cli \
 		--duration 120s \
@@ -28,7 +28,7 @@ examples/samplemod/run-longer: examples/samplemod/build
 		--sample.op.test.rate 120 \
 		--sample.op.broken.disable true \
 
-examples/samplemod/run-interactive: examples/samplemod/build
+examples/samplemod/run/interactive: examples/samplemod/build
 	build/examples/samplemod \
 		cli \
 		-i \
@@ -42,7 +42,7 @@ test/unit:
 	mkdir -p build
 	go test ./... -v -failfast -coverprofile=build/coverage.out
 
-test/unit-json:
+test/unit/json:
 	mkdir -p build
 	go test ./... -failfast -coverprofile=build/coverage.out -json > build/unit-test-output.json
 
@@ -52,7 +52,7 @@ static-analysis/lint:
 static-analysis/vulncheck:
 	go tool -modfile tools/go.mod govulncheck ./... || true
 
-static-analysis/vulncheck-sarif:
+static-analysis/vulncheck/sarif:
 	mkdir -p build
 	go tool -modfile tools/go.mod govulncheck -format sarif ./... > build/vulncheck.sarif
 

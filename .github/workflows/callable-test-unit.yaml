@@ -53,7 +53,7 @@ jobs:
             unit-test-go-build-${{ matrix.go-version-alias }}-
 
       - name: Run tests
-        run: make test/unit-json
+        run: make test/unit/json
 
 
       - name: Publish test results

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/trebent/zerologr"
+	"github.com/go-logr/logr"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
@@ -26,7 +26,7 @@ func Instrument(
 	var shutdownFuncs []func(context.Context) error
 
 	shutdown := func(ctx context.Context) error {
-		zerologr.Info("Shutting down OpenTelemetry SDK")
+		logr.FromContextOrDiscard(ctx).Info("Shutting down OpenTelemetry SDK")
 
 		var err error
 		for _, fn := range shutdownFuncs {

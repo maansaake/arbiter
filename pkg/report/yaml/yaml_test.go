@@ -7,13 +7,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr/funcr"
 	"github.com/maansaake/arbiter/pkg/module"
 	"gopkg.in/yaml.v3"
 )
 
 func TestYAMLReporter(t *testing.T) {
 	reportPath := "report.yaml"
-	i := New(&Opts{Buffer: 100, Path: reportPath})
+	i := New(&Opts{
+		Buffer: 100,
+		Path:   reportPath,
+		Logger: funcr.New(func(_, _ string) {}, funcr.Options{}),
+	})
 	yamlReporter := i.(*reporter)
 
 	ctx := context.Background()

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	abtrlog "github.com/maansaake/arbiter/internal/log"
 	"github.com/maansaake/arbiter/pkg/module"
 	"github.com/maansaake/arbiter/pkg/report"
 	"github.com/maansaake/arbiter/pkg/report/collection"
@@ -25,6 +24,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/trebent/envparser"
+	"github.com/trebent/zerologr"
 )
 
 type (
@@ -38,6 +38,8 @@ type (
 		reportPath string
 		// interactive is set when an interactive TUI reporting is used.
 		interactive bool
+		// logger is used for info-level logging.
+		logger logr.Logger
 		// errorLogger is the logger used for error logs by the reporter.
 		errorLogger logr.Logger
 	}
@@ -51,27 +53,26 @@ type (
 	}
 )
 
+const (
+	defaultInfoLogPath  = "info.log"
+	defaultErrorLogPath = "error.log"
+	defaultDuration     = time.Minute * 5
+	defaultReportPath   = "report.yaml"
+	defaultInteractive  = false
+)
+
 // defaultOpts sets zero-value fields to their defaults.
 func (o *Opts) defaultOpts() {
 	if o.ErrorLogPath == "" {
-		o.InfoLogPath = abtrlog.DefaultErrorLogPath
+		o.ErrorLogPath = defaultErrorLogPath
 	}
 
-	if o.ErrorLogPath == "" {
-		o.InfoLogPath = abtrlog.DefaultInfoLogPath
+	if o.InfoLogPath == "" {
+		o.InfoLogPath = defaultInfoLogPath
 	}
 }
 
-const (
-	defaultDuration    = time.Minute * 5
-	defaultReportPath  = "report.yaml"
-	defaultInteractive = false
-)
-
 var (
-	// logger is the package logger for the arbiter package.
-	logger logr.Logger //nolint:gochecknoglobals // package-level state for arbiter
-
 	// rootCmd holds the cobra root command for Usage access.
 	//nolint:gochecknoglobals // package-level command for Usage access
 	rootCmd *cobra.Command
@@ -123,21 +124,17 @@ func Run(modules module.Modules, opts *Opts) error {
 		SilenceUsage:  true,
 	}
 
-	errorLogger, err := abtrlog.Setup(&abtrlog.Opts{
-		Verbosity:    logVerbosity.Value(),
-		ErrorLogPath: opts.ErrorLogPath,
-		InfoLogPath:  opts.InfoLogPath,
-	})
+	infoLogger, errorLogger, err := setupLoggers(opts, logVerbosity.Value())
 	if err != nil {
 		return fmt.Errorf("failed to build loggers: %w", err)
 	}
-	logger = abtrlog.GetLogger()
 
 	abtr := &abtr{
 		opts:        opts,
 		duration:    defaultDuration,
 		reportPath:  defaultReportPath,
 		interactive: defaultInteractive,
+		logger:      infoLogger,
 		errorLogger: errorLogger,
 	}
 
@@ -240,18 +237,14 @@ func (a *abtr) buildRunnerFlagSet() *pflag.FlagSet {
 	return runnerFlagSet
 }
 
-// run runs the input modules and starts generating traffic. Creates a traffic
-// model based on the modules opertation settings. Aborts on SIGINT, SIGTERM
-// or when the test duration runs out. Will immediately exit if any module
-// returns an error from its call to Run().
 func (a *abtr) run(metadata module.Metadata) error {
-	logger.Info("Starting modules")
+	a.logger.Info("Starting modules")
 
-	if err := startModules(metadata); err != nil {
-		logger.Error(err, "Start failure")
+	if err := a.startModules(metadata); err != nil {
+		a.logger.Error(err, "Start failure")
 		return err
 	}
-	logger.Info("All modules started")
+	a.logger.Info("All modules started")
 
 	// Start signal interceptor for SIGINT and SIGTERM
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -265,7 +258,7 @@ func (a *abtr) run(metadata module.Metadata) error {
 	// Traffic context with a timeout of the test's >>> duration <<<
 	timeoutCtx, timeoutCancel := context.WithTimeout(signalCtx, a.duration)
 	defer timeoutCancel()
-	logger.Info("Traffic will run for: " + a.duration.String())
+	a.logger.Info("Traffic will run for: " + a.duration.String())
 
 	// The reporter runs in its own context to allow reporting to finalize separately from traffic and module
 	// shutdown.
@@ -274,26 +267,26 @@ func (a *abtr) run(metadata module.Metadata) error {
 	reporter.Start(reporterCtx)
 
 	sched := traffic.New(&traffic.Opts{
-		Logger:      logger,
+		Logger:      a.logger,
 		WorkerLimit: workerLimit.Value(),
 	})
 
 	// Run traffic.
 	if err := sched.Run(timeoutCtx, metadata, reporter); err != nil {
 		reporter.ReportError(err) // Report is done in case of early traffic failure, to highlight issues in the TUI.
-		logger.Error(err, "Failed to start traffic")
+		a.logger.Error(err, "Failed to start traffic")
 		return err
 	}
 
-	logger.Info("Awaiting completion (SIGINT/SIGTERM or duration timeout)")
+	a.logger.Info("Awaiting completion (SIGINT/SIGTERM or duration timeout)")
 	select {
 	case <-signalCtx.Done():
-		logger.Info("Got stop signal")
+		a.logger.Info("Got stop signal")
 		// no need to call timeoutCancel() here since the traffic context is a child of the signal context,
 		// so will be cancelled automatically.
 		// timeoutCancel()
 	case <-timeoutCtx.Done():
-		logger.Info("Deadline exceeded")
+		a.logger.Info("Deadline exceeded")
 		// Needed to terminate the parent context, in case other's are reliant on it.
 		signalCancel()
 	}
@@ -302,35 +295,35 @@ func (a *abtr) run(metadata module.Metadata) error {
 	// to be returned at the end of the function.
 	var stopErr error
 	if stopErr = sched.Stop(); stopErr != nil {
-		logger.Error(stopErr, "Error when stopping traffic")
+		a.logger.Error(stopErr, "Error when stopping traffic")
 		stopErr = fmt.Errorf("%w: traffic stop: %w", ErrStopping, stopErr)
 	}
 
 	// Now that traffic has been stopped, we can stop the reporter to allow it to finalise the report.
 	reporterCancel()
 
-	logger.Info("Stopping modules")
+	a.logger.Info("Stopping modules")
 	for _, m := range metadata {
 		if moduleStopErr := m.Stop(); moduleStopErr != nil {
-			logger.Error(moduleStopErr, "Module stop reported an error", "module", m.Name())
+			a.logger.Error(moduleStopErr, "Module stop reported an error", "module", m.Name())
 			stopErr = errors.Join(stopErr, fmt.Errorf("module %s stop: %w", m.Name(), moduleStopErr))
 		}
 	}
 
-	logger.Info("Finalising report")
+	a.logger.Info("Finalising report")
 	reporterStopErr := reporter.Finalise()
 	if reporterStopErr != nil {
-		logger.Error(reporterStopErr, "Error when finalising report")
+		a.logger.Error(reporterStopErr, "Error when finalising report")
 		stopErr = errors.Join(stopErr, fmt.Errorf("reporter stop: %w", reporterStopErr))
 	}
 
 	return stopErr
 }
 
-// Starts the input modules and logs any errors.
-func startModules(meta []*module.Meta) error {
+// startModules starts the input modules and logs any errors.
+func (a *abtr) startModules(meta []*module.Meta) error {
 	for _, m := range meta {
-		logger.Info("Starting", "module", m.Name())
+		a.logger.Info("Starting", "module", m.Name())
 		if err := m.Run(); err != nil {
 			return fmt.Errorf("failed to start module %s: %w", m.Name(), err)
 		}
@@ -339,7 +332,7 @@ func startModules(meta []*module.Meta) error {
 	return nil
 }
 
-// Creates the reporter(s). In interactive mode a collection reporter is
+// setupReporter creates the reporter(s). In interactive mode a collection reporter is
 // returned that fans out to both a YAML reporter and the live TUI reporter.
 // trafficCancel is called by the interactive reporter when the user requests an early
 // stop (e.g. Ctrl-C inside the TUI), triggering the same shutdown path as
@@ -352,6 +345,7 @@ func (a *abtr) setupReporter(
 ) report.Reporter {
 	yamlR := yamlreport.New(&yamlreport.Opts{
 		Path:        a.reportPath,
+		Logger:      a.logger,
 		ErrorLogger: a.errorLogger,
 	})
 
@@ -368,4 +362,39 @@ func (a *abtr) setupReporter(
 	}
 
 	return yamlR
+}
+
+// setupLoggers initialises the info and error loggers from the provided options.
+// It returns the info logger, the error logger, and any error encountered.
+func setupLoggers(opts *Opts, verbosity int) (logr.Logger, logr.Logger, error) {
+	errorFile, err := os.Create(opts.ErrorLogPath)
+	if err != nil {
+		return logr.Logger{}, logr.Logger{}, err
+	}
+
+	var infoLogger logr.Logger
+	if opts.InfoLogPath == "" {
+		infoLogger = logr.Discard()
+	} else {
+		infoFile, err := os.Create(opts.InfoLogPath) //nolint:govet // shad
+		if err != nil {
+			return logr.Logger{}, logr.Logger{}, err
+		}
+
+		infoLogger = zerologr.New(&zerologr.Opts{
+			Output:  infoFile,
+			Console: true,
+			Caller:  true,
+			V:       verbosity,
+		}).WithName("abtr")
+	}
+
+	errorLogger := zerologr.New(&zerologr.Opts{
+		Output:  errorFile,
+		Console: true,
+		Caller:  false,
+		V:       verbosity,
+	})
+
+	return infoLogger, errorLogger, nil
 }

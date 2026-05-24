@@ -373,21 +373,17 @@ func setupLoggers(opts *Opts, verbosity int) (logr.Logger, logr.Logger, error) {
 	}
 
 	var infoLogger logr.Logger
-	if opts.InfoLogPath == "" {
-		infoLogger = logr.Discard()
-	} else {
-		infoFile, err := os.Create(opts.InfoLogPath) //nolint:govet // shad
-		if err != nil {
-			return logr.Logger{}, logr.Logger{}, err
-		}
-
-		infoLogger = zerologr.New(&zerologr.Opts{
-			Output:  infoFile,
-			Console: true,
-			Caller:  true,
-			V:       verbosity,
-		}).WithName("abtr")
+	infoFile, err := os.Create(opts.InfoLogPath) //nolint:govet // shad
+	if err != nil {
+		return logr.Logger{}, logr.Logger{}, err
 	}
+
+	infoLogger = zerologr.New(&zerologr.Opts{
+		Output:  infoFile,
+		Console: true,
+		Caller:  true,
+		V:       verbosity,
+	}).WithName("abtr")
 
 	errorLogger := zerologr.New(&zerologr.Opts{
 		Output:  errorFile,

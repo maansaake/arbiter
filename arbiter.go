@@ -273,8 +273,13 @@ func (a *abtr) run(metadata module.Metadata) error {
 	defer reporterCancel()
 	reporter.Start(reporterCtx)
 
+	sched := traffic.New(&traffic.Opts{
+		Logger:      logger,
+		WorkerLimit: workerLimit.Value(),
+	})
+
 	// Run traffic.
-	if err := traffic.Run(timeoutCtx, metadata, reporter, workerLimit.Value()); err != nil {
+	if err := sched.Run(timeoutCtx, metadata, reporter); err != nil {
 		reporter.ReportError(err) // Report is done in case of early traffic failure, to highlight issues in the TUI.
 		logger.Error(err, "Failed to start traffic")
 		return err
@@ -296,7 +301,7 @@ func (a *abtr) run(metadata module.Metadata) error {
 	// stopErr accumulates any errors from stopping traffic and modules, and finalising the report,
 	// to be returned at the end of the function.
 	var stopErr error
-	if stopErr = traffic.Stop(); stopErr != nil {
+	if stopErr = sched.Stop(); stopErr != nil {
 		logger.Error(stopErr, "Error when stopping traffic")
 		stopErr = fmt.Errorf("%w: traffic stop: %w", ErrStopping, stopErr)
 	}

@@ -14,19 +14,25 @@ type worker struct {
 }
 
 func (worker *worker) run(ctx context.Context) {
-	logger.Info("Starting worker", "mod", worker.parent.mod, "op", worker.parent.op.Name)
+	worker.parent.logger.Info("Starting worker", "mod", worker.parent.mod, "op", worker.parent.op.Name)
 	worker.done = make(chan bool)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("Context closed, stopping worker", "mod", worker.parent.mod, "op", worker.parent.op.Name)
+			worker.parent.logger.Info(
+				"Context closed, stopping worker",
+				"mod",
+				worker.parent.mod,
+				"op",
+				worker.parent.op.Name,
+			)
 			worker.ticker.Stop()
 
 			close(worker.done)
 			return
 		case t := <-worker.ticker.C:
-			logger.V(workerVerboseLogLevel).
+			worker.parent.logger.V(workerVerboseLogLevel).
 				Info("Worker tick", "time", t, "mod", worker.parent.mod, "op", worker.parent.op.Name)
 			worker.parent.doOp()
 		}
@@ -34,7 +40,7 @@ func (worker *worker) run(ctx context.Context) {
 }
 
 func (worker *worker) reset(tickerInterval time.Duration) {
-	logger.Info(
+	worker.parent.logger.Info(
 		"Resetting worker ticker",
 		"mod",
 		worker.parent.mod,

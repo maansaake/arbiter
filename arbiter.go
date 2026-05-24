@@ -373,7 +373,7 @@ func setupLoggers(opts *Opts, verbosity int) (logr.Logger, logr.Logger, error) {
 	}
 
 	var infoLogger logr.Logger
-	infoFile, err := os.Create(opts.InfoLogPath) //nolint:govet // shad
+	infoFile, err := os.Create(opts.InfoLogPath)
 	if err != nil {
 		return logr.Logger{}, logr.Logger{}, err
 	}

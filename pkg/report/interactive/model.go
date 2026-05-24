@@ -435,7 +435,7 @@ func (m *model) renderOp(modName string, op *module.Op, innerW int) string {
 	}
 
 	if modStats, ok := m.stats[modName]; ok {
-		if stats, ok := modStats[op.Name]; ok {
+		if stats, opOK := modStats[op.Name]; opOK {
 			executions = stats.executions
 			nok = stats.nok
 			okCount = stats.ok

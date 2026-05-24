@@ -102,7 +102,7 @@ func (r *reporter) Start(ctx context.Context) {
 						break out
 					}
 				}
-					r.logger.Info("Synchronizer flushed, stopping reporter")
+				r.logger.Info("Synchronizer flushed, stopping reporter")
 				close(r.stopped)
 				return
 			}

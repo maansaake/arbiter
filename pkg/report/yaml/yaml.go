@@ -2,11 +2,11 @@ package yamlreport
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
 	"github.com/go-logr/logr"
-	abtrlog "github.com/maansaake/arbiter/internal/log"
 	"github.com/maansaake/arbiter/pkg/module"
 	"github.com/maansaake/arbiter/pkg/report"
 	"gopkg.in/yaml.v3"
@@ -23,6 +23,8 @@ type (
 		// The buffer size sets the number of buffered report calls that are yet
 		// to be handled. Values < 1 will be ignored.
 		Buffer int
+		// Logger is the logger used for info-level logging by the reporter.
+		Logger logr.Logger
 		// ErrorLogger is a logger for the reporter to log errors to.
 		ErrorLogger logr.Logger
 	}
@@ -32,6 +34,8 @@ type (
 		path string
 		// The YAML report.
 		report *Report
+		// logger is used for info-level logging.
+		logger logr.Logger
 		// errorLogger is used to log errors from failed operations.
 		errorLogger logr.Logger
 		// Synchronizer channel to limit access to the report to 1 thread. Also
@@ -41,16 +45,15 @@ type (
 	}
 )
 
-var (
-	logger logr.Logger     //nolint:gochecknoglobals // package-level state for YAML reporter
-	_      report.Reporter = &reporter{}
-)
+var _ report.Reporter = &reporter{}
 
 const yamlIndent = 2
 
 // New creates a new YAML reporter.
-func New(opts *Opts) report.Reporter {
-	logger = abtrlog.GetLogger()
+func New(opts *Opts) (report.Reporter, error) {
+	if opts.Logger.GetSink() == nil {
+		return nil, errors.New("logger must be provided")
+	}
 
 	var start time.Time
 	var buffer int
@@ -71,18 +74,19 @@ func New(opts *Opts) report.Reporter {
 			Start:   start,
 			Modules: make(map[string]*ModuleReport),
 		},
+		logger:       opts.Logger,
 		errorLogger:  opts.ErrorLogger,
 		path:         opts.Path,
 		synchronizer: make(chan func(), buffer),
 		stopped:      make(chan struct{}),
 	}
 
-	return reporter
+	return reporter, nil
 }
 
 // Start the YAML reporter and run until the context is cancelled.
 func (r *reporter) Start(ctx context.Context) {
-	logger.Info("Starting reporter")
+	r.logger.Info("Starting reporter")
 
 	go func() {
 		for {
@@ -90,7 +94,7 @@ func (r *reporter) Start(ctx context.Context) {
 			case f := <-r.synchronizer:
 				f()
 			case <-ctx.Done():
-				logger.Info("Reporter context closed, flushing synchronizer", "len", len(r.synchronizer))
+				r.logger.Info("Reporter context closed, flushing synchronizer", "len", len(r.synchronizer))
 
 				// TODO: test buffer emptying
 			out:
@@ -103,7 +107,7 @@ func (r *reporter) Start(ctx context.Context) {
 						break out
 					}
 				}
-				logger.Info("Synchronizer flushed, stopping reporter")
+					r.logger.Info("Synchronizer flushed, stopping reporter")
 				close(r.stopped)
 				return
 			}
@@ -127,7 +131,7 @@ func (r *reporter) ReportOp(mod, op string, res *module.Result, err error) {
 func (r *reporter) Finalise() error {
 	// Await synchronizer, no value expected
 	<-r.stopped
-	logger.Info("Synchronizer stopped, writing report")
+	r.logger.Info("Synchronizer stopped, writing report")
 
 	r.report.End = time.Now()
 	r.report.Duration = r.report.End.Sub(r.report.Start)

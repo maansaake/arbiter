@@ -250,13 +250,10 @@ func (a *abtr) run(metadata module.Metadata) error {
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer signalCancel()
 
-	reporter, err := a.setupReporter(
+	reporter := a.setupReporter(
 		metadata,
 		signalCtx, signalCancel,
 	)
-	if err != nil {
-		return err
-	}
 
 	// Traffic context with a timeout of the test's >>> duration <<<
 	timeoutCtx, timeoutCancel := context.WithTimeout(signalCtx, a.duration)
@@ -345,15 +342,12 @@ func (a *abtr) setupReporter(
 	metadata module.Metadata,
 	//nolint:revive // the traffic context is special and not releated to the function really
 	trafficCtx context.Context, trafficCancel func(),
-) (report.Reporter, error) {
-	yamlR, err := yamlreport.New(&yamlreport.Opts{
+) report.Reporter {
+	yamlR := yamlreport.New(&yamlreport.Opts{
 		Path:        a.reportPath,
 		Logger:      a.logger,
 		ErrorLogger: a.errorLogger,
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	if a.interactive {
 		return collection.New(
@@ -364,10 +358,10 @@ func (a *abtr) setupReporter(
 				trafficCtx,
 				trafficCancel,
 			),
-		), nil
+		)
 	}
 
-	return yamlR, nil
+	return yamlR
 }
 
 // setupLoggers initialises the info and error loggers from the provided options.

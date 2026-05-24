@@ -14,14 +14,11 @@ import (
 
 func TestYAMLReporter(t *testing.T) {
 	reportPath := "report.yaml"
-	i, err := New(&Opts{
+	i := New(&Opts{
 		Buffer: 100,
 		Path:   reportPath,
 		Logger: funcr.New(func(_, _ string) {}, funcr.Options{}),
 	})
-	if err != nil {
-		t.Fatal("unexpected error creating reporter:", err)
-	}
 	yamlReporter := i.(*reporter)
 
 	ctx := context.Background()
@@ -42,7 +39,7 @@ func TestYAMLReporter(t *testing.T) {
 
 	cancel()
 
-	err = yamlReporter.Finalise()
+	err := yamlReporter.Finalise()
 	if err != nil {
 		t.Fatal("error on finalise", err)
 	}

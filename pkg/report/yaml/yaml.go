@@ -2,7 +2,6 @@ package yamlreport
 
 import (
 	"context"
-	"errors"
 	"os"
 	"time"
 
@@ -50,11 +49,7 @@ var _ report.Reporter = &reporter{}
 const yamlIndent = 2
 
 // New creates a new YAML reporter.
-func New(opts *Opts) (report.Reporter, error) {
-	if opts.Logger.GetSink() == nil {
-		return nil, errors.New("logger must be provided")
-	}
-
+func New(opts *Opts) report.Reporter {
 	var start time.Time
 	var buffer int
 	if opts.Buffer > 0 {
@@ -81,7 +76,7 @@ func New(opts *Opts) (report.Reporter, error) {
 		stopped:      make(chan struct{}),
 	}
 
-	return reporter, nil
+	return reporter
 }
 
 // Start the YAML reporter and run until the context is cancelled.

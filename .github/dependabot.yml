@@ -5,34 +5,31 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: monday
     groups:
-      minor:
+      go-updates:
         update-types:
           - minor
-      patches:
-        update-types:
           - patch
 
   - package-ecosystem: gomod
     directory: /tools
     schedule:
       interval: weekly
+      day: tuesday
     groups:
-      minor:
+      go-tool-updates:
         update-types:
           - minor
-      patches:
-        update-types:
           - patch
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: wednesday
     groups:
-      minor:
+      action-updates:
         update-types:
           - minor
-      patches:
-        update-types:
           - patch

@@ -222,7 +222,7 @@ linters:
       # Default: [ switch ]
       check:
         - switch
-        - map
+        - mapliteral
 
     exhaustruct:
       # List of regular expressions to exclude struct packages and their names from checks.
@@ -336,7 +336,7 @@ linters:
     nolintlint:
       # Exclude following linters from requiring an explanation.
       # Default: []
-      allow-no-explanation: [ funlen, gocognit, golines ]
+      allow-no-explanation: [funlen, gocognit, golines]
       # Enable to require an explanation of nonzero length after each nolint directive.
       # Default: false
       require-explanation: true
@@ -416,10 +416,10 @@ linters:
     # Excluding configuration per-path, per-linter, per-text and per-source.
     rules:
       - text: "should have a package comment"
-        linters: [ revive ]
+        linters: [revive]
       - text: "exported \\S+ \\S+ should have comment( \\(or a comment on this
           block\\))? or be unexported"
-        linters: [ revive ]
+        linters: [revive]
 
 run:
   tests: false
